@@ -1,393 +1,432 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { formatPrice, getCars } from '../lib/wordpress';
+import Layout from "../layouts/Layout.astro";
+import { formatPrice, getCars } from "../lib/wordpress";
 
 const cars = await getCars(100);
 const featuredCars = cars.slice(0, 6);
 const makeCounts = cars.reduce<Record<string, number>>((acc, car) => {
-	if (!car.make) {
-		return acc;
-	}
+  if (!car.make) {
+    return acc;
+  }
 
-	acc[car.make] = (acc[car.make] ?? 0) + 1;
-	return acc;
+  acc[car.make] = (acc[car.make] ?? 0) + 1;
+  return acc;
 }, {});
 
 const popularMakes = Object.entries(makeCounts)
-	.sort((a, b) => b[1] - a[1])
-	.slice(0, 5);
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 5);
 ---
 
 <Layout
-	title="Alfursan Auto | Used Cars In GTA"
-	description="Good cars. Fair prices. Nothing hidden. Browse inspected used vehicles at Alfursan Auto."
+  title="Alfursan Auto | Used Cars In GTA"
+  description="Good cars. Fair prices. Nothing hidden. Browse inspected used vehicles at Alfursan Auto."
 >
-	<main class="container">
-		<section class="hero">
-			<div class="hero-content">
-				<img src="https://alfursanauto.ca/wp-content/uploads/2025/10/UCDA-Member-Logo-scaled-1-1536x907.gif" alt="UCDA Member" class="ucda-badge" />
-				<p class="eyebrow">ALFURSAN AUTO</p>
-				<h1>GOOD CARS. FAIR PRICES. NOTHING HIDDEN.</h1>
-				<p>
-					Looking for something specific? We'll find it, certify it, and get you the best deal.
-				</p>
+  <main class="container">
+    <section class="hero">
+      <div class="hero-content">
+        <img
+          src="https://alfursanauto.ca/wp-content/uploads/2025/10/UCDA-Member-Logo-scaled-1-1536x907.gif"
+          alt="UCDA Member"
+          class="ucda-badge"
+        />
+        <p class="eyebrow">ALFURSAN AUTO</p>
+        <h1>GOOD CARS. FAIR PRICES. NOTHING HIDDEN.</h1>
+        <p>
+          Looking for something specific? We'll find it, certify it, and get you
+          the best deal.
+        </p>
 
-				<div class="hero-actions">
-					<a href="/search/" class="btn btn-primary">Browse Listings</a>
-					<a href="/contact-us/" class="btn btn-secondary">Book a Demo</a>
-				</div>
-			</div>
-		</section>
+        <div class="hero-actions">
+          <a href="/search/" class="btn btn-primary">Browse Listings</a>
+          <a href="/contact-us/" class="btn btn-secondary">Book a Demo</a>
+        </div>
+      </div>
+    </section>
 
-		<section class="makes">
-			<h2>Popular Makes</h2>
-			<div class="make-grid">
-				{popularMakes.map(([make, count]) => (
-					<a href={`/search/?make=${encodeURIComponent(make)}`} class="make-pill">
-						<span>{make}</span>
-						<small>{count} Listings</small>
-					</a>
-				))}
-			</div>
-		</section>
+    <section class="makes">
+      <h2>Popular Makes</h2>
+      <div class="make-grid">
+        {
+          popularMakes.map(([make, count]) => (
+            <a
+              href={`/search/?make=${encodeURIComponent(make)}`}
+              class="make-pill"
+            >
+              <span>{make}</span>
+              <small>{count} Listings</small>
+            </a>
+          ))
+        }
+      </div>
+    </section>
 
-		<section>
-			<div class="section-head">
-				<h2>Featured Listings</h2>
-				<a href="/search/">See all</a>
-			</div>
+    <section>
+      <div class="section-head">
+        <h2>Featured Listings</h2>
+        <a href="/search/">See all</a>
+      </div>
 
-			<div class="grid">
-				{
-					featuredCars.map((car) => (
-						<article class="card">
-							<a href={`/listing/${car.slug}/`} class="card-img-link">
-								{car.image ? <img src={car.image} alt={car.title} loading="lazy" /> : <div class="placeholder">No image</div>}
-							</a>
+      <div class="grid">
+        {
+          featuredCars.map((car) => (
+            <article class="card">
+              <a href={`/listing/${car.slug}/`} class="card-img-link">
+                {car.image ? (
+                  <img src={car.image} alt={car.title} loading="lazy" />
+                ) : (
+                  <div class="placeholder">No image</div>
+                )}
+              </a>
 
-							<div class="card-content">
-								<a href={`/listing/${car.slug}/`} class="card-title-link"><h3>{car.title}</h3></a>
-								<p class="price">{formatPrice(car.price)}</p>
-								<div class="card-specs">
-									{car.year && <span>{car.year}</span>}
-									{car.fuelType && <span>{car.fuelType}</span>}
-									{car.driveType && <span>{car.driveType}</span>}
-								</div>
-							</div>
-						</article>
-					))
-				}
-			</div>
-		</section>
+              <div class="card-content">
+                <a href={`/listing/${car.slug}/`} class="card-title-link">
+                  <h3>{car.title}</h3>
+                </a>
+                <p class="price">{formatPrice(car.price)}</p>
+                <div class="card-specs">
+                  {car.year && <span>{car.year}</span>}
+                  {car.fuelType && <span>{car.fuelType}</span>}
+                  {car.driveType && <span>{car.driveType}</span>}
+                </div>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+    </section>
 
-		<section class="why-us">
-			<h2>Why choose us?</h2>
-			<div class="why-grid">
-				<article>
-					<img src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-transparent-deals.png" alt="Honest Deals" class="why-icon" />
-					<h3>Honest Deals, No Surprises</h3>
-					<p>We believe in transparent pricing and straightforward service. No hidden fees, no pressure. Just real value.</p>
-				</article>
-				<article>
-					<img src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-inspected.png" alt="Inspected Inventory" class="why-icon" />
-					<h3>Carefully Inspected Inventory</h3>
-					<p>Every vehicle is thoroughly checked for quality, safety, and performance. We make sure you drive away with confidence.</p>
-				</article>
-				<article>
-					<img src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-location.png" alt="Local & Global" class="why-icon" />
-					<h3>Local & Global Service</h3>
-					<p>Whether you're buying in the GTA or exporting internationally, we manage the details so you don't have to.</p>
-				</article>
-			</div>
-		</section>
-	</main>
+    <section class="why-us">
+      <h2>Why choose us?</h2>
+      <div class="why-grid">
+        <article>
+          <img
+            src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-transparent-deals.png"
+            alt="Honest Deals"
+            class="why-icon"
+          />
+          <h3>Honest Deals, No Surprises</h3>
+          <p>
+            We believe in transparent pricing and straightforward service. No
+            hidden fees, no pressure. Just real value.
+          </p>
+        </article>
+        <article>
+          <img
+            src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-inspected.png"
+            alt="Inspected Inventory"
+            class="why-icon"
+          />
+          <h3>Carefully Inspected Inventory</h3>
+          <p>
+            Every vehicle is thoroughly checked for quality, safety, and
+            performance. We make sure you drive away with confidence.
+          </p>
+        </article>
+        <article>
+          <img
+            src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-location.png"
+            alt="Local & Global"
+            class="why-icon"
+          />
+          <h3>Local & Global Service</h3>
+          <p>
+            Whether you're buying in the GTA or exporting internationally, we
+            manage the details so you don't have to.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
 </Layout>
 
 <style>
-	.container {
-		max-width: 1468px;
-		margin: 0 auto;
-		padding: 1.4rem 30px 4.5rem;
-	}
+  .container {
+    max-width: 1468px;
+    margin: 0 auto;
+    padding: 1.4rem 30px 4.5rem;
+  }
 
-	.hero {
-		background: var(--dark) url('https://alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png') center / cover;
-		color: #fff;
-		border-radius: 20px;
-		padding: 3.5rem 2.5rem;
-		margin-bottom: 1.1rem;
-		position: relative;
-		overflow: hidden;
-	}
+  .hero {
+    background: var(--dark)
+      url("https://alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png")
+      center / cover;
+    color: #fff;
+    border-radius: 20px;
+    padding: 3.5rem 2.5rem;
+    margin-bottom: 1.1rem;
+    position: relative;
+    overflow: hidden;
+  }
 
-	.eyebrow {
-		display: inline-block;
-		background: rgba(255, 255, 255, 0.12);
-		color: #fff;
-		border-radius: 999px;
-		font-size: 0.82rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		padding: 0.25rem 0.65rem;
-		margin-bottom: 0.7rem;
-	}
+  .eyebrow {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.65rem;
+    margin-bottom: 0.7rem;
+  }
 
-	h1 {
-		margin: 0 0 0.5rem;
-		line-height: 78px;
-		font-family: 'Bebas Neue', cursive;
-		font-size: clamp(2.8rem, 5.5vw, 87px);
-		font-weight: 400;
-		text-transform: uppercase;
-		letter-spacing: 0.1px;
-		text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-	}
+  h1 {
+    margin: 0 0 0.5rem;
+    line-height: 78px;
+    font-family: "Bebas Neue", cursive;
+    font-size: clamp(2.8rem, 5.5vw, 87px);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.1px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
 
-	h2 {
-		margin: 0;
-	}
+  h2 {
+    margin: 0;
+  }
 
-	.hero p {
-		max-width: 64ch;
-		color: var(--subtitle-on-dark);
-		font-size: 22px;
-		font-weight: 700;
-		line-height: 36px;
-	}
+  .hero p {
+    max-width: 64ch;
+    color: var(--subtitle-on-dark);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 36px;
+  }
 
-	.hero-content {
-		position: relative;
-		z-index: 1;
-	}
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
 
-	.ucda-badge {
-		width: 120px;
-		height: auto;
-		margin-bottom: 1rem;
-		border-radius: 8px;
-		object-fit: contain;
-	}
+  .ucda-badge {
+    width: 120px;
+    height: auto;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    object-fit: contain;
+  }
 
-	.btn {
-		display: inline-block;
-		text-decoration: none;
-		border-radius: 10px;
-		padding: 18px 40px;
-		font-weight: 700;
-		font-size: 16px;
-	}
+  .btn {
+    display: inline-block;
+    text-decoration: none;
+    border-radius: 10px;
+    padding: 18px 40px;
+    font-weight: 700;
+    font-size: 16px;
+  }
 
-	.hero-actions {
-		display: flex;
-		gap: 0.6rem;
-		flex-wrap: wrap;
-		margin-top: 1rem;
-	}
+  .hero-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+  }
 
-	.btn-primary {
-		color: #fff;
-		background: var(--brand-red);
-	}
+  .btn-primary {
+    color: #fff;
+    background: var(--brand-red);
+  }
 
-	.btn-secondary {
-		color: #fff;
-		background: rgba(255, 255, 255, 0.15);
-		border: 1px solid rgba(255, 255, 255, 0.28);
-	}
+  .btn-secondary {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+  }
 
-	.makes {
-		background: #fff;
-		border: 1px solid var(--line);
-		border-radius: 16px;
-		padding: 1rem;
-		margin-bottom: 1.5rem;
-	}
+  .makes {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
 
-	.make-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-		gap: 0.7rem;
-		margin-top: 0.75rem;
-	}
+  .make-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.75rem;
+  }
 
-	.make-pill {
-		display: grid;
-		gap: 0.25rem;
-		padding: 0.72rem 0.8rem;
-		border: 1px solid var(--line);
-		border-radius: 10px;
-		text-decoration: none;
-		background: #fff;
-	}
+  .make-pill {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.72rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    text-decoration: none;
+    background: #fff;
+  }
 
-	.make-pill span {
-		font-weight: 800;
-	}
+  .make-pill span {
+    font-weight: 800;
+  }
 
-	.make-pill small {
-		color: var(--muted);
-	}
+  .make-pill small {
+    color: var(--muted);
+  }
 
-	.section-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 0.9rem;
-	}
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.9rem;
+  }
 
-	.section-head a {
-		color: var(--brand-red);
-		text-decoration: none;
-		font-weight: 700;
-	}
+  .section-head a {
+    color: var(--brand-red);
+    text-decoration: none;
+    font-weight: 700;
+  }
 
-	.grid {
-		display: grid;
-		gap: 1rem;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-	}
+  .grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
 
-	.card {
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 14px;
-		overflow: hidden;
-		box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-		transition: box-shadow 0.2s;
-	}
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    transition: box-shadow 0.2s;
+  }
 
-	.card:hover {
-		box-shadow: 0 14px 32px rgba(16, 24, 40, 0.10);
-	}
+  .card:hover {
+    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+  }
 
-	.card-img-link {
-		display: block;
-	}
+  .card-img-link {
+    display: block;
+  }
 
-	img,
-	.placeholder {
-		display: block;
-		width: 100%;
-		height: 200px;
-		object-fit: cover;
-		background: var(--bg-placeholder);
-	}
+  img,
+  .placeholder {
+    display: block;
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    background: var(--bg-placeholder);
+  }
 
-	.placeholder {
-		display: grid;
-		place-items: center;
-		color: var(--placeholder);
-		font-size: 0.9rem;
-	}
+  .placeholder {
+    display: grid;
+    place-items: center;
+    color: var(--placeholder);
+    font-size: 0.9rem;
+  }
 
-	.card-content {
-		padding: 0.95rem;
-	}
+  .card-content {
+    padding: 0.95rem;
+  }
 
-	.card-title-link {
-		text-decoration: none;
-		color: inherit;
-	}
+  .card-title-link {
+    text-decoration: none;
+    color: inherit;
+  }
 
-	h3 {
-		margin: 0 0 0.35rem;
-		font-size: 1rem;
-		line-height: 1.3;
-	}
+  h3 {
+    margin: 0 0 0.35rem;
+    font-size: 1rem;
+    line-height: 1.3;
+  }
 
-	.meta {
-		color: var(--muted);
-		font-size: 0.92rem;
-		margin: 0 0 0.4rem;
-	}
+  .meta {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin: 0 0 0.4rem;
+  }
 
-	.price {
-		margin: 0 0 0.5rem;
-		font-weight: 800;
-		font-size: 1.1rem;
-		color: var(--ink);
-	}
+  .price {
+    margin: 0 0 0.5rem;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--ink);
+  }
 
-	.card-specs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
+  .card-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 
-	.card-specs span {
-		font-size: 0.82rem;
-		color: var(--muted);
-	}
+  .card-specs span {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
 
-	.card-specs span + span::before {
-		content: '';
-		display: inline-block;
-		width: 3px;
-		height: 3px;
-		border-radius: 50%;
-		background: var(--muted);
-		vertical-align: middle;
-		margin-right: 0.5rem;
-	}
+  .card-specs span + span::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--muted);
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
 
-	.card-content a {
-		color: var(--brand-red);
-		font-weight: 700;
-		text-decoration: none;
-	}
+  .card-content a {
+    color: var(--brand-red);
+    font-weight: 700;
+    text-decoration: none;
+  }
 
-	.why-us {
-		margin-top: 2.5rem;
-		padding: 2rem 0;
-	}
+  .why-us {
+    margin-top: 2.5rem;
+    padding: 2rem 0;
+  }
 
-	.why-us h2 {
-		font-size: clamp(2rem, 4vw, 50px);
-		font-weight: 900;
-		line-height: 66px;
-		text-align: center;
-		margin-bottom: 1.5rem;
-	}
+  .why-us h2 {
+    font-size: clamp(2rem, 4vw, 50px);
+    font-weight: 900;
+    line-height: 66px;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
 
-	.why-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-		gap: 1.5rem;
-	}
+  .why-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
 
-	.why-grid article {
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 16px;
-		padding: 2rem 1.5rem;
-		text-align: center;
-		box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-	}
+  .why-grid article {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+  }
 
-	.why-icon {
-		width: 80px;
-		height: 80px;
-		object-fit: contain;
-		margin-bottom: 1rem;
-	}
+  .why-icon {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+  }
 
-	.why-grid h3 {
-		margin: 0 0 0.5rem;
-		font-size: 24px;
-		font-weight: 700;
-		line-height: 40px;
-	}
+  .why-grid h3 {
+    margin: 0 0 0.5rem;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 40px;
+  }
 
-	.why-grid p {
-		margin: 0;
-		color: var(--muted-dark);
-		font-size: 16px;
-		line-height: 27px;
-	}
+  .why-grid p {
+    margin: 0;
+    color: var(--muted-dark);
+    font-size: 16px;
+    line-height: 27px;
+  }
 
-	@media (max-width: 700px) {
-		.hero {
-			padding: 1.25rem;
-		}
-	}
+  @media (max-width: 700px) {
+    .hero {
+      padding: 1.25rem;
+    }
+  }
 </style>

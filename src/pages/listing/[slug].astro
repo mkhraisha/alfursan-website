@@ -1,6 +1,6 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { formatPrice, getCars } from '../../lib/wordpress';
+import Layout from "../../layouts/Layout.astro";
+import { formatPrice, getCars } from "../../lib/wordpress";
 
 export async function getStaticPaths() {
   const cars = await getCars(100);
@@ -13,22 +13,29 @@ export async function getStaticPaths() {
 const { car, allCars } = Astro.props;
 
 const attributes = [
-  { label: 'Year', value: car.year },
-  { label: 'Make', value: car.make },
-  { label: 'Model', value: car.model },
-  { label: 'Condition', value: car.condition },
-  { label: 'Mileage', value: car.mileageKm ? `${car.mileageKm} KM` : undefined },
-  { label: 'Transmission', value: car.transmission },
-  { label: 'Fuel Type', value: car.fuelType },
-  { label: 'Drive Type', value: car.driveType },
-  { label: 'Cylinders', value: car.cylinders },
-  { label: 'Color', value: car.color },
-  { label: 'Doors', value: car.doors },
-  { label: 'Body Type', value: car.vehicleType },
+  { label: "Year", value: car.year },
+  { label: "Make", value: car.make },
+  { label: "Model", value: car.model },
+  { label: "Condition", value: car.condition },
+  {
+    label: "Mileage",
+    value: car.mileageKm ? `${car.mileageKm} KM` : undefined,
+  },
+  { label: "Transmission", value: car.transmission },
+  { label: "Fuel Type", value: car.fuelType },
+  { label: "Drive Type", value: car.driveType },
+  { label: "Cylinders", value: car.cylinders },
+  { label: "Color", value: car.color },
+  { label: "Doors", value: car.doors },
+  { label: "Body Type", value: car.vehicleType },
 ].filter((attr) => attr.value);
 
 const relatedCars = allCars
-  .filter((c) => c.id !== car.id && (c.make === car.make || c.vehicleType === car.vehicleType))
+  .filter(
+    (c) =>
+      c.id !== car.id &&
+      (c.make === car.make || c.vehicleType === car.vehicleType),
+  )
   .slice(0, 4);
 ---
 
@@ -38,18 +45,24 @@ const relatedCars = allCars
       <a href="/">Homepage</a>
       <span class="sep">&rsaquo;</span>
       <a href="/search/">Search</a>
-      {car.make && (
-        <>
-          <span class="sep">&rsaquo;</span>
-          <a href={`/search/?make=${encodeURIComponent(car.make)}`}>{car.make}</a>
-        </>
-      )}
-      {car.model && (
-        <>
-          <span class="sep">&rsaquo;</span>
-          <span>{car.model}</span>
-        </>
-      )}
+      {
+        car.make && (
+          <>
+            <span class="sep">&rsaquo;</span>
+            <a href={`/search/?make=${encodeURIComponent(car.make)}`}>
+              {car.make}
+            </a>
+          </>
+        )
+      }
+      {
+        car.model && (
+          <>
+            <span class="sep">&rsaquo;</span>
+            <span>{car.model}</span>
+          </>
+        )
+      }
     </nav>
 
     <h1>{car.title}</h1>
@@ -62,116 +75,147 @@ const relatedCars = allCars
     </div>
 
     <!-- Image Gallery -->
-    {car.images.length > 0 && (
-      <section class="gallery">
-        <img id="main-img" class="gallery-main" src={car.images[0]} alt={car.title} />
-        {car.images.length > 1 && (
-          <div class="gallery-thumbs">
-            {car.images.map((img, i) => (
-              <button
-                class={`thumb ${i === 0 ? 'active' : ''}`}
-                data-src={img}
-                type="button"
-                aria-label={`View image ${i + 1}`}
-              >
-                <img src={img} alt={`${car.title} - Photo ${i + 1}`} loading="lazy" />
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-    )}
+    {
+      car.images.length > 0 && (
+        <section class="gallery">
+          <img
+            id="main-img"
+            class="gallery-main"
+            src={car.images[0]}
+            alt={car.title}
+          />
+          {car.images.length > 1 && (
+            <div class="gallery-thumbs">
+              {car.images.map((img, i) => (
+                <button
+                  class={`thumb ${i === 0 ? "active" : ""}`}
+                  data-src={img}
+                  type="button"
+                  aria-label={`View image ${i + 1}`}
+                >
+                  <img
+                    src={img}
+                    alt={`${car.title} - Photo ${i + 1}`}
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )
+    }
 
     <div class="detail-grid">
       <div class="detail-main">
         <!-- Attributes Grid -->
-        {attributes.length > 0 && (
-          <section class="attributes">
-            <h2>Vehicle Details</h2>
-            <div class="attr-grid">
-              {attributes.map((attr) => (
-                <div class="attr-item">
-                  <span class="attr-label">{attr.label}</span>
-                  <span class="attr-value">{attr.value}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {
+          attributes.length > 0 && (
+            <section class="attributes">
+              <h2>Vehicle Details</h2>
+              <div class="attr-grid">
+                {attributes.map((attr) => (
+                  <div class="attr-item">
+                    <span class="attr-label">{attr.label}</span>
+                    <span class="attr-value">{attr.value}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )
+        }
 
         <!-- Description -->
-        {car.htmlDescription && (
-          <section class="description-section">
-            <h2>Description</h2>
-            <article class="description" set:html={car.htmlDescription} />
-          </section>
-        )}
+        {
+          car.htmlDescription && (
+            <section class="description-section">
+              <h2>Description</h2>
+              <article class="description" set:html={car.htmlDescription} />
+            </section>
+          )
+        }
 
         <!-- Features -->
-        {car.features.length > 0 && (
-          <section class="features-section">
-            <h2>Features</h2>
-            <ul class="features-list">
-              {car.features.map((f) => (
-                <li>{f}</li>
-              ))}
-            </ul>
-          </section>
-        )}
+        {
+          car.features.length > 0 && (
+            <section class="features-section">
+              <h2>Features</h2>
+              <ul class="features-list">
+                {car.features.map((f) => (
+                  <li>{f}</li>
+                ))}
+              </ul>
+            </section>
+          )
+        }
       </div>
 
       <aside class="detail-sidebar">
         <div class="contact-card">
           <h3>Interested in this vehicle?</h3>
-          <p>Get in touch with us for more details, financing options, or to schedule a test drive.</p>
+          <p>
+            Get in touch with us for more details, financing options, or to
+            schedule a test drive.
+          </p>
           <a href="/contact-us/" class="btn-contact">Send a Message</a>
-          <a href="tel:+14168384007" class="btn-phone">Call +1 (416) 838-4007</a>
+          <a href="tel:+14168384007" class="btn-phone">Call +1 (416) 838-4007</a
+          >
         </div>
       </aside>
     </div>
 
     <!-- Related Listings -->
-    {relatedCars.length > 0 && (
-      <section class="related">
-        <h2>Related Listings</h2>
-        <div class="related-grid">
-          {relatedCars.map((rc) => (
-            <article class="related-card">
-              <a href={`/listing/${rc.slug}/`} class="related-img-link">
-                {rc.image ? <img src={rc.image} alt={rc.title} loading="lazy" /> : <div class="placeholder">No image</div>}
-              </a>
-              <div class="related-content">
-                <a href={`/listing/${rc.slug}/`} class="related-title-link">{rc.title}</a>
-                <p class="related-price">{formatPrice(rc.price)}</p>
-                <div class="related-specs">
-                  {rc.year && <span>{rc.year}</span>}
-                  {rc.fuelType && <span>{rc.fuelType}</span>}
-                  {rc.driveType && <span>{rc.driveType}</span>}
+    {
+      relatedCars.length > 0 && (
+        <section class="related">
+          <h2>Related Listings</h2>
+          <div class="related-grid">
+            {relatedCars.map((rc) => (
+              <article class="related-card">
+                <a href={`/listing/${rc.slug}/`} class="related-img-link">
+                  {rc.image ? (
+                    <img src={rc.image} alt={rc.title} loading="lazy" />
+                  ) : (
+                    <div class="placeholder">No image</div>
+                  )}
+                </a>
+                <div class="related-content">
+                  <a href={`/listing/${rc.slug}/`} class="related-title-link">
+                    {rc.title}
+                  </a>
+                  <p class="related-price">{formatPrice(rc.price)}</p>
+                  <div class="related-specs">
+                    {rc.year && <span>{rc.year}</span>}
+                    {rc.fuelType && <span>{rc.fuelType}</span>}
+                    {rc.driveType && <span>{rc.driveType}</span>}
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div class="related-cta">
-          <a href="/search/">Start a new search</a>
-        </div>
-      </section>
-    )}
+              </article>
+            ))}
+          </div>
+          <div class="related-cta">
+            <a href="/search/">Start a new search</a>
+          </div>
+        </section>
+      )
+    }
   </main>
 </Layout>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const mainImg = document.getElementById('main-img') as HTMLImageElement | null;
-    const thumbs = document.querySelectorAll<HTMLButtonElement>('.thumb');
+  document.addEventListener("DOMContentLoaded", () => {
+    const mainImg = document.getElementById(
+      "main-img",
+    ) as HTMLImageElement | null;
+    const thumbs = document.querySelectorAll<HTMLButtonElement>(".thumb");
 
     thumbs.forEach((thumb) => {
-      thumb.addEventListener('click', () => {
+      thumb.addEventListener("click", () => {
         const src = thumb.dataset.src;
         if (mainImg && src) {
           mainImg.src = src;
-          thumbs.forEach((t) => t.classList.remove('active'));
-          thumb.classList.add('active');
+          thumbs.forEach((t) => t.classList.remove("active"));
+          thumb.classList.add("active");
         }
       });
     });
@@ -270,7 +314,9 @@ const relatedCars = allCars
     padding: 0;
     background: none;
     opacity: 0.6;
-    transition: opacity 0.15s, border-color 0.15s;
+    transition:
+      opacity 0.15s,
+      border-color 0.15s;
   }
 
   .thumb.active,
@@ -373,7 +419,7 @@ const relatedCars = allCars
   }
 
   .features-list li::before {
-    content: '✓';
+    content: "✓";
     position: absolute;
     left: 0;
     color: var(--brand-red);
@@ -454,7 +500,7 @@ const relatedCars = allCars
   }
 
   .related-card:hover {
-    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.10);
+    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
   }
 
   .related-img-link {
@@ -509,7 +555,7 @@ const relatedCars = allCars
   }
 
   .related-specs span + span::before {
-    content: '';
+    content: "";
     display: inline-block;
     width: 3px;
     height: 3px;

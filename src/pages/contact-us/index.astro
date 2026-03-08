@@ -1,11 +1,11 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { getPageBySlug } from '../../lib/wordpress';
+import Layout from "../../layouts/Layout.astro";
+import { getPageBySlug } from "../../lib/wordpress";
 
-const page = await getPageBySlug('contact-us');
+const page = await getPageBySlug("contact-us");
 
 if (!page) {
-  throw new Error('Contact page was not found in WordPress.');
+  throw new Error("Contact page was not found in WordPress.");
 }
 ---
 
@@ -83,7 +83,7 @@ if (!page) {
     font: inherit;
   }
 
-  :global(.wp-content input[type='submit']),
+  :global(.wp-content input[type="submit"]),
   :global(.wp-content button),
   :global(.wp-content .wpcf7-submit) {
     width: auto;

@@ -1,12 +1,15 @@
 ---
-import InventoryFilters from '../../components/InventoryFilters';
-import Layout from '../../layouts/Layout.astro';
-import { getCars } from '../../lib/wordpress';
+import InventoryFilters from "../../components/InventoryFilters";
+import Layout from "../../layouts/Layout.astro";
+import { getCars } from "../../lib/wordpress";
 
 const cars = await getCars(100);
 ---
 
-<Layout title="Listings | Alfursan Auto" description="Browse available vehicles at Alfursan Auto.">
+<Layout
+  title="Listings | Alfursan Auto"
+  description="Browse available vehicles at Alfursan Auto."
+>
   <main class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="/">Homepage</a>
@@ -16,7 +19,10 @@ const cars = await getCars(100);
     <section class="heading">
       <p class="kicker">Inventory</p>
       <h1>Available Listings</h1>
-      <p>Browse inspected vehicles and filter results to match your budget and preferences.</p>
+      <p>
+        Browse inspected vehicles and filter results to match your budget and
+        preferences.
+      </p>
     </section>
     <InventoryFilters cars={cars} client:load />
   </main>
@@ -140,7 +146,7 @@ const cars = await getCars(100);
   }
 
   :global(.card:hover) {
-    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.10);
+    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
   }
 
   :global(.card-img-link) {
@@ -202,7 +208,7 @@ const cars = await getCars(100);
   }
 
   :global(.card-specs span + span::before) {
-    content: '';
+    content: "";
     display: inline-block;
     width: 3px;
     height: 3px;

@@ -41,6 +41,8 @@ How to use this file:
 - [x] Add pagination controls with URL query sync.
 - [x] Add dynamic make/model option counts based on live filtered data.
 - [x] Add smooth scroll to results on pagination change.
+- [x] Expose all gallery images (`images: string[]`) in CarSummary for listing detail gallery.
+- [x] Card info updated to show year, fuel type, drive type (matching production card layout).
 - [ ] Match all legacy Vehica filters and controls (body type, drivetrain, fuel, etc.).
 - [ ] Verify legacy sort naming/default behavior parity with current production UX.
 - [ ] Implement API-backed pagination/filtering for scale (instead of loading all cars on client).
@@ -49,9 +51,17 @@ How to use this file:
 - [x] Build baseline global header/nav with desktop links, active states, and mobile menu.
 - [x] Rebuild global header/nav with mobile menu behavior matching current site.
 - [x] Rebuild global footer with all content/links/disclaimers.
-- [ ] Match typography, spacing, cards, and CTA styling to brand guidelines.
-- [ ] Recreate key homepage sections in final visual form (hero, trust blocks, featured inventory, etc.).
+- [x] Match all production colours — extracted actual Vehica/Elementor CSS and built centralised theme object (`src/lib/theme.ts`) with 27 CSS custom properties.
+- [x] Add Google Font "Bebas Neue" for hero heading; match production typography (87px/78px line-height, text-shadow).
+- [x] Hero subtitle sized to 22px/36px weight 700; button padding 18px 40px matching Elementor output.
+- [x] Add UCDA Member badge to hero section.
+- [x] "Why choose us" section: 50px/900 heading, production icon images, centred card layout, 24px/40px card titles.
+- [x] Recreate key homepage sections in final visual form (hero, trust blocks, featured inventory, etc.).
+- [x] Listing detail page overhaul: breadcrumbs, image gallery with thumbnails, 2-column attributes grid, features checklist, contact sidebar, related listings.
+- [x] Search page: breadcrumbs, card layout updated to show price/year/fuel/drivetrain matching production.
+- [x] Widen all containers from 1200px to 1468px with 30px padding matching production max-width.
 - [ ] Run cross-device QA (mobile/tablet/desktop) for layout and interactions.
+- [ ] **Visual QA: compare every page side-by-side against live alfursanauto.ca and log remaining discrepancies.**
 
 ## 6. SEO And Analytics Parity
 - [ ] Implement page-level titles, meta descriptions, canonical tags, and OG/Twitter metadata parity.
@@ -84,3 +94,6 @@ How to use this file:
 - [x] Step 1: Export full URL inventory and draft redirect/canonical mapping. (`docs/migration/URL_INVENTORY_REDIRECT_MAP.md`)
 - [x] Step 2: Expand Vehica field mapping in `src/lib/wordpress.ts` for full filter/detail parity.
 - [x] Step 3: Migrate one high-value static page (recommended: Contact) as the template for the remaining page migrations.
+- [x] Step 4: Colour extraction and theme object (`src/lib/theme.ts`) — 27 CSS vars, all pages converted.
+- [x] Step 5: Design parity pass — hero typography, UCDA badge, why-us icons, card layouts, listing detail overhaul, breadcrumbs, gallery.
+- [ ] **Step 6: Full visual QA — open every page alongside the live site and document any remaining visual differences.**

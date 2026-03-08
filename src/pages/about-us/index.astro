@@ -1,11 +1,11 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { getPageBySlug } from '../../lib/wordpress';
+import Layout from "../../layouts/Layout.astro";
+import { getPageBySlug } from "../../lib/wordpress";
 
-const page = await getPageBySlug('about-us');
+const page = await getPageBySlug("about-us");
 
 if (!page) {
-  throw new Error('About page was not found in WordPress.');
+  throw new Error("About page was not found in WordPress.");
 }
 ---
 

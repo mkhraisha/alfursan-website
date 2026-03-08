@@ -1,354 +1,398 @@
 ---
-import { rootCss } from '../lib/theme';
+import { rootCss } from "../lib/theme";
 
 interface Props {
-	title?: string;
-	description?: string;
+  title?: string;
+  description?: string;
 }
 
 type NavLink = {
-	label: string;
-	href: string;
+  label: string;
+  href: string;
 };
 
 const {
-	title = 'Alfursan Auto',
-	description = 'Astro frontend powered by your existing WordPress inventory.',
+  title = "Alfursan Auto",
+  description = "Astro frontend powered by your existing WordPress inventory.",
 } = Astro.props;
 
 const navLinks: NavLink[] = [
-	{ label: 'Home', href: '/' },
-	{ label: 'Listings', href: '/search/' },
-	{ label: 'About', href: '/about-us/' },
-	{ label: 'Contact', href: '/contact-us/' },
+  { label: "Home", href: "/" },
+  { label: "Listings", href: "/search/" },
+  { label: "About", href: "/about-us/" },
+  { label: "Contact", href: "/contact-us/" },
 ];
 
 const currentPath = Astro.url.pathname;
 const isActive = (href: string): boolean => {
-	if (href === '/') {
-		return currentPath === '/';
-	}
+  if (href === "/") {
+    return currentPath === "/";
+  }
 
-	return currentPath.startsWith(href);
+  return currentPath.startsWith(href);
 };
 ---
 
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<meta name="description" content={description} />
-		<title>{title}</title>
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
-		<Fragment set:html={`<style>:root{${rootCss()}}</style>`} />
-	</head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap"
+      rel="stylesheet"
+    />
+    <Fragment set:html={`<style>:root{${rootCss()}}</style>`} />
+  </head>
 
-	<body>
-		<div class="topbar">
-			<div class="shell topbar-shell">
-				<a href="tel:+14168384007">+1 (416) 838-4007</a>
-				<a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a>
-				<a href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6" target="_blank" rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a>
-			</div>
-		</div>
+  <body>
+    <div class="topbar">
+      <div class="shell topbar-shell">
+        <a href="tel:+14168384007">+1 (416) 838-4007</a>
+        <a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a>
+        <a
+          href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6"
+          target="_blank"
+          rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a
+        >
+      </div>
+    </div>
 
-		<header class="site-header">
-			<div class="shell">
-				<a href="/" class="brand" aria-label="Alfursan Auto Home">
-					<img src="https://alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent.png" alt="Alfursan Auto" loading="lazy" />
-				</a>
+    <header class="site-header">
+      <div class="shell">
+        <a href="/" class="brand" aria-label="Alfursan Auto Home">
+          <img
+            src="https://alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent.png"
+            alt="Alfursan Auto"
+            loading="lazy"
+          />
+        </a>
 
-				<nav class="desktop-nav" aria-label="Primary">
-					{navLinks.map((link) => (
-						<a href={link.href} class={isActive(link.href) ? 'active' : undefined}>
-							{link.label}
-						</a>
-					))}
-					<a href="/contact-us/" class="cta">Book a Demo</a>
-				</nav>
+        <nav class="desktop-nav" aria-label="Primary">
+          {
+            navLinks.map((link) => (
+              <a
+                href={link.href}
+                class={isActive(link.href) ? "active" : undefined}
+              >
+                {link.label}
+              </a>
+            ))
+          }
+          <a href="/contact-us/" class="cta">Book a Demo</a>
+        </nav>
 
-				<details class="mobile-nav">
-					<summary>Menu</summary>
-					<nav class="mobile-panel" aria-label="Mobile Primary">
-						{navLinks.map((link) => (
-							<a href={link.href} class={isActive(link.href) ? 'active' : undefined}>
-								{link.label}
-							</a>
-						))}
-						<a href="/contact-us/" class="cta">Book a Demo</a>
-					</nav>
-				</details>
-			</div>
-		</header>
+        <details class="mobile-nav">
+          <summary>Menu</summary>
+          <nav class="mobile-panel" aria-label="Mobile Primary">
+            {
+              navLinks.map((link) => (
+                <a
+                  href={link.href}
+                  class={isActive(link.href) ? "active" : undefined}
+                >
+                  {link.label}
+                </a>
+              ))
+            }
+            <a href="/contact-us/" class="cta">Book a Demo</a>
+          </nav>
+        </details>
+      </div>
+    </header>
 
-		<slot />
+    <slot />
 
-		<footer class="site-footer">
-			<div class="shell footer-grid">
-				<div>
-					<p class="footer-brand">AlfursanAuto.ca</p>
-					<p class="footer-text">
-						Trusted used car dealership in the Greater Toronto Area focused on quality inventory,
-						transparent service, and export-ready support.
-					</p>
-				</div>
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <div>
+          <p class="footer-brand">AlfursanAuto.ca</p>
+          <p class="footer-text">
+            Trusted used car dealership in the Greater Toronto Area focused on
+            quality inventory, transparent service, and export-ready support.
+          </p>
+        </div>
 
-				<div>
-					<p class="footer-title">Quick Links</p>
-					<ul>
-						<li><a href="/search/">Listings</a></li>
-						<li><a href="/about-us/">About Us</a></li>
-						<li><a href="/contact-us/">Contact</a></li>
-					</ul>
-				</div>
+        <div>
+          <p class="footer-title">Quick Links</p>
+          <ul>
+            <li><a href="/search/">Listings</a></li>
+            <li><a href="/about-us/">About Us</a></li>
+            <li><a href="/contact-us/">Contact</a></li>
+          </ul>
+        </div>
 
-				<div>
-					<p class="footer-title">Contact</p>
-					<ul>
-						<li><a href="tel:+14168384007">+1 (416) 838-4007</a></li>
-						<li><a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a></li>
-						<li><a href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6" target="_blank" rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a></li>
-						<li class="social-links">
-							<a href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/" target="_blank" rel="noreferrer">Facebook</a>
-							<a href="https://www.instagram.com/alfursanauto/" target="_blank" rel="noreferrer">Instagram</a>
-						</li>
-					</ul>
-				</div>
-			</div>
+        <div>
+          <p class="footer-title">Contact</p>
+          <ul>
+            <li><a href="tel:+14168384007">+1 (416) 838-4007</a></li>
+            <li>
+              <a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a>
+            </li>
+            <li>
+              <a
+                href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6"
+                target="_blank"
+                rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a>
+            </li>
+            <li class="social-links">
+              <a
+                href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/"
+                target="_blank"
+                rel="noreferrer">Facebook</a
+              >
+              <a
+                href="https://www.instagram.com/alfursanauto/"
+                target="_blank"
+                rel="noreferrer">Instagram</a
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
 
-			<div class="shell footer-bottom">
-				<p>© 2026 Alfursan Auto. All rights reserved.</p>
-			</div>
-		</footer>
-	</body>
+      <div class="shell footer-bottom">
+        <p>© 2026 Alfursan Auto. All rights reserved.</p>
+      </div>
+    </footer>
+  </body>
 </html>
 
 <style>
-	:global(*) {
-		box-sizing: border-box;
-	}
+  :global(*) {
+    box-sizing: border-box;
+  }
 
-	:global(body) {
-		margin: 0;
-		font-family: Muli, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-		color: var(--ink);
-		background: var(--bg);
-	}
+  :global(body) {
+    margin: 0;
+    font-family:
+      Muli,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      Segoe UI,
+      Roboto,
+      Arial,
+      sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+  }
 
-	:global(a) {
-		color: inherit;
-	}
+  :global(a) {
+    color: inherit;
+  }
 
-	.topbar {
-		background: var(--header-bg);
-		color: var(--subdued);
-		font-size: 0.82rem;
-	}
+  .topbar {
+    background: var(--header-bg);
+    color: var(--subdued);
+    font-size: 0.82rem;
+  }
 
-	.topbar-shell {
-		padding-top: 0.45rem;
-		padding-bottom: 0.45rem;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.85rem;
-		justify-content: center;
-	}
+  .topbar-shell {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    justify-content: center;
+  }
 
-	.topbar a {
-		text-decoration: none;
-		color: var(--subdued);
-	}
+  .topbar a {
+    text-decoration: none;
+    color: var(--subdued);
+  }
 
-	.site-header {
-		background: var(--surface);
-		border-bottom: 1px solid var(--line);
-		position: sticky;
-		top: 33px;
-		z-index: 10;
-	}
+  .site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 33px;
+    z-index: 10;
+  }
 
-	.shell {
-		margin: 0 auto;
-		max-width: 1468px;
-		padding: 0.9rem 30px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.8rem;
-	}
+  .shell {
+    margin: 0 auto;
+    max-width: 1468px;
+    padding: 0.9rem 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+  }
 
-	.brand {
-		text-decoration: none;
-		display: inline-flex;
-		align-items: center;
-	}
+  .brand {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
 
-	.brand img {
-		height: 42px;
-		width: auto;
-	}
+  .brand img {
+    height: 42px;
+    width: auto;
+  }
 
-	.desktop-nav {
-		display: flex;
-		gap: 0.9rem;
-		align-items: center;
-	}
+  .desktop-nav {
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+  }
 
-	.desktop-nav a,
-	.mobile-panel a {
-		color: var(--ink);
-		text-decoration: none;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-		font-size: 0.82rem;
-		border-radius: 999px;
-		padding: 0.4rem 0.68rem;
-	}
+  .desktop-nav a,
+  .mobile-panel a {
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 0.82rem;
+    border-radius: 999px;
+    padding: 0.4rem 0.68rem;
+  }
 
-	.desktop-nav a:hover,
-	.mobile-panel a:hover {
-		background: var(--bg);
-	}
+  .desktop-nav a:hover,
+  .mobile-panel a:hover {
+    background: var(--bg);
+  }
 
-	.desktop-nav a.active,
-	.mobile-panel a.active {
-		background: var(--brand-red);
-		color: #fff;
-	}
+  .desktop-nav a.active,
+  .mobile-panel a.active {
+    background: var(--brand-red);
+    color: #fff;
+  }
 
-	.desktop-nav .cta,
-	.mobile-panel .cta {
-		background: var(--brand-red);
-		color: #fff;
-	}
+  .desktop-nav .cta,
+  .mobile-panel .cta {
+    background: var(--brand-red);
+    color: #fff;
+  }
 
-	.mobile-nav {
-		display: none;
-		position: relative;
-	}
+  .mobile-nav {
+    display: none;
+    position: relative;
+  }
 
-	.mobile-nav summary {
-		list-style: none;
-		cursor: pointer;
-		font-weight: 700;
-		border: 1px solid var(--menu-border);
-		padding: 0.45rem 0.62rem;
-		border-radius: 8px;
-		background: #fff;
-	}
+  .mobile-nav summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 700;
+    border: 1px solid var(--menu-border);
+    padding: 0.45rem 0.62rem;
+    border-radius: 8px;
+    background: #fff;
+  }
 
-	.mobile-nav summary::-webkit-details-marker {
-		display: none;
-	}
+  .mobile-nav summary::-webkit-details-marker {
+    display: none;
+  }
 
-	.mobile-panel {
-		position: absolute;
-		right: 0;
-		top: calc(100% + 0.5rem);
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		padding: 0.45rem;
-		display: grid;
-		gap: 0.25rem;
-		min-width: 200px;
-		box-shadow: 0 14px 32px rgba(16, 24, 40, 0.12);
-	}
+  .mobile-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0.45rem;
+    display: grid;
+    gap: 0.25rem;
+    min-width: 200px;
+    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.12);
+  }
 
-	.site-footer {
-		margin-top: 2.5rem;
-		background: var(--footer-bg);
-		color: var(--surface);
-	}
+  .site-footer {
+    margin-top: 2.5rem;
+    background: var(--footer-bg);
+    color: var(--surface);
+  }
 
-	.footer-grid {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1.2fr;
-		gap: 1.5rem;
-		padding-top: 2rem;
-		padding-bottom: 1.6rem;
-	}
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1.2fr;
+    gap: 1.5rem;
+    padding-top: 2rem;
+    padding-bottom: 1.6rem;
+  }
 
-	.footer-brand {
-		font-weight: 800;
-		margin: 0 0 0.7rem;
-	}
+  .footer-brand {
+    font-weight: 800;
+    margin: 0 0 0.7rem;
+  }
 
-	.footer-text {
-		margin: 0;
-		line-height: 1.7;
-		color: var(--surface);
-	}
+  .footer-text {
+    margin: 0;
+    line-height: 1.7;
+    color: var(--surface);
+  }
 
-	.footer-title {
-		margin: 0 0 0.7rem;
-		font-weight: 800;
-	}
+  .footer-title {
+    margin: 0 0 0.7rem;
+    font-weight: 800;
+  }
 
-	.site-footer ul {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: grid;
-		gap: 0.45rem;
-	}
+  .site-footer ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.45rem;
+  }
 
-	.site-footer a {
-		text-decoration: none;
-		color: var(--surface);
-	}
+  .site-footer a {
+    text-decoration: none;
+    color: var(--surface);
+  }
 
-	.social-links {
-		display: flex;
-		gap: 0.7rem;
-		flex-wrap: wrap;
-	}
+  .social-links {
+    display: flex;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+  }
 
-	.footer-bottom {
-		border-top: 1px solid var(--footer-divider);
-		padding-top: 0.8rem;
-		padding-bottom: 1rem;
-		justify-content: center;
-	}
+  .footer-bottom {
+    border-top: 1px solid var(--footer-divider);
+    padding-top: 0.8rem;
+    padding-bottom: 1rem;
+    justify-content: center;
+  }
 
-	.footer-bottom p {
-		margin: 0;
-		color: var(--surface);
-		font-size: 0.85rem;
-	}
+  .footer-bottom p {
+    margin: 0;
+    color: var(--surface);
+    font-size: 0.85rem;
+  }
 
-	@media (max-width: 640px) {
-		.site-header {
-			top: 64px;
-		}
+  @media (max-width: 640px) {
+    .site-header {
+      top: 64px;
+    }
 
-		.shell {
-			gap: 0.6rem;
-		}
+    .shell {
+      gap: 0.6rem;
+    }
 
-		.desktop-nav {
-			display: none;
-		}
+    .desktop-nav {
+      display: none;
+    }
 
-		.mobile-nav {
-			display: block;
-		}
+    .mobile-nav {
+      display: block;
+    }
 
-		.topbar-shell {
-			justify-content: flex-start;
-		}
-	}
+    .topbar-shell {
+      justify-content: flex-start;
+    }
+  }
 
-	@media (max-width: 900px) {
-		.footer-grid {
-			grid-template-columns: 1fr;
-		}
-	}
+  @media (max-width: 900px) {
+    .footer-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
