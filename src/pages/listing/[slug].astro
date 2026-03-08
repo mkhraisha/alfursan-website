@@ -1,0 +1,556 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { formatPrice, getCars } from '../../lib/wordpress';
+
+export async function getStaticPaths() {
+  const cars = await getCars(100);
+  return cars.map((car) => ({
+    params: { slug: car.slug },
+    props: { car, allCars: cars },
+  }));
+}
+
+const { car, allCars } = Astro.props;
+
+const attributes = [
+  { label: 'Year', value: car.year },
+  { label: 'Make', value: car.make },
+  { label: 'Model', value: car.model },
+  { label: 'Condition', value: car.condition },
+  { label: 'Mileage', value: car.mileageKm ? `${car.mileageKm} KM` : undefined },
+  { label: 'Transmission', value: car.transmission },
+  { label: 'Fuel Type', value: car.fuelType },
+  { label: 'Drive Type', value: car.driveType },
+  { label: 'Cylinders', value: car.cylinders },
+  { label: 'Color', value: car.color },
+  { label: 'Doors', value: car.doors },
+  { label: 'Body Type', value: car.vehicleType },
+].filter((attr) => attr.value);
+
+const relatedCars = allCars
+  .filter((c) => c.id !== car.id && (c.make === car.make || c.vehicleType === car.vehicleType))
+  .slice(0, 4);
+---
+
+<Layout title={`${car.title} | Alfursan Auto`} description={car.excerpt}>
+  <main class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Homepage</a>
+      <span class="sep">&rsaquo;</span>
+      <a href="/search/">Search</a>
+      {car.make && (
+        <>
+          <span class="sep">&rsaquo;</span>
+          <a href={`/search/?make=${encodeURIComponent(car.make)}`}>{car.make}</a>
+        </>
+      )}
+      {car.model && (
+        <>
+          <span class="sep">&rsaquo;</span>
+          <span>{car.model}</span>
+        </>
+      )}
+    </nav>
+
+    <h1>{car.title}</h1>
+
+    <div class="price-row">
+      <span class="price">{formatPrice(car.price)}</span>
+      {car.year && <span class="tag">{car.year}</span>}
+      {car.vehicleType && <span class="tag">{car.vehicleType}</span>}
+      {car.condition && <span class="tag">{car.condition}</span>}
+    </div>
+
+    <!-- Image Gallery -->
+    {car.images.length > 0 && (
+      <section class="gallery">
+        <img id="main-img" class="gallery-main" src={car.images[0]} alt={car.title} />
+        {car.images.length > 1 && (
+          <div class="gallery-thumbs">
+            {car.images.map((img, i) => (
+              <button
+                class={`thumb ${i === 0 ? 'active' : ''}`}
+                data-src={img}
+                type="button"
+                aria-label={`View image ${i + 1}`}
+              >
+                <img src={img} alt={`${car.title} - Photo ${i + 1}`} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    )}
+
+    <div class="detail-grid">
+      <div class="detail-main">
+        <!-- Attributes Grid -->
+        {attributes.length > 0 && (
+          <section class="attributes">
+            <h2>Vehicle Details</h2>
+            <div class="attr-grid">
+              {attributes.map((attr) => (
+                <div class="attr-item">
+                  <span class="attr-label">{attr.label}</span>
+                  <span class="attr-value">{attr.value}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <!-- Description -->
+        {car.htmlDescription && (
+          <section class="description-section">
+            <h2>Description</h2>
+            <article class="description" set:html={car.htmlDescription} />
+          </section>
+        )}
+
+        <!-- Features -->
+        {car.features.length > 0 && (
+          <section class="features-section">
+            <h2>Features</h2>
+            <ul class="features-list">
+              {car.features.map((f) => (
+                <li>{f}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      <aside class="detail-sidebar">
+        <div class="contact-card">
+          <h3>Interested in this vehicle?</h3>
+          <p>Get in touch with us for more details, financing options, or to schedule a test drive.</p>
+          <a href="/contact-us/" class="btn-contact">Send a Message</a>
+          <a href="tel:+14168384007" class="btn-phone">Call +1 (416) 838-4007</a>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Related Listings -->
+    {relatedCars.length > 0 && (
+      <section class="related">
+        <h2>Related Listings</h2>
+        <div class="related-grid">
+          {relatedCars.map((rc) => (
+            <article class="related-card">
+              <a href={`/listing/${rc.slug}/`} class="related-img-link">
+                {rc.image ? <img src={rc.image} alt={rc.title} loading="lazy" /> : <div class="placeholder">No image</div>}
+              </a>
+              <div class="related-content">
+                <a href={`/listing/${rc.slug}/`} class="related-title-link">{rc.title}</a>
+                <p class="related-price">{formatPrice(rc.price)}</p>
+                <div class="related-specs">
+                  {rc.year && <span>{rc.year}</span>}
+                  {rc.fuelType && <span>{rc.fuelType}</span>}
+                  {rc.driveType && <span>{rc.driveType}</span>}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div class="related-cta">
+          <a href="/search/">Start a new search</a>
+        </div>
+      </section>
+    )}
+  </main>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const mainImg = document.getElementById('main-img') as HTMLImageElement | null;
+    const thumbs = document.querySelectorAll<HTMLButtonElement>('.thumb');
+
+    thumbs.forEach((thumb) => {
+      thumb.addEventListener('click', () => {
+        const src = thumb.dataset.src;
+        if (mainImg && src) {
+          mainImg.src = src;
+          thumbs.forEach((t) => t.classList.remove('active'));
+          thumb.classList.add('active');
+        }
+      });
+    });
+  });
+</script>
+
+<style>
+  .container {
+    max-width: 1468px;
+    margin: 0 auto;
+    padding: 2rem 30px 4rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+  }
+
+  .breadcrumb a {
+    color: var(--brand-red);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .breadcrumb .sep {
+    color: var(--muted);
+  }
+
+  .breadcrumb span:last-child {
+    color: var(--muted);
+  }
+
+  h1 {
+    margin: 0 0 0.6rem;
+    line-height: 1.25;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+  }
+
+  .price-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .price {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--brand-red);
+  }
+
+  .tag {
+    display: inline-block;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* Gallery */
+  .gallery {
+    margin-bottom: 1.5rem;
+  }
+
+  .gallery-main {
+    width: 100%;
+    max-height: 520px;
+    object-fit: cover;
+    border-radius: 14px;
+    margin-bottom: 0.6rem;
+  }
+
+  .gallery-thumbs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.3rem;
+  }
+
+  .thumb {
+    flex: 0 0 auto;
+    width: 80px;
+    height: 60px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    padding: 0;
+    background: none;
+    opacity: 0.6;
+    transition: opacity 0.15s, border-color 0.15s;
+  }
+
+  .thumb.active,
+  .thumb:hover {
+    opacity: 1;
+    border-color: var(--brand-red);
+  }
+
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Detail Grid */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .detail-main h2 {
+    font-size: 1.25rem;
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* Attributes */
+  .attributes {
+    margin-bottom: 2rem;
+  }
+
+  .attr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .attr-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .attr-item:nth-child(odd) {
+    background: var(--bg-subtle);
+  }
+
+  .attr-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .attr-value {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+
+  /* Description */
+  .description-section {
+    margin-bottom: 2rem;
+  }
+
+  .description {
+    line-height: 1.7;
+    color: var(--detail-body);
+  }
+
+  :global(.description p) {
+    margin: 0 0 0.8rem;
+  }
+
+  :global(.description a) {
+    color: var(--brand-red);
+  }
+
+  /* Features */
+  .features-section {
+    margin-bottom: 2rem;
+  }
+
+  .features-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 1.5rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .features-list li {
+    position: relative;
+    padding-left: 1.3rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .features-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--brand-red);
+    font-weight: 700;
+  }
+
+  /* Sidebar */
+  .contact-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    position: sticky;
+    top: 100px;
+  }
+
+  .contact-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .contact-card p {
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .btn-contact {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    background: var(--brand-red);
+    color: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+  }
+
+  .btn-phone {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    background: var(--dark);
+    color: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-weight: 700;
+  }
+
+  /* Related Listings */
+  .related {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .related h2 {
+    font-size: 1.5rem;
+    margin: 0 0 1rem;
+  }
+
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .related-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    transition: box-shadow 0.2s;
+  }
+
+  .related-card:hover {
+    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.10);
+  }
+
+  .related-img-link {
+    display: block;
+  }
+
+  .related-card img,
+  .placeholder {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    background: var(--bg-placeholder);
+  }
+
+  .placeholder {
+    display: grid;
+    place-items: center;
+    color: var(--placeholder);
+    font-size: 0.9rem;
+  }
+
+  .related-content {
+    padding: 0.9rem;
+  }
+
+  .related-title-link {
+    text-decoration: none;
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .related-price {
+    margin: 0 0 0.4rem;
+    font-weight: 800;
+    font-size: 1.05rem;
+  }
+
+  .related-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .related-specs span {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .related-specs span + span::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--muted);
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  .related-cta {
+    text-align: center;
+    margin-top: 1.5rem;
+  }
+
+  .related-cta a {
+    color: var(--brand-red);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  @media (max-width: 900px) {
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .contact-card {
+      position: static;
+    }
+
+    .attr-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .features-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .gallery-main {
+      max-height: 300px;
+    }
+  }
+</style>

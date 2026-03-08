@@ -1,0 +1,76 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getPageBySlug } from '../../lib/wordpress';
+
+const page = await getPageBySlug('about-us');
+
+if (!page) {
+  throw new Error('About page was not found in WordPress.');
+}
+---
+
+<Layout title={`${page.title} | Alfursan Auto`} description={page.excerpt}>
+  <main class="container">
+    <section class="heading">
+      <p class="kicker">About Us</p>
+      <h1>{page.title}</h1>
+    </section>
+
+    <article class="content-card">
+      <div class="wp-content" set:html={page.htmlContent} />
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 30px 4rem;
+  }
+
+  .heading {
+    background: var(--dark);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  .kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+    color: var(--subtitle-on-dark);
+    font-weight: 800;
+  }
+
+  .content-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.2rem;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+  }
+
+  h1 {
+    margin: 0.35rem 0 0;
+  }
+
+  :global(.wp-content p),
+  :global(.wp-content li) {
+    line-height: 1.65;
+  }
+
+  :global(.wp-content img) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  @media (max-width: 640px) {
+    .content-card {
+      padding: 1rem;
+    }
+  }
+</style>

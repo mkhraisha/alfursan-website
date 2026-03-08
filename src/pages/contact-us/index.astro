@@ -1,0 +1,104 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getPageBySlug } from '../../lib/wordpress';
+
+const page = await getPageBySlug('contact-us');
+
+if (!page) {
+  throw new Error('Contact page was not found in WordPress.');
+}
+---
+
+<Layout title={`${page.title} | Alfursan Auto`} description={page.excerpt}>
+  <main class="container">
+    <section class="heading">
+      <p class="kicker">Contact</p>
+      <h1>{page.title}</h1>
+    </section>
+
+    <article class="content-card">
+      <div class="wp-content" set:html={page.htmlContent} />
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 30px 4rem;
+  }
+
+  .heading {
+    background: var(--dark);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  .kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+    color: var(--subtitle-on-dark);
+    font-weight: 800;
+  }
+
+  .content-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.2rem;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+  }
+
+  h1 {
+    margin: 0.35rem 0 0;
+  }
+
+  :global(.wp-content p) {
+    line-height: 1.65;
+  }
+
+  :global(.wp-content iframe) {
+    width: 100%;
+    border: 0;
+  }
+
+  :global(.wp-content form),
+  :global(.wp-content .wpcf7) {
+    margin-top: 1rem;
+  }
+
+  :global(.wp-content input),
+  :global(.wp-content textarea),
+  :global(.wp-content select) {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    padding: 0.55rem 0.65rem;
+    font: inherit;
+  }
+
+  :global(.wp-content input[type='submit']),
+  :global(.wp-content button),
+  :global(.wp-content .wpcf7-submit) {
+    width: auto;
+    border: 0;
+    background: var(--brand-red);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0.55rem 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  @media (max-width: 640px) {
+    .content-card {
+      padding: 1rem;
+    }
+  }
+</style>
