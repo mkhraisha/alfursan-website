@@ -11,6 +11,12 @@ type Filters = {
   model: string;
   maxPrice: string;
   maxMileage: string;
+  condition: string;
+  vehicleType: string;
+  driveType: string;
+  fuelType: string;
+  transmission: string;
+  color: string;
   sort: string;
   page: number;
 };
@@ -20,14 +26,29 @@ const EMPTY_FILTERS: Filters = {
   model: "",
   maxPrice: "",
   maxMileage: "",
+  condition: "",
+  vehicleType: "",
+  driveType: "",
+  fuelType: "",
+  transmission: "",
+  color: "",
   sort: "newest",
   page: 1,
 };
 
+const EXTRA_FILTER_KEYS: Array<keyof Filters> = [
+  "condition",
+  "vehicleType",
+  "driveType",
+  "fuelType",
+  "transmission",
+  "color",
+];
+
 const PAGE_SIZE = 12;
 
 const SORT_OPTIONS = [
-  { value: "newest", label: "Newest First" },
+  { value: "newest", label: "Date Listed: Newest" },
   { value: "price-asc", label: "Price: Low to High" },
   { value: "price-desc", label: "Price: High to Low" },
   { value: "mileage-asc", label: "Mileage: Low to High" },
@@ -67,6 +88,12 @@ const readFiltersFromUrl = (): Filters => {
     model: params.get("model") ?? "",
     maxPrice: params.get("maxPrice") ?? "",
     maxMileage: params.get("maxMileage") ?? "",
+    condition: params.get("condition") ?? "",
+    vehicleType: params.get("vehicleType") ?? "",
+    driveType: params.get("driveType") ?? "",
+    fuelType: params.get("fuelType") ?? "",
+    transmission: params.get("transmission") ?? "",
+    color: params.get("color") ?? "",
     sort: isSortAllowed ? sort : "newest",
     page: parsePage(params.get("page")),
   };
@@ -87,6 +114,12 @@ const writeFiltersToUrl = (filters: Filters): void => {
 
   if (filters.maxMileage) params.set("maxMileage", filters.maxMileage);
   else params.delete("maxMileage");
+
+  for (const key of EXTRA_FILTER_KEYS) {
+    const val = filters[key];
+    if (typeof val === "string" && val) params.set(key, val);
+    else params.delete(key);
+  }
 
   if (filters.sort && filters.sort !== "newest")
     params.set("sort", filters.sort);
@@ -145,6 +178,49 @@ export default function InventoryFilters({ cars }: Props) {
       return false;
     }
 
+    if (
+      activeFilters.condition &&
+      car.condition?.toLowerCase() !== activeFilters.condition.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.vehicleType &&
+      car.vehicleType?.toLowerCase() !== activeFilters.vehicleType.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.driveType &&
+      car.driveType?.toLowerCase() !== activeFilters.driveType.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.fuelType &&
+      car.fuelType?.toLowerCase() !== activeFilters.fuelType.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.transmission &&
+      car.transmission?.toLowerCase() !==
+        activeFilters.transmission.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      activeFilters.color &&
+      car.color?.toLowerCase() !== activeFilters.color.toLowerCase()
+    ) {
+      return false;
+    }
+
     return true;
   };
 
@@ -178,6 +254,12 @@ export default function InventoryFilters({ cars }: Props) {
   }, []);
 
   useEffect(() => {
+    if (activeExtraCount > 0) {
+      setShowMore(true);
+    }
+  }, []);
+
+  useEffect(() => {
     writeFiltersToUrl(filters);
   }, [filters]);
 
@@ -197,17 +279,46 @@ export default function InventoryFilters({ cars }: Props) {
     return buildCountOptions(source, (car) => car.model, filters.model);
   }, [cars, filters]);
 
+  const extraFilterOptions = useMemo(() => {
+    const source = cars.filter((car) => matchesFilters(car, filters));
+    return {
+      condition: buildCountOptions(
+        source,
+        (c) => c.condition,
+        filters.condition,
+      ),
+      vehicleType: buildCountOptions(
+        source,
+        (c) => c.vehicleType,
+        filters.vehicleType,
+      ),
+      driveType: buildCountOptions(
+        source,
+        (c) => c.driveType,
+        filters.driveType,
+      ),
+      fuelType: buildCountOptions(source, (c) => c.fuelType, filters.fuelType),
+      transmission: buildCountOptions(
+        source,
+        (c) => c.transmission,
+        filters.transmission,
+      ),
+      color: buildCountOptions(source, (c) => c.color, filters.color),
+    };
+  }, [cars, filters]);
+
+  const activeExtraCount = EXTRA_FILTER_KEYS.filter(
+    (key) => filters[key] !== "",
+  ).length;
+
+  const [showMore, setShowMore] = useState(false);
+
   const filteredCars = useMemo(() => {
     return cars.filter((car) => matchesFilters(car, filters));
   }, [cars, filters]);
 
   const sortedCars = useMemo(() => {
     const sorted = [...filteredCars];
-
-    const toYearNumber = (value: string | undefined): number => {
-      const year = Number(value);
-      return Number.isFinite(year) ? year : -1;
-    };
 
     switch (filters.sort) {
       case "price-asc":
@@ -241,9 +352,10 @@ export default function InventoryFilters({ cars }: Props) {
       case "newest":
       default:
         sorted.sort((a, b) => {
-          const byYear = toYearNumber(b.year) - toYearNumber(a.year);
-          if (byYear !== 0) {
-            return byYear;
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          if (dateA !== dateB) {
+            return dateB - dateA;
           }
 
           return b.id - a.id;
@@ -296,6 +408,12 @@ export default function InventoryFilters({ cars }: Props) {
         next.model !== current.model ||
         next.maxPrice !== current.maxPrice ||
         next.maxMileage !== current.maxMileage ||
+        next.condition !== current.condition ||
+        next.vehicleType !== current.vehicleType ||
+        next.driveType !== current.driveType ||
+        next.fuelType !== current.fuelType ||
+        next.transmission !== current.transmission ||
+        next.color !== current.color ||
         next.sort !== current.sort;
 
       if (didCriteriaChange) {
@@ -414,6 +532,121 @@ export default function InventoryFilters({ cars }: Props) {
         </button>
       </section>
 
+      <button
+        type="button"
+        className="more-filters-toggle"
+        onClick={() => setShowMore((prev) => !prev)}
+      >
+        {showMore ? "Hide" : "More"} Filters
+        {activeExtraCount > 0 ? ` (${activeExtraCount})` : ""}
+      </button>
+
+      {showMore && (
+        <section className="extra-filters">
+          <label>
+            Condition
+            <select
+              value={filters.condition}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, condition: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              {extraFilterOptions.condition.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value} ({o.count})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Body Type
+            <select
+              value={filters.vehicleType}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, vehicleType: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              {extraFilterOptions.vehicleType.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value} ({o.count})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Drivetrain
+            <select
+              value={filters.driveType}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, driveType: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              {extraFilterOptions.driveType.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value} ({o.count})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Fuel Type
+            <select
+              value={filters.fuelType}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, fuelType: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              {extraFilterOptions.fuelType.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value} ({o.count})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Transmission
+            <select
+              value={filters.transmission}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, transmission: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              {extraFilterOptions.transmission.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value} ({o.count})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Color
+            <select
+              value={filters.color}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, color: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              {extraFilterOptions.color.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value} ({o.count})
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+      )}
+
       <p className="muted">
         Showing {firstShown}-{lastShown} of {sortedCars.length} matching
         vehicles ({cars.length} total).
@@ -427,6 +660,12 @@ export default function InventoryFilters({ cars }: Props) {
                 <img src={car.image} alt={car.title} loading="lazy" />
               ) : (
                 <div className="placeholder">No image</div>
+              )}
+              {car.offerType?.toLowerCase() === "sold" && (
+                <span className="sold-badge">Sold</span>
+              )}
+              {car.images.length > 0 && (
+                <span className="img-count">{car.images.length}</span>
               )}
             </a>
 

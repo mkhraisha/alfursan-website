@@ -1,0 +1,218 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+const leftColumn: FaqItem[] = [
+  {
+    question: "Do you offer any sort of warranty?",
+    answer:
+      "Yes, we offer warranty options through our reliable third-party partners. Various coverage plans are available depending on your needs and the vehicle — ask us for details.",
+  },
+  {
+    question: "Do you offer financing?",
+    answer:
+      "Yes! We can help you get approved for financing through our trusted network of financing partners across Canada. Whether you have good credit, no credit, or are rebuilding, we'll do our best to find an option that suits your needs.",
+  },
+  {
+    question:
+      "Can you help me find a specific car that's not in your inventory?",
+    answer:
+      "Absolutely. Just let us know what you're looking for, and we'll source the vehicle for you at the most competitive price through our trusted supplier and auction network.",
+  },
+  {
+    question: "Do you offer car delivery?",
+    answer:
+      "Yes, we offer delivery services anywhere in Canada for an additional fee based on your location. Contact us for a custom quote.",
+  },
+  {
+    question: "Do you export vehicles internationally?",
+    answer:
+      "Yes! We specialize in exporting vehicles worldwide. Whether you're located in the Middle East, Europe, or Asia, we can arrange reliable and efficient shipping to your destination.",
+  },
+  {
+    question: "Where do you source your vehicles from?",
+    answer:
+      "We source high-quality vehicles from both Canada and the United States. This allows us to offer a wide selection of makes and models to meet your preferences and budget.",
+  },
+];
+
+const rightColumn: FaqItem[] = [
+  {
+    question: "Are your vehicles safety certified?",
+    answer:
+      "Some of our vehicles are sold certified, while others can be certified for an additional fee. Certification includes a full inspection to ensure the vehicle meets Ontario safety standards. Buyers are also welcome to certify the vehicle with their own trusted mechanic.",
+  },
+  {
+    question: "Do you take trade-ins?",
+    answer:
+      "Yes, we accept trade-ins. Bring your vehicle for an on-the-spot appraisal or contact us with the details (year, make, model, mileage, condition) and we'll provide an estimate.",
+  },
+  {
+    question: "What documents do I need to bring when buying a car?",
+    answer:
+      "You'll need a valid driver's license and proof of insurance. If financing, additional documents like recent pay stubs, proof of address, or credit info may be required.",
+  },
+  {
+    question: "Do you sell to customers outside Ontario?",
+    answer:
+      "Yes, we work with customers from across Canada. We can assist with out-of-province paperwork and offer delivery options as well.",
+  },
+  {
+    question: "Are your prices competitive for export buyers?",
+    answer:
+      "Absolutely. We offer competitive pricing tailored for export clients through a network of shippers, and we can assist with documentation, shipping logistics, and compliance to ensure a smooth transaction from purchase\u00a0to\u00a0delivery.",
+  },
+];
+---
+
+<Layout
+  title="FAQ | Alfursan Auto"
+  description="Frequently asked questions about buying, financing, exporting, and servicing vehicles at Alfursan Auto."
+>
+  <main class="container">
+    <section class="heading">
+      <p class="kicker">Support</p>
+      <h1>Frequently Asked Questions</h1>
+    </section>
+
+    <div class="faq-grid">
+      <div class="faq-column">
+        {
+          leftColumn.map((item) => (
+            <details class="faq-item">
+              <summary>{item.question}</summary>
+              <p>{item.answer}</p>
+            </details>
+          ))
+        }
+      </div>
+
+      <div class="faq-column">
+        {
+          rightColumn.map((item) => (
+            <details class="faq-item">
+              <summary>{item.question}</summary>
+              <p>{item.answer}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <a href="/about-us/" class="btn">Learn more</a>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .container {
+    max-width: 1466px;
+    margin: 0 auto;
+    padding: 2rem 30px 4rem;
+  }
+
+  .heading {
+    background: var(--dark);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+    color: var(--subtitle-on-dark);
+    font-weight: 800;
+  }
+
+  h1 {
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.45rem, 3.3vw, 2.2rem);
+  }
+
+  .faq-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+
+  @media (max-width: 768px) {
+    .faq-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .faq-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .faq-item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .faq-item summary {
+    padding: 1rem 1.2rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item summary::after {
+    content: "+";
+    font-size: 1.3rem;
+    font-weight: 400;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+
+  .faq-item[open] summary::after {
+    content: "−";
+  }
+
+  .faq-item p {
+    margin: 0;
+    padding: 0 1.2rem 1rem;
+    color: var(--muted-dark);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  .cta-row {
+    text-align: center;
+    margin-top: 2rem;
+  }
+
+  .btn {
+    display: inline-block;
+    text-decoration: none;
+    background: var(--brand-red);
+    color: #fff;
+    border-radius: 10px;
+    padding: 0.7rem 1.6rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+</style>

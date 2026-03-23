@@ -3,28 +3,31 @@ import InventoryFilters from "../../components/InventoryFilters";
 import Layout from "../../layouts/Layout.astro";
 import { getCars } from "../../lib/wordpress";
 
-const cars = await getCars(100);
+const allCars = await getCars(100);
+const soldCars = allCars.filter(
+  (car) => car.offerType?.toLowerCase() === "sold",
+);
 ---
 
 <Layout
-  title="Listings | Alfursan Auto"
-  description="Browse available vehicles at Alfursan Auto."
+  title="Sold Vehicles | Alfursan Auto"
+  description="Previously sold vehicles at Alfursan Auto. Browse our past inventory."
 >
   <main class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="/">Homepage</a>
       <span class="sep">&rsaquo;</span>
-      <span>Search</span>
+      <span>Sold</span>
     </nav>
     <section class="heading">
-      <p class="kicker">Inventory</p>
-      <h1>Available Listings</h1>
+      <p class="kicker">Archive</p>
+      <h1>Sold</h1>
       <p>
-        Browse inspected vehicles and filter results to match your budget and
-        preferences.
+        These vehicles have already been sold. Browse to see what kinds of cars
+        we carry, or <a href="/search/">view available listings</a>.
       </p>
     </section>
-    <InventoryFilters cars={cars} client:load />
+    <InventoryFilters cars={soldCars} client:load />
   </main>
 </Layout>
 
@@ -84,6 +87,11 @@ const cars = await getCars(100);
     color: var(--subtitle-on-dark);
   }
 
+  .heading a {
+    color: #fff;
+    text-decoration: underline;
+  }
+
   :global(.filters) {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -123,56 +131,6 @@ const cars = await getCars(100);
     padding: 0.52rem 0.6rem;
     font-weight: 700;
     cursor: pointer;
-  }
-
-  :global(.more-filters-toggle) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink);
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-weight: 700;
-    font-size: 0.88rem;
-    cursor: pointer;
-    margin-bottom: 0.6rem;
-    transition: border-color 0.15s;
-  }
-
-  :global(.more-filters-toggle:hover) {
-    border-color: var(--brand-red);
-    color: var(--brand-red);
-  }
-
-  :global(.extra-filters) {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.8rem;
-    margin-bottom: 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 0.9rem;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-  }
-
-  :global(.extra-filters label) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--filter-label);
-  }
-
-  :global(.extra-filters select) {
-    border: 1px solid var(--input-border);
-    border-radius: 8px;
-    padding: 0.52rem 0.6rem;
-    font-size: 0.92rem;
-    background: #fff;
   }
 
   :global(.muted) {
@@ -256,12 +214,6 @@ const cars = await getCars(100);
     line-height: 1.35;
   }
 
-  :global(.meta) {
-    color: var(--meta);
-    font-size: 0.92rem;
-    margin: 0 0 0.4rem;
-  }
-
   :global(.price) {
     margin: 0 0 0.5rem;
     font-weight: 800;
@@ -293,16 +245,6 @@ const cars = await getCars(100);
     background: var(--muted);
     vertical-align: middle;
     margin-right: 0.5rem;
-  }
-
-  :global(.btn) {
-    display: inline-block;
-    text-decoration: none;
-    background: var(--brand-red);
-    color: #fff;
-    border-radius: 9px;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.92rem;
   }
 
   :global(.pagination) {
@@ -346,18 +288,10 @@ const cars = await getCars(100);
     :global(.filters) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-
-    :global(.extra-filters) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
 
   @media (max-width: 560px) {
     :global(.filters) {
-      grid-template-columns: 1fr;
-    }
-
-    :global(.extra-filters) {
       grid-template-columns: 1fr;
     }
   }

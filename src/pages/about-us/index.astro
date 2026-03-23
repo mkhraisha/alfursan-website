@@ -1,40 +1,238 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { getPageBySlug } from "../../lib/wordpress";
 
-const page = await getPageBySlug("about-us");
-
-if (!page) {
-  throw new Error("About page was not found in WordPress.");
+interface FaqItem {
+  question: string;
+  answer: string;
 }
+
+const faqLeft: FaqItem[] = [
+  {
+    question: "Do you offer any sort of warranty?",
+    answer:
+      "Yes, we offer warranty options through our reliable third-party partners. Various coverage plans are available depending on your needs and the vehicle — ask us for details.",
+  },
+  {
+    question: "Do you offer financing?",
+    answer:
+      "Yes! We can help you get approved for financing through our trusted network of financing partners across Canada. Whether you have good credit, no credit, or are rebuilding, we'll do our best to find an option that suits your needs.",
+  },
+  {
+    question:
+      "Can you help me find a specific car that's not in your inventory?",
+    answer:
+      "Absolutely. Just let us know what you're looking for, and we'll source the vehicle for you at the most competitive price through our trusted supplier and auction network.",
+  },
+  {
+    question: "Do you offer car delivery?",
+    answer:
+      "Yes, we offer delivery services anywhere in Canada for an additional fee based on your location. Contact us for a custom quote.",
+  },
+  {
+    question: "Do you export vehicles internationally?",
+    answer:
+      "Yes! We specialize in exporting vehicles worldwide. Whether you're located in the Middle East, Europe, or Asia, we can arrange reliable and efficient shipping to your destination.",
+  },
+  {
+    question: "Where do you source your vehicles from?",
+    answer:
+      "We source high-quality vehicles from both Canada and the United States. This allows us to offer a wide selection of makes and models to meet your preferences and budget.",
+  },
+];
+
+const faqRight: FaqItem[] = [
+  {
+    question: "Are your vehicles safety certified?",
+    answer:
+      "Some of our vehicles are sold certified, while others can be certified for an additional fee. Certification includes a full inspection to ensure the vehicle meets Ontario safety standards. Buyers are also welcome to certify the vehicle with their own trusted mechanic.",
+  },
+  {
+    question: "Do you take trade-ins?",
+    answer:
+      "Yes, we accept trade-ins. Bring your vehicle for an on-the-spot appraisal or contact us with the details (year, make, model, mileage, condition) and we'll provide an estimate.",
+  },
+  {
+    question: "What documents do I need to bring when buying a car?",
+    answer:
+      "You'll need a valid driver's license and proof of insurance. If financing, additional documents like recent pay stubs, proof of address, or credit info may be required.",
+  },
+  {
+    question: "Do you sell to customers outside Ontario?",
+    answer:
+      "Yes, we work with customers from across Canada. We can assist with out-of-province paperwork and offer delivery options as well.",
+  },
+  {
+    question: "Are your prices competitive for export buyers?",
+    answer:
+      "Absolutely. We offer competitive pricing tailored for export clients through a network of shippers, and we can assist with documentation, shipping logistics, and compliance to ensure a smooth transaction from purchase\u00a0to\u00a0delivery.",
+  },
+];
 ---
 
-<Layout title={`${page.title} | Alfursan Auto`} description={page.excerpt}>
+<Layout
+  title="About Us | Alfursan Auto"
+  description="Learn about Alfursan Auto — a trusted used car dealership in the Greater Toronto Area specializing in retail sales, wholesale deals, and international exports."
+>
   <main class="container">
+    <!-- ── Heading ──────────────────────────────────── -->
     <section class="heading">
       <p class="kicker">About Us</p>
-      <h1>{page.title}</h1>
+      <h1>About us</h1>
     </section>
 
-    <article class="content-card">
-      <div class="wp-content" set:html={page.htmlContent} />
-    </article>
+    <!-- ── Intro (two-column: text + image) ─────────── -->
+    <section class="intro">
+      <div class="intro-text">
+        <p class="lead">
+          How Alfursan Auto began is rooted in one idea. Buying a car should be
+          simple, honest, and straightforward.
+        </p>
+        <p>
+          Founded by <strong>Raad Al-Husban</strong>, Alfursan Auto has grown
+          into a trusted name for used car sales, wholesale deals, and
+          international exports in the Greater Toronto Area. Every vehicle is
+          handpicked and inspected for quality and reliability.
+        </p>
+        <p>
+          From the moment you walk in, we aim to make your experience clear and
+          stress-free. Whether you're buying locally or exporting overseas, our
+          goal is to make sure you leave with confidence.
+        </p>
+        <p>
+          Our team is here to serve with transparency, knowledge, and a genuine
+          drive to help you find the right vehicle.
+        </p>
+
+        <div class="social-bar">
+          <span class="social-label">Follow us</span>
+          <div class="social-icons">
+            <a
+              href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+            >
+              <svg
+                viewBox="0 0 320 512"
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                fill="currentColor"
+              >
+                <path
+                  d="M80 299.3V512H196V299.3h86.5l18-97.8H196V166.9c0-51.7 20.3-71.5 72.7-71.5c16.3 0 29.4 .4 37 1.2V7.9C291.4 4 256.4 0 236.2 0C129.3 0 80 50.5 80 159.4v42.1H14v97.8H80z"
+                ></path>
+              </svg>
+            </a>
+            <a href="#" aria-label="X (Twitter)">
+              <svg
+                viewBox="0 0 512 512"
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                fill="currentColor"
+              >
+                <path
+                  d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"
+                ></path>
+              </svg>
+            </a>
+            <a
+              href="https://www.instagram.com/alfursanauto/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+            >
+              <svg
+                viewBox="0 0 448 512"
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                fill="currentColor"
+              >
+                <path
+                  d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"
+                ></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="intro-image">
+        <div class="intro-image-inner"></div>
+      </div>
+    </section>
+
+    <!-- ── CEO Quote (three-column) ─────────────────── -->
+    <section class="ceo-section">
+      <div class="ceo-image">
+        <img
+          src="https://alfursanauto.ca/wp-content/uploads/2020/08/module-13-removebg-preview.png"
+          alt="Alfursan Auto CEO"
+          loading="lazy"
+        />
+      </div>
+      <div class="ceo-quote">
+        <h2>Our CEO says</h2>
+        <span class="quote-mark">&ldquo;</span>
+        <p class="quote-text">
+          Quality is never an accident; it is always the result of high
+          intention.
+        </p>
+      </div>
+      <div class="ceo-cta">
+        <h2>Book a Test Drive!</h2>
+        <a href="/contact-us/" class="btn btn-primary">Contact us</a>
+      </div>
+    </section>
+
+    <!-- ── FAQ Accordion ────────────────────────────── -->
+    <section class="faq-section">
+      <h2 class="faq-heading">Frequently Asked Questions</h2>
+
+      <div class="faq-grid">
+        <div class="faq-column">
+          {
+            faqLeft.map((item) => (
+              <details class="faq-item">
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))
+          }
+        </div>
+
+        <div class="faq-column">
+          {
+            faqRight.map((item) => (
+              <details class="faq-item">
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+    </section>
   </main>
 </Layout>
 
 <style>
+  /* ── Layout ──────────────────────────────────────── */
   .container {
-    max-width: 1200px;
+    max-width: 1466px;
     margin: 0 auto;
     padding: 2rem 30px 4rem;
   }
 
+  /* ── Heading band ────────────────────────────────── */
   .heading {
     background: var(--dark);
     color: #fff;
     border-radius: 16px;
-    padding: 1.1rem;
-    margin-bottom: 1rem;
+    padding: 1.2rem;
+    margin-bottom: 2rem;
   }
 
   .kicker {
@@ -46,31 +244,280 @@ if (!page) {
     font-weight: 800;
   }
 
-  .content-card {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 1.2rem;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-  }
-
   h1 {
     margin: 0.35rem 0 0;
+    font-size: clamp(1.45rem, 3.3vw, 2.2rem);
   }
 
-  :global(.wp-content p),
-  :global(.wp-content li) {
-    line-height: 1.65;
+  /* ── Intro section ───────────────────────────────── */
+  .intro {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    align-items: start;
   }
 
-  :global(.wp-content img) {
-    max-width: 100%;
-    height: auto;
+  .intro-text .lead {
+    font-size: 1.15rem;
+    font-weight: 500;
+    margin: 0 0 1.2rem;
+    color: var(--ink);
+    line-height: 1.6;
   }
 
-  @media (max-width: 640px) {
-    .content-card {
-      padding: 1rem;
+  .intro-text p {
+    margin: 0 0 1.2rem;
+    color: var(--muted-dark, var(--ink));
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .intro-text strong {
+    color: var(--ink);
+  }
+
+  .intro-image {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    min-height: 380px;
+  }
+
+  .intro-image-inner {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--dark) 0%, #1a1f2e 100%);
+    border-radius: 16px;
+  }
+
+  /* ── Social bar ──────────────────────────────────── */
+  .social-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 0.5rem;
+  }
+
+  .social-label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+
+  .social-icons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .social-icons a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--dark);
+    color: #fff;
+    transition: background 0.2s;
+  }
+
+  .social-icons a:hover {
+    background: var(--brand-red);
+  }
+
+  /* ── CEO section ─────────────────────────────────── */
+  .ceo-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    background: var(--dark);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+    min-height: 280px;
+  }
+
+  .ceo-image {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 2rem 1rem 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.15), transparent);
+  }
+
+  .ceo-image img {
+    max-height: 240px;
+    object-fit: contain;
+  }
+
+  .ceo-quote {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.5rem 2rem;
+    color: #fff;
+  }
+
+  .ceo-quote h2 {
+    font-size: 1.35rem;
+    margin: 0 0 0.4rem;
+    color: #fff;
+  }
+
+  .quote-mark {
+    font-size: 4rem;
+    line-height: 1;
+    color: var(--brand-red);
+    font-family: Georgia, serif;
+  }
+
+  .quote-text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0;
+    font-style: italic;
+  }
+
+  .ceo-cta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2.5rem 2rem;
+    background: var(--brand-red);
+    color: #fff;
+  }
+
+  .ceo-cta h2 {
+    font-size: 1.35rem;
+    margin: 0 0 1.2rem;
+    color: #fff;
+  }
+
+  .btn-primary {
+    display: inline-block;
+    padding: 0.7rem 1.6rem;
+    background: #fff;
+    color: var(--brand-red);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+  }
+
+  /* ── FAQ section ─────────────────────────────────── */
+  .faq-section {
+    margin-bottom: 2rem;
+  }
+
+  .faq-heading {
+    font-size: 1.6rem;
+    margin: 0 0 1.5rem;
+    color: var(--ink);
+  }
+
+  .faq-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+
+  .faq-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .faq-item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .faq-item summary {
+    padding: 1rem 1.2rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item summary::after {
+    content: "+";
+    font-size: 1.3rem;
+    font-weight: 400;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+
+  .faq-item[open] summary::after {
+    content: "−";
+  }
+
+  .faq-item p {
+    margin: 0;
+    padding: 0 1.2rem 1rem;
+    color: var(--muted-dark);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 900px) {
+    .intro {
+      grid-template-columns: 1fr;
+    }
+
+    .intro-image {
+      min-height: 240px;
+    }
+
+    .ceo-section {
+      grid-template-columns: 1fr;
+    }
+
+    .ceo-image {
+      order: -1;
+      padding: 1.5rem 1rem 0;
+    }
+
+    .ceo-image img {
+      max-height: 180px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .faq-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ceo-section {
+      min-height: auto;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .social-bar {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
     }
   }
 </style>

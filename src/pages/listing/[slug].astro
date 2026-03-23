@@ -37,9 +37,51 @@ const relatedCars = allCars
       (c.make === car.make || c.vehicleType === car.vehicleType),
   )
   .slice(0, 4);
+
+const vehicleSchema: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@type": "Vehicle",
+  name: car.title,
+  url: `https://alfursanauto.ca/listing/${car.slug}/`,
+  image: car.images.length > 0 ? car.images : car.image,
+  description: car.excerpt,
+  brand: car.make ? { "@type": "Brand", name: car.make } : undefined,
+  model: car.model,
+  modelDate: car.year,
+  mileageFromOdometer: car.mileageValue
+    ? { "@type": "QuantitativeValue", value: car.mileageValue, unitCode: "KMT" }
+    : undefined,
+  vehicleTransmission: car.transmission,
+  fuelType: car.fuelType,
+  driveWheelConfiguration: car.driveType,
+  color: car.color,
+  numberOfDoors: car.doors ? Number(car.doors) : undefined,
+  bodyType: car.vehicleType,
+  itemCondition:
+    car.condition === "New"
+      ? "https://schema.org/NewCondition"
+      : "https://schema.org/UsedCondition",
+  offers: car.price
+    ? {
+        "@type": "Offer",
+        price: car.price,
+        priceCurrency: "CAD",
+        availability:
+          car.offerType?.toLowerCase() === "sold"
+            ? "https://schema.org/SoldOut"
+            : "https://schema.org/InStock",
+        seller: { "@type": "AutoDealer", name: "Alfursan Auto" },
+      }
+    : undefined,
+};
 ---
 
-<Layout title={`${car.title} | Alfursan Auto`} description={car.excerpt}>
+<Layout
+  title={`${car.title} | Alfursan Auto`}
+  description={car.excerpt}
+  image={car.image}
+  schema={vehicleSchema}
+>
   <main class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="/">Homepage</a>
@@ -224,7 +266,7 @@ const relatedCars = allCars
 
 <style>
   .container {
-    max-width: 1468px;
+    max-width: 1466px;
     margin: 0 auto;
     padding: 2rem 30px 4rem;
   }

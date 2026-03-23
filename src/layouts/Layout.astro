@@ -4,6 +4,9 @@ import { rootCss } from "../lib/theme";
 interface Props {
   title?: string;
   description?: string;
+  image?: string;
+  schema?: Record<string, unknown>;
+  transparentHeader?: boolean;
 }
 
 type NavLink = {
@@ -11,15 +14,24 @@ type NavLink = {
   href: string;
 };
 
+const SITE_URL = "https://alfursanauto.ca";
+const DEFAULT_OG_IMAGE = `${SITE_URL}/wp-content/uploads/2025/06/al-fursan-logo-transparent.png`;
+
 const {
   title = "Alfursan Auto",
-  description = "Astro frontend powered by your existing WordPress inventory.",
+  description = "Trusted used car dealership in the Greater Toronto Area. Browse inspected vehicles, wholesale deals, and international exports.",
+  image,
+  schema,
+  transparentHeader = false,
 } = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, SITE_URL).href;
+const ogImage = image ?? DEFAULT_OG_IMAGE;
 
 const navLinks: NavLink[] = [
   { label: "Home", href: "/" },
-  { label: "Listings", href: "/search/" },
-  { label: "About", href: "/about-us/" },
+  { label: "Search", href: "/search/" },
+  { label: "About us", href: "/about-us/" },
   { label: "Contact", href: "/contact-us/" },
 ];
 
@@ -43,6 +55,23 @@ const isActive = (href: string): boolean => {
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <link rel="canonical" href={canonicalURL} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:site_name" content="Alfursan Auto" />
+    <meta property="og:locale" content="en_CA" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -50,22 +79,17 @@ const isActive = (href: string): boolean => {
       rel="stylesheet"
     />
     <Fragment set:html={`<style>:root{${rootCss()}}</style>`} />
+    {
+      schema && (
+        <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+      )
+    }
   </head>
 
   <body>
-    <div class="topbar">
-      <div class="shell topbar-shell">
-        <a href="tel:+14168384007">+1 (416) 838-4007</a>
-        <a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a>
-        <a
-          href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6"
-          target="_blank"
-          rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a
-        >
-      </div>
-    </div>
-
-    <header class="site-header">
+    <header
+      class:list={["site-header", { "header-transparent": transparentHeader }]}
+    >
       <div class="shell">
         <a href="/" class="brand" aria-label="Alfursan Auto Home">
           <img
@@ -124,7 +148,8 @@ const isActive = (href: string): boolean => {
           <p class="footer-title">Quick Links</p>
           <ul>
             <li><a href="/search/">Listings</a></li>
-            <li><a href="/about-us/">About Us</a></li>
+            <li><a href="/faq/">FAQ</a></li>
+            <li><a href="/about-us/">About us</a></li>
             <li><a href="/contact-us/">Contact</a></li>
           </ul>
         </div>
@@ -140,7 +165,8 @@ const isActive = (href: string): boolean => {
               <a
                 href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6"
                 target="_blank"
-                rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a>
+                rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a
+              >
             </li>
             <li class="social-links">
               <a
@@ -159,9 +185,19 @@ const isActive = (href: string): boolean => {
       </div>
 
       <div class="shell footer-bottom">
-        <p>© 2026 Alfursan Auto. All rights reserved.</p>
+        <p>© 2025 Alfursan Auto. All rights reserved.</p>
       </div>
     </footer>
+
+    <script>
+      const header = document.querySelector(".site-header.header-transparent");
+      if (header) {
+        const update = () =>
+          header.classList.toggle("scrolled", window.scrollY > 50);
+        update();
+        window.addEventListener("scroll", update, { passive: true });
+      }
+    </script>
   </body>
 </html>
 
@@ -189,37 +225,81 @@ const isActive = (href: string): boolean => {
     color: inherit;
   }
 
-  .topbar {
-    background: var(--header-bg);
-    color: var(--subdued);
-    font-size: 0.82rem;
-  }
-
-  .topbar-shell {
-    padding-top: 0.45rem;
-    padding-bottom: 0.45rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-    justify-content: center;
-  }
-
-  .topbar a {
-    text-decoration: none;
-    color: var(--subdued);
-  }
-
   .site-header {
     background: var(--surface);
     border-bottom: 1px solid var(--line);
     position: sticky;
-    top: 33px;
+    top: 0;
     z-index: 10;
+    transition:
+      background 0.3s,
+      border-color 0.3s,
+      box-shadow 0.3s;
+  }
+
+  .site-header.header-transparent {
+    position: fixed;
+    width: 100%;
+    background: transparent;
+    border-bottom-color: transparent;
+  }
+
+  .site-header.header-transparent .desktop-nav a,
+  .site-header.header-transparent .brand img {
+    filter: brightness(0) invert(1);
+  }
+
+  .site-header.header-transparent .desktop-nav a {
+    color: #fff;
+  }
+
+  .site-header.header-transparent .header-contact {
+    color: rgba(255, 255, 255, 0.75) !important;
+  }
+
+  .site-header.header-transparent .header-contact:hover {
+    color: #fff !important;
+  }
+
+  .site-header.header-transparent .desktop-nav .cta {
+    filter: none;
+    color: #fff;
+  }
+
+  .site-header.header-transparent.scrolled {
+    background: var(--surface);
+    border-bottom-color: var(--line);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .site-header.header-transparent.scrolled .desktop-nav a,
+  .site-header.header-transparent.scrolled .brand img {
+    filter: none;
+  }
+
+  .site-header.header-transparent.scrolled .desktop-nav a {
+    color: var(--ink);
+  }
+
+  .site-header.header-transparent.scrolled .desktop-nav a.active {
+    color: #fff;
+  }
+
+  .site-header.header-transparent.scrolled .header-contact {
+    color: var(--muted) !important;
+  }
+
+  .site-header.header-transparent.scrolled .header-contact:hover {
+    color: var(--brand-red) !important;
+  }
+
+  .site-header.header-transparent.scrolled .desktop-nav .cta {
+    color: #fff;
   }
 
   .shell {
     margin: 0 auto;
-    max-width: 1468px;
+    max-width: 1466px;
     padding: 0.9rem 30px;
     display: flex;
     align-items: center;
@@ -271,6 +351,19 @@ const isActive = (href: string): boolean => {
   .mobile-panel .cta {
     background: var(--brand-red);
     color: #fff;
+  }
+
+  .header-contact {
+    text-transform: none;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--muted) !important;
+    letter-spacing: normal;
+  }
+
+  .header-contact:hover {
+    color: var(--brand-red) !important;
+    background: transparent;
   }
 
   .mobile-nav {
@@ -369,10 +462,6 @@ const isActive = (href: string): boolean => {
   }
 
   @media (max-width: 640px) {
-    .site-header {
-      top: 64px;
-    }
-
     .shell {
       gap: 0.6rem;
     }

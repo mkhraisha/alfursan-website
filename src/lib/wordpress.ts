@@ -4,6 +4,7 @@ export interface CarSummary {
   title: string;
   htmlDescription: string;
   excerpt: string;
+  date?: string;
   year?: string;
   mileageKm?: string;
   mileageValue?: number;
@@ -27,6 +28,7 @@ export interface CarSummary {
 interface WpCar {
   id: number;
   slug: string;
+  date?: string;
   title?: { rendered?: string };
   content?: { rendered?: string };
   vehica_6656?: Record<string, number>;
@@ -52,20 +54,37 @@ interface TaxonomyTerm {
   name: string;
 }
 
-interface WpPage {
+interface WpPost {
   id: number;
   slug: string;
+  date: string;
+  modified: string;
   title?: { rendered?: string };
   content?: { rendered?: string };
   excerpt?: { rendered?: string };
+  featured_media: number;
+  _embedded?: {
+    "wp:featuredmedia"?: Array<{
+      source_url?: string;
+      media_details?: {
+        sizes?: {
+          medium_large?: { source_url?: string };
+          full?: { source_url?: string };
+        };
+      };
+    }>;
+  };
 }
 
-export interface PageContent {
+export interface BlogPost {
   id: number;
   slug: string;
   title: string;
   htmlContent: string;
   excerpt: string;
+  date: string;
+  modified: string;
+  featuredImage?: string;
 }
 
 type VehicaTermKey =
@@ -100,6 +119,51 @@ const VEHICA_TAXONOMIES: Record<VehicaTermKey, string> = {
 };
 
 const DEFAULT_WP_API_BASE = "https://alfursanauto.ca/wp-json";
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Fetch with automatic retry on transient failures (network errors, 5xx).
+ * Returns null instead of throwing for non-retryable errors (4xx).
+ */
+const fetchWithRetry = async (
+  url: string,
+  label: string,
+): Promise<Response> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return response;
+
+      // 4xx = client error, don't retry
+      if (response.status >= 400 && response.status < 500) {
+        console.error(
+          `[wordpress] ${label}: HTTP ${response.status} (not retrying)`,
+        );
+        return response;
+      }
+
+      // 5xx = server error, retry
+      lastError = new Error(`HTTP ${response.status}`);
+      console.warn(
+        `[wordpress] ${label}: HTTP ${response.status} (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
+      );
+    } catch (err) {
+      // Network / DNS error — retry
+      lastError = err;
+      console.warn(
+        `[wordpress] ${label}: network error (attempt ${attempt + 1}/${MAX_RETRIES + 1})`,
+      );
+    }
+    if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * (attempt + 1));
+  }
+  throw new Error(
+    `[wordpress] ${label}: all ${MAX_RETRIES + 1} attempts failed — ${lastError}`,
+  );
+};
 
 const decodeEntities = (input: string): string => {
   return input
@@ -176,6 +240,7 @@ const mapCar = (car: WpCar, termMaps: VehicaTermMaps): CarSummary => {
     title: decodeEntities(car.title?.rendered ?? "Untitled car"),
     htmlDescription,
     excerpt: plain.slice(0, 220),
+    date: car.date,
     year: car.vehica_14696,
     mileageKm: car.vehica_6664,
     mileageValue: toNumber(car.vehica_6664),
@@ -218,11 +283,9 @@ export const formatPrice = (price: number | undefined): string => {
 
 const getTermMap = async (taxonomy: string): Promise<Map<number, string>> => {
   const endpoint = `${getApiBase()}/wp/v2/${taxonomy}?per_page=100&_fields=id,name`;
-  const response = await fetch(endpoint);
+  const response = await fetchWithRetry(endpoint, `terms:${taxonomy}`);
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${taxonomy} terms: ${response.status}`);
-  }
+  if (!response.ok) return new Map();
 
   const terms = (await response.json()) as TaxonomyTerm[];
   return new Map(terms.map((term) => [term.id, decodeEntities(term.name)]));
@@ -245,6 +308,7 @@ const getVehicaTermMaps = async (): Promise<VehicaTermMaps> => {
 const CAR_FIELDS = [
   "id",
   "slug",
+  "date",
   "title",
   "content",
   "vehica_6656",
@@ -271,11 +335,14 @@ export const getCars = async (limit = 24): Promise<CarSummary[]> => {
 
   const [termMaps, response] = await Promise.all([
     getVehicaTermMaps(),
-    fetch(endpoint),
+    fetchWithRetry(endpoint, "getCars"),
   ]);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch cars: ${response.status}`);
+    console.error(
+      `[wordpress] getCars: returning empty list (HTTP ${response.status})`,
+    );
+    return [];
   }
 
   const payload = (await response.json()) as WpCar[];
@@ -289,12 +356,10 @@ export const getCarBySlug = async (
 
   const [termMaps, response] = await Promise.all([
     getVehicaTermMaps(),
-    fetch(endpoint),
+    fetchWithRetry(endpoint, `getCarBySlug:${slug}`),
   ]);
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch car by slug: ${response.status}`);
-  }
+  if (!response.ok) return null;
 
   const payload = (await response.json()) as WpCar[];
   if (!payload[0]) {
@@ -304,30 +369,47 @@ export const getCarBySlug = async (
   return mapCar(payload[0], termMaps);
 };
 
-export const getPageBySlug = async (
-  slug: string,
-): Promise<PageContent | null> => {
-  const endpoint = `${getApiBase()}/wp/v2/pages?slug=${encodeURIComponent(slug)}&per_page=1&_fields=id,slug,title,content,excerpt`;
-  const response = await fetch(endpoint);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch page by slug: ${response.status}`);
-  }
-
-  const payload = (await response.json()) as WpPage[];
-  const page = payload[0];
-
-  if (!page) {
-    return null;
-  }
-
-  const htmlContent = page.content?.rendered ?? "";
+const mapPost = (post: WpPost): BlogPost => {
+  const htmlContent = post.content?.rendered ?? "";
+  const media = post._embedded?.["wp:featuredmedia"]?.[0];
+  const featuredImage =
+    media?.source_url ?? media?.media_details?.sizes?.full?.source_url;
 
   return {
-    id: page.id,
-    slug: page.slug,
-    title: decodeEntities(page.title?.rendered ?? "Untitled page"),
+    id: post.id,
+    slug: post.slug,
+    title: decodeEntities(post.title?.rendered ?? "Untitled post"),
     htmlContent,
-    excerpt: stripHtml(page.excerpt?.rendered ?? htmlContent).slice(0, 220),
+    excerpt: stripHtml(post.excerpt?.rendered ?? htmlContent).slice(0, 220),
+    date: post.date,
+    modified: post.modified,
+    featuredImage,
   };
+};
+
+export const getPosts = async (limit = 20): Promise<BlogPost[]> => {
+  const safeLimit = Math.max(1, Math.min(limit, 100));
+  const endpoint = `${getApiBase()}/wp/v2/posts?per_page=${safeLimit}&_fields=id,slug,date,modified,title,content,excerpt,featured_media,_links&_embed=wp:featuredmedia`;
+  const response = await fetchWithRetry(endpoint, "getPosts");
+
+  if (!response.ok) {
+    console.error(
+      `[wordpress] getPosts: returning empty list (HTTP ${response.status})`,
+    );
+    return [];
+  }
+
+  const payload = (await response.json()) as WpPost[];
+  return payload.map(mapPost);
+};
+
+export const getPostBySlug = async (slug: string): Promise<BlogPost | null> => {
+  const endpoint = `${getApiBase()}/wp/v2/posts?slug=${encodeURIComponent(slug)}&per_page=1&_fields=id,slug,date,modified,title,content,excerpt,featured_media,_links&_embed=wp:featuredmedia`;
+  const response = await fetchWithRetry(endpoint, `getPostBySlug:${slug}`);
+
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as WpPost[];
+  const post = payload[0];
+  return post ? mapPost(post) : null;
 };

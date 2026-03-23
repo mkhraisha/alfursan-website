@@ -1,0 +1,337 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getPosts } from "../../lib/wordpress";
+
+const posts = await getPosts(20);
+
+const formatDate = (iso: string): string => {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+---
+
+<Layout
+  title="Blog | Alfursan Auto"
+  description="Read the latest articles from Alfursan Auto on cars, automotive trends, and buying tips."
+>
+  <main class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/">Homepage</a>
+      <span class="sep">&rsaquo;</span>
+      <span>Blog</span>
+    </nav>
+
+    <section class="heading">
+      <p class="kicker">Blog</p>
+      <h1>Our Latest News</h1>
+      <p>From spy shots to new releases to auto show coverage</p>
+    </section>
+
+    <div class="blog-layout">
+      <div class="blog-main">
+        {
+          posts.length === 0 ? (
+            <p class="empty">No blog posts available at this time.</p>
+          ) : (
+            <div class="post-grid">
+              {posts.map((post) => (
+                <article class="post-card">
+                  <a href={`/blog/${post.slug}/`} class="card-img-link">
+                    {post.featuredImage ? (
+                      <img
+                        src={post.featuredImage}
+                        alt={post.title}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div class="img-placeholder" />
+                    )}
+                  </a>
+                  <div class="card-body">
+                    <time datetime={post.date}>{formatDate(post.date)}</time>
+                    <a href={`/blog/${post.slug}/`}>
+                      <h2>{post.title}</h2>
+                    </a>
+                    <p>{post.excerpt}</p>
+                    <a href={`/blog/${post.slug}/`} class="read-more">
+                      Read more &rarr;
+                    </a>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )
+        }
+      </div>
+
+      <aside class="blog-sidebar">
+        <div class="sidebar-section">
+          <h3>Recent Posts</h3>
+          {
+            posts.slice(0, 5).map((post) => (
+              <a href={`/blog/${post.slug}/`} class="sidebar-post">
+                {post.featuredImage && (
+                  <img
+                    src={post.featuredImage}
+                    alt={post.title}
+                    loading="lazy"
+                  />
+                )}
+                <span>{post.title}</span>
+              </a>
+            ))
+          }
+          <a href="/blog/" class="sidebar-link">Read All Posts</a>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>About us</h3>
+          <p class="sidebar-about">
+            We went down the lane, by the body of the man in black, sodden now
+            from the overnight hail, and broke into the woods..
+          </p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .container {
+    max-width: 1466px;
+    margin: 0 auto;
+    padding: 2rem 30px 4rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .breadcrumb a {
+    color: var(--brand-red);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .breadcrumb .sep {
+    color: var(--muted);
+  }
+
+  .breadcrumb span:last-child {
+    color: var(--muted);
+  }
+
+  .heading {
+    background: var(--dark);
+    color: #fff;
+    border-radius: 16px;
+    padding: 1.2rem;
+    margin-bottom: 2rem;
+  }
+
+  .kicker {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--subtitle-on-dark);
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0.35rem 0;
+    font-size: clamp(1.45rem, 3.3vw, 2.2rem);
+  }
+
+  .heading p {
+    margin: 0;
+    color: var(--subtitle-on-dark);
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 3rem 0;
+  }
+
+  .post-grid {
+    display: grid;
+    gap: 1.8rem;
+  }
+
+  .blog-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .blog-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .sidebar-section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.2rem;
+  }
+
+  .sidebar-section h3 {
+    margin: 0 0 0.8rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .sidebar-post {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    text-decoration: none;
+    color: var(--ink);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .sidebar-post:last-of-type {
+    border-bottom: none;
+  }
+
+  .sidebar-post img {
+    width: 60px;
+    height: 45px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-link {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--brand-red);
+    text-decoration: none;
+  }
+
+  .sidebar-about {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .post-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s;
+  }
+
+  .post-card:hover {
+    box-shadow: 0 10px 28px rgba(16, 24, 40, 0.09);
+  }
+
+  .card-img-link {
+    display: block;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+  }
+
+  .card-img-link img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.25s;
+  }
+
+  .post-card:hover .card-img-link img {
+    transform: scale(1.04);
+  }
+
+  .img-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-placeholder);
+  }
+
+  .card-body {
+    padding: 1.2rem 1.4rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .card-body time {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+
+  .card-body h2 {
+    margin: 0.45rem 0 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1.35;
+  }
+
+  .card-body h2 a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .card-body a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .card-body p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    flex: 1;
+  }
+
+  .read-more {
+    display: inline-block;
+    margin-top: 1rem;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--brand-red) !important;
+  }
+
+  .read-more:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 768px) {
+    .blog-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .post-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
