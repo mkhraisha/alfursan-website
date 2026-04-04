@@ -21,8 +21,17 @@ const carsByMake = cars.reduce<Record<string, typeof cars>>((acc, car) => {
   return acc;
 }, {});
 
+const PREFERRED_MAKES = ["Hyundai", "Honda", "Mazda", "Tesla", "Toyota"];
+
 const popularMakesData = Object.entries(makeCounts)
-  .sort((a, b) => b[1] - a[1])
+  .sort((a, b) => {
+    const ai = PREFERRED_MAKES.findIndex(m => m.toLowerCase() === a[0].toLowerCase());
+    const bi = PREFERRED_MAKES.findIndex(m => m.toLowerCase() === b[0].toLowerCase());
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return b[1] - a[1];
+  })
   .slice(0, 5)
   .map(([make, count]) => ({
     make,
@@ -83,7 +92,7 @@ const localBusinessSchema = {
           alt="UCDA Member"
           class="ucda-badge"
         />
-        <h1>GOOD CARS. FAIR PRICES. NOTHING HIDDEN.</h1>
+        <h1>Good cars.<br />Fair prices.<br />Nothing hidden.</h1>
         <p class="hero-subtitle">
           Looking for something specific? We'll find it, certify it, and get you
           the best deal.
@@ -125,6 +134,14 @@ const localBusinessSchema = {
         </div>
       </div>
     </div>
+
+    <img
+      src="https://alfursanauto.ca/wp-content/uploads/2025/06/full-body-alfursan-auto.png"
+      alt=""
+      class="hero-mascot"
+      aria-hidden="true"
+      loading="eager"
+    />
   </section>
 
   <main class="container">
@@ -132,7 +149,6 @@ const localBusinessSchema = {
       <div class="section-head">
         <p class="section-eyebrow">Hand picked</p>
         <h2>Featured Listings</h2>
-        <a href="/search/">See all</a>
       </div>
 
       <div class="featured-grid">
@@ -166,21 +182,23 @@ const localBusinessSchema = {
                 >
                   <h3>{featuredCars[0].title}</h3>
                 </a>
-                <p class="price">{formatPrice(featuredCars[0].price)}</p>
-                <div class="card-specs">
-                  {featuredCars[0].year && <span>{featuredCars[0].year}</span>}
-                  {featuredCars[0].mileageKm && (
-                    <span>{featuredCars[0].mileageKm}</span>
-                  )}
-                  {featuredCars[0].transmission && (
-                    <span>{featuredCars[0].transmission}</span>
-                  )}
-                  {featuredCars[0].fuelType && (
-                    <span>{featuredCars[0].fuelType}</span>
-                  )}
-                  {featuredCars[0].driveType && (
-                    <span>{featuredCars[0].driveType}</span>
-                  )}
+                <div class="card-specs-row">
+                  <div class="card-specs">
+                    {featuredCars[0].year && <span>{featuredCars[0].year}</span>}
+                    {featuredCars[0].mileageKm && (
+                      <span>{Number(featuredCars[0].mileageKm).toLocaleString("en-CA")}KM</span>
+                    )}
+                    {featuredCars[0].transmission && (
+                      <span>{featuredCars[0].transmission}</span>
+                    )}
+                    {featuredCars[0].fuelType && (
+                      <span>{featuredCars[0].fuelType}</span>
+                    )}
+                    {featuredCars[0].driveType && (
+                      <span>{featuredCars[0].driveType}</span>
+                    )}
+                  </div>
+                  <p class="price">{formatPrice(featuredCars[0].price)}</p>
                 </div>
               </div>
             </article>
@@ -211,8 +229,8 @@ const localBusinessSchema = {
                   <p class="price">{formatPrice(car.price)}</p>
                   <div class="card-specs">
                     {car.year && <span>{car.year}</span>}
-                    {car.fuelType && <span>{car.fuelType}</span>}
-                    {car.driveType && <span>{car.driveType}</span>}
+                    {car.mileageKm && <span>{Number(car.mileageKm).toLocaleString("en-CA")}KM</span>}
+                    {car.transmission && <span>{car.transmission}</span>}
                   </div>
                 </div>
               </article>
@@ -221,6 +239,24 @@ const localBusinessSchema = {
         </div>
       </div>
     </section>
+
+    <div class="social-bar">
+      <div class="social-bar-follow">
+        <span class="social-bar-label">Follow us</span>
+        <div class="social-bar-icons">
+          <a href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/" target="_blank" rel="noreferrer" aria-label="Facebook" class="social-bar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" width="14" height="14"><path d="M80 299.3V512H196V299.3h86.5l18-97.8H196V166.9c0-51.7 20.3-71.5 72.7-71.5c16.3 0 29.4 .4 37 1.2V7.9C291.4 4 256.4 0 236.2 0C129.3 0 80 50.5 80 159.4v42.1H14v97.8H80z" fill="currentColor"/></svg>
+          </a>
+          <a href="#" target="_blank" rel="noreferrer" aria-label="X / Twitter" class="social-bar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="14" height="14"><path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z" fill="currentColor"/></svg>
+          </a>
+          <a href="https://www.instagram.com/alfursanauto/" target="_blank" rel="noreferrer" aria-label="Instagram" class="social-bar-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" width="14" height="14"><path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z" fill="currentColor"/></svg>
+          </a>
+        </div>
+      </div>
+      <a href="/search/" class="btn btn-primary social-bar-cta">View {totalListings} Used</a>
+    </div>
 
     <PopularMakes makes={popularMakesData} client:load />
 
@@ -280,7 +316,7 @@ const localBusinessSchema = {
       url("https://alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png")
       center / cover;
     color: #fff;
-    padding: 7rem 2.5rem 3.5rem;
+    padding: 7rem 2.5rem 7.5rem;
     position: relative;
     overflow: hidden;
   }
@@ -306,20 +342,20 @@ const localBusinessSchema = {
   .hero-subtitle {
     max-width: 48ch;
     color: var(--subtitle-on-dark);
-    font-size: clamp(1rem, 3.5vw, 22px);
+    font-size: clamp(0.875rem, 1.2vw, 16px);
     font-weight: 700;
-    line-height: clamp(1.5rem, 5vw, 36px);
+    line-height: 1.55;
   }
 
   .btn-outline-hero {
     display: inline-block;
     text-decoration: none;
-    border: 2px solid #fff;
+    border: 1px solid var(--brand-red);
     color: #fff;
     background: transparent;
-    padding: 0.7rem 2rem;
+    padding: 18px 40px;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 17px;
     border-radius: 6px;
     margin-top: 0.5rem;
     transition:
@@ -328,17 +364,16 @@ const localBusinessSchema = {
   }
 
   .btn-outline-hero:hover {
-    background: #fff;
-    color: var(--dark);
+    background: var(--brand-red);
+    color: #fff;
   }
 
   h1 {
     margin: 0 0 0.5rem;
-    line-height: 78px;
+    line-height: 1.0;
     font-family: "Bebas Neue", cursive;
     font-size: clamp(2.8rem, 5.5vw, 87px);
     font-weight: 400;
-    text-transform: uppercase;
     letter-spacing: 0.1px;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   }
@@ -348,7 +383,7 @@ const localBusinessSchema = {
   }
 
   .ucda-badge {
-    width: 120px;
+    width: 180px;
     height: auto;
     margin-bottom: 1rem;
     border-radius: 8px;
@@ -456,9 +491,8 @@ const localBusinessSchema = {
   }
 
   .section-head h2 {
-    font-style: italic;
     font-weight: 900;
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-size: clamp(2rem, 4vw, 50px);
   }
 
   .section-head a {
@@ -474,7 +508,7 @@ const localBusinessSchema = {
 
   .featured-grid {
     display: grid;
-    grid-template-columns: 1fr 2fr;
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
   }
 
@@ -487,13 +521,18 @@ const localBusinessSchema = {
   /* ── Cards ── */
   .card {
     background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    border: none;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    box-shadow: none;
     transition: box-shadow 0.2s;
     display: flex;
     flex-direction: column;
+  }
+
+  /* Side cards use dark theme matching live site */
+  .card-sm {
+    background: #222732;
   }
 
   .card:hover {
@@ -501,7 +540,7 @@ const localBusinessSchema = {
   }
 
   .card-hero {
-    /* stretches to fill both rows of the side grid */
+    background: #222732;
   }
 
   .card-hero .card-img-link {
@@ -517,7 +556,7 @@ const localBusinessSchema = {
 
   .card-sm .card-img-link img,
   .card-sm .card-img-link .placeholder {
-    height: 180px;
+    height: 182px;
     object-fit: cover;
   }
 
@@ -573,13 +612,24 @@ const localBusinessSchema = {
 
   .card-title-link {
     text-decoration: none;
-    color: inherit;
+    color: var(--ink);
+  }
+
+  /* Higher specificity to beat .card-body a { color: var(--brand-red) } */
+  .card-sm .card-title-link {
+    color: #fff;
   }
 
   h3 {
     margin: 0 0 0.35rem;
-    font-size: 1rem;
+    font-size: 17px;
     line-height: 1.3;
+  }
+
+  .card-sm h3 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .meta {
@@ -591,30 +641,44 @@ const localBusinessSchema = {
   .price {
     margin: 0 0 0.5rem;
     font-weight: 800;
-    font-size: 1.1rem;
+    font-size: 20px;
     color: var(--ink);
+  }
+
+  .card-sm .price {
+    color: #fff;
   }
 
   .card-specs {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.35rem;
+  }
+
+  .card-sm .card-specs {
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .card-specs span {
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     color: var(--muted);
+    background: transparent;
+    border-radius: 4px;
+    padding: 2px 4px;
+    white-space: nowrap;
   }
 
-  .card-specs span + span::before {
-    content: "";
-    display: inline-block;
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--muted);
-    vertical-align: middle;
-    margin-right: 0.5rem;
+  /* On dark card backgrounds, muted text needs to be lighter */
+  .card-sm .card-specs span:not(:first-child) {
+    color: #99a1b2;
+  }
+
+  /* Year chip: red pill for side cards */
+  .card-sm .card-specs span:first-child {
+    background: var(--brand-red);
+    color: #fff;
+    padding: 2px 8px;
   }
 
   .card-body a {
@@ -625,7 +689,7 @@ const localBusinessSchema = {
 
   .why-us {
     margin-top: 2.5rem;
-    padding: 2rem 0;
+    padding: 3rem 0;
   }
 
   .why-us h2 {
@@ -633,7 +697,7 @@ const localBusinessSchema = {
     font-weight: 900;
     line-height: 66px;
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2.5rem;
   }
 
   .why-grid {
@@ -643,19 +707,20 @@ const localBusinessSchema = {
   }
 
   .why-grid article {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 16px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: 2rem 1.5rem;
     text-align: center;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    box-shadow: none;
   }
 
   .why-icon {
-    width: 80px;
-    height: 80px;
+    width: 140px;
+    height: 140px;
     object-fit: contain;
-    margin: 0 auto 1rem;
+    background: transparent;
+    margin: 0 auto 1.5rem;
   }
 
   .why-grid h3 {
@@ -670,6 +735,148 @@ const localBusinessSchema = {
     color: var(--muted-dark);
     font-size: 16px;
     line-height: 27px;
+  }
+
+  /* ── Hero mascot ── */
+  .hero-mascot {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-30%);
+    height: 95%;
+    width: auto;
+    max-width: 420px;
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 0;
+    background: transparent;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-mascot {
+      display: block;
+    }
+  }
+
+  /* ── Card hero overlay ── */
+  .card-hero {
+    position: relative;
+  }
+
+  .card-hero .card-img-link {
+    flex: 1;
+    min-height: 280px;
+  }
+
+  .card-hero .card-img-link img,
+  .card-hero .card-img-link .placeholder {
+    height: 100%;
+    min-height: 280px;
+  }
+
+  .card-hero .card-body {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #222732;
+    padding: 0.75rem 1rem;
+    border-radius: 0 0 10px 10px;
+  }
+
+  .card-hero .card-body h3 {
+    font-size: 22px;
+    color: #fff;
+  }
+
+  .card-hero .card-body .price {
+    color: #fff;
+  }
+
+  .card-hero .card-body .card-title-link {
+    color: #fff;
+  }
+
+  /* Chips + price on same row */
+  .card-hero .card-body .card-specs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .card-hero .card-body .price {
+    font-size: 28px;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .card-hero .card-body .card-specs span {
+    background: transparent;
+    color: #99a1b2;
+    padding: 2px 4px;
+  }
+
+  .card-hero .card-body .card-specs span:first-child {
+    background: var(--brand-red);
+    color: #fff;
+    padding: 2px 8px;
+  }
+
+  /* ── Social bar ── */
+  .social-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--line);
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .social-bar-follow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .social-bar-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .social-bar-icons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .social-bar-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .social-bar-icon:hover {
+    background: var(--brand-red);
+    border-color: var(--brand-red);
+    color: #fff;
+  }
+
+  .social-bar-cta {
+    padding: 0.65rem 1.5rem;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    text-decoration: none;
   }
 
   @media (max-width: 700px) {
@@ -699,20 +906,52 @@ const localBusinessSchema = {
 <style is:global>
   .pm-section {
     margin-bottom: 1.5rem;
+    background: #eff3fa;
+    padding: 2rem 30px;
+    margin-left: -30px;
+    margin-right: -30px;
+  }
+
+  .pm-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+    flex-wrap: wrap;
   }
 
   .pm-heading {
-    margin: 0 0 0.75rem;
-    font-weight: 700;
-    font-size: clamp(1.4rem, 3vw, 1.8rem);
+    margin: 0;
+    font-weight: 900;
+    font-size: clamp(2rem, 4vw, 50px);
+    flex-shrink: 0;
   }
 
-  /* ── Tabs ── */
+  .pm-view-all {
+    color: #fff;
+    background: var(--brand-red);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.88rem;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+
+  .pm-view-all:hover {
+    opacity: 0.88;
+  }
+
+  /* ── Tabs (now inline in section-head, right side) ── */
   .pm-tabs-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    margin-bottom: 1.2rem;
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .pm-tabs-wrapper::-webkit-scrollbar {
@@ -738,7 +977,7 @@ const localBusinessSchema = {
       border-color 0.15s,
       background 0.15s;
     text-align: left;
-    min-width: 110px;
+    min-width: 100px;
     flex-shrink: 0;
   }
 
@@ -760,6 +999,41 @@ const localBusinessSchema = {
   .pm-tab-count {
     color: var(--muted);
     font-size: 0.8rem;
+  }
+
+  /* ── Bottom bar: arrows left, view-all right ── */
+  .pm-bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1.2rem;
+  }
+
+  .pm-arrows {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* ── Arrow buttons ── */
+  .pm-arrow {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+    padding: 0;
+  }
+
+  .pm-arrow:hover {
+    background: var(--brand-red);
+    border-color: var(--brand-red);
+    color: #fff;
   }
 
   /* ── Carousel ── */
@@ -784,18 +1058,18 @@ const localBusinessSchema = {
     flex: 0 0 calc(25% - 16.5px);
     min-width: 0;
     scroll-snap-align: start;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    background: #222732;
+    border: none;
+    border-radius: 10px;
     overflow: hidden;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    box-shadow: none;
     transition: box-shadow 0.2s;
     display: flex;
     flex-direction: column;
   }
 
   .pm-card:hover {
-    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
   }
 
   .pm-card-img-bg {
@@ -871,53 +1145,54 @@ const localBusinessSchema = {
 
   .pm-card-title-link {
     text-decoration: none;
-    color: inherit;
+    color: #fff;
   }
 
   .pm-card-body h4 {
     margin: 0 0 0.3rem;
-    font-size: 0.95rem;
+    font-size: 17px;
     font-weight: 700;
     line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
   }
 
   .pm-price {
     margin: 0 0 0.6rem;
     font-weight: 800;
-    font-size: 1.05rem;
-    color: var(--ink);
+    font-size: 20px;
+    color: #fff;
   }
 
   .pm-card-separator {
     height: 1px;
-    background: var(--line);
+    background: #343B4A;
     margin-bottom: 0.6rem;
   }
 
   .pm-card-specs {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem 0.5rem;
+    gap: 0.35rem;
   }
 
-  .pm-card-specs div {
-    font-size: 0.78rem;
-    color: var(--muted);
+  .pm-card-specs span {
+    font-size: 0.8rem;
+    color: #99a1b2;
+    background: transparent;
+    border-radius: 0;
+    padding: 2px 4px;
+    white-space: nowrap;
   }
 
-  .pm-card-specs div + div::before {
-    content: "";
-    display: inline-block;
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--muted);
-    vertical-align: middle;
-    margin-right: 0.5rem;
+  .pm-card-specs span:first-child {
+    background: var(--brand-red);
+    color: #fff;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-weight: 600;
   }
 
   /* ── Responsive breakpoints matching live site ── */
