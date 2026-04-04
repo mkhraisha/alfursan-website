@@ -89,9 +89,9 @@ const readFiltersFromUrl = (): Filters => {
     maxPrice: params.get("maxPrice") ?? "",
     maxMileage: params.get("maxMileage") ?? "",
     condition: params.get("condition") ?? "",
-    vehicleType: params.get("vehicleType") ?? "",
-    driveType: params.get("driveType") ?? "",
-    fuelType: params.get("fuelType") ?? "",
+    vehicleType: params.get("vehicleType") ?? params.get("type") ?? "",
+    driveType: params.get("driveType") ?? params.get("drive-type") ?? "",
+    fuelType: params.get("fuelType") ?? params.get("fuel-type") ?? "",
     transmission: params.get("transmission") ?? "",
     color: params.get("color") ?? "",
     sort: isSortAllowed ? sort : "newest",
@@ -101,7 +101,8 @@ const readFiltersFromUrl = (): Filters => {
 
 const writeFiltersToUrl = (filters: Filters): void => {
   const url = new URL(window.location.href);
-  const params = new URLSearchParams(url.search);
+  // Rebuild from scratch to enforce canonical key naming and drop stale/legacy params.
+  const params = new URLSearchParams();
 
   if (filters.make) params.set("make", filters.make);
   else params.delete("make");

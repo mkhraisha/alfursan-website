@@ -36,8 +36,8 @@ export const colors = {
 
   /** Pure white */
   surface: "#ffffff",
-  /** Page background – light blue-grey */
-  bg: "#EFF3FA",
+  /** Page background – white (matches live site) */
+  bg: "#ffffff",
   /** Card inner / subtle bg */
   bgSubtle: "#f7f9fd",
   /** Image placeholder bg */

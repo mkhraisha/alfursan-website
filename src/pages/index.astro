@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import PopularMakes from "../components/PopularMakes";
 import { formatPrice, getCars } from "../lib/wordpress";
 
 const cars = await getCars(100);
@@ -12,6 +13,22 @@ const makeCounts = cars.reduce<Record<string, number>>((acc, car) => {
   acc[car.make] = (acc[car.make] ?? 0) + 1;
   return acc;
 }, {});
+
+const carsByMake = cars.reduce<Record<string, typeof cars>>((acc, car) => {
+  if (!car.make) return acc;
+  if (!acc[car.make]) acc[car.make] = [];
+  acc[car.make].push(car);
+  return acc;
+}, {});
+
+const popularMakesData = Object.entries(makeCounts)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 5)
+  .map(([make, count]) => ({
+    make,
+    count,
+    cars: carsByMake[make] ?? [],
+  }));
 
 const popularMakes = Object.entries(makeCounts)
   .sort((a, b) => b[1] - a[1])
@@ -60,34 +77,52 @@ const localBusinessSchema = {
 >
   <section class="hero">
     <div class="hero-content">
-      <img
-        src="https://alfursanauto.ca/wp-content/uploads/2025/10/UCDA-Member-Logo-scaled-1-1536x907.gif"
-        alt="UCDA Member"
-        class="ucda-badge"
-      />
-      <h1>GOOD CARS. FAIR PRICES. NOTHING HIDDEN.</h1>
-      <p class="hero-subtitle">
-        Looking for something specific? We'll find it, certify it, and get you
-        the best deal.
-      </p>
-
-      <div class="hero-search">
-        <form action="/search/" method="get" class="hero-search-form">
-          <select name="make" class="hero-select">
-            <option value="">All Makes</option>
-            {
-              allMakes.map((make) => (
-                <option value={make}>
-                  {make} ({makeCounts[make]})
-                </option>
-              ))
-            }
-          </select>
-          <button type="submit" class="btn btn-primary">Search</button>
-        </form>
-        <p class="hero-search-label">
-          We found <strong>{totalListings}</strong> listings for you
+      <div class="hero-left">
+        <img
+          src="https://alfursanauto.ca/wp-content/uploads/2025/10/UCDA-Member-Logo-scaled-1-1536x907.gif"
+          alt="UCDA Member"
+          class="ucda-badge"
+        />
+        <h1>GOOD CARS. FAIR PRICES. NOTHING HIDDEN.</h1>
+        <p class="hero-subtitle">
+          Looking for something specific? We'll find it, certify it, and get you
+          the best deal.
         </p>
+        <a href="/search/" class="btn btn-outline-hero">View Cars</a>
+      </div>
+
+      <div class="hero-right">
+        <div class="hero-search-panel">
+          <form action="/search/" method="get" class="hero-search-form">
+            <select name="make" class="hero-field">
+              <option value="">All Makes</option>
+              {
+                allMakes.map((make) => (
+                  <option value={make}>
+                    {make} ({makeCounts[make]})
+                  </option>
+                ))
+              }
+            </select>
+            <div class="hero-price-row">
+              <select name="min_price" class="hero-field">
+                <option value="">Min Price</option>
+              </select>
+              <select name="max_price" class="hero-field">
+                <option value="">Max Price</option>
+              </select>
+            </div>
+            <div class="hero-search-actions">
+              <a href="/search/" class="hero-advanced">Advanced Search</a>
+              <button type="submit" class="btn btn-primary hero-search-btn"
+                >Search</button
+              >
+            </div>
+          </form>
+          <p class="hero-search-label">
+            We found <strong>{totalListings}</strong> listings for you.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -101,86 +136,93 @@ const localBusinessSchema = {
       </div>
 
       <div class="featured-grid">
-        {featuredCars[0] && (
-          <article class="card card-hero">
-            <a href={`/listing/${featuredCars[0].slug}/`} class="card-img-link">
-              {featuredCars[0].image ? (
-                <img src={featuredCars[0].image} alt={featuredCars[0].title} loading="lazy" />
-              ) : (
-                <div class="placeholder">No image</div>
-              )}
-              {featuredCars[0].offerType?.toLowerCase() === "sold" && (
-                <span class="sold-badge">Sold</span>
-              )}
-              {featuredCars[0].images.length > 0 && (
-                <span class="img-count">{featuredCars[0].images.length}</span>
-              )}
-            </a>
-            <div class="card-body">
-              <a href={`/listing/${featuredCars[0].slug}/`} class="card-title-link">
-                <h3>{featuredCars[0].title}</h3>
-              </a>
-              <p class="price">{formatPrice(featuredCars[0].price)}</p>
-              <div class="card-specs">
-                {featuredCars[0].year && <span>{featuredCars[0].year}</span>}
-                {featuredCars[0].mileage && <span>{featuredCars[0].mileage}</span>}
-                {featuredCars[0].transmission && <span>{featuredCars[0].transmission}</span>}
-                {featuredCars[0].fuelType && <span>{featuredCars[0].fuelType}</span>}
-                {featuredCars[0].driveType && <span>{featuredCars[0].driveType}</span>}
-              </div>
-            </div>
-          </article>
-        )}
-
-        <div class="featured-side">
-          {featuredCars.slice(1, 5).map((car) => (
-            <article class="card card-sm">
-              <a href={`/listing/${car.slug}/`} class="card-img-link">
-                {car.image ? (
-                  <img src={car.image} alt={car.title} loading="lazy" />
+        {
+          featuredCars[0] && (
+            <article class="card card-hero">
+              <a
+                href={`/listing/${featuredCars[0].slug}/`}
+                class="card-img-link"
+              >
+                {featuredCars[0].image ? (
+                  <img
+                    src={featuredCars[0].image}
+                    alt={featuredCars[0].title}
+                    loading="lazy"
+                  />
                 ) : (
                   <div class="placeholder">No image</div>
                 )}
-                {car.offerType?.toLowerCase() === "sold" && (
+                {featuredCars[0].offerType?.toLowerCase() === "sold" && (
                   <span class="sold-badge">Sold</span>
                 )}
-                {car.images.length > 0 && (
-                  <span class="img-count">{car.images.length}</span>
+                {featuredCars[0].images.length > 0 && (
+                  <span class="img-count">{featuredCars[0].images.length}</span>
                 )}
               </a>
               <div class="card-body">
-                <a href={`/listing/${car.slug}/`} class="card-title-link">
-                  <h3>{car.title}</h3>
+                <a
+                  href={`/listing/${featuredCars[0].slug}/`}
+                  class="card-title-link"
+                >
+                  <h3>{featuredCars[0].title}</h3>
                 </a>
-                <p class="price">{formatPrice(car.price)}</p>
+                <p class="price">{formatPrice(featuredCars[0].price)}</p>
                 <div class="card-specs">
-                  {car.year && <span>{car.year}</span>}
-                  {car.fuelType && <span>{car.fuelType}</span>}
-                  {car.driveType && <span>{car.driveType}</span>}
+                  {featuredCars[0].year && <span>{featuredCars[0].year}</span>}
+                  {featuredCars[0].mileageKm && (
+                    <span>{featuredCars[0].mileageKm}</span>
+                  )}
+                  {featuredCars[0].transmission && (
+                    <span>{featuredCars[0].transmission}</span>
+                  )}
+                  {featuredCars[0].fuelType && (
+                    <span>{featuredCars[0].fuelType}</span>
+                  )}
+                  {featuredCars[0].driveType && (
+                    <span>{featuredCars[0].driveType}</span>
+                  )}
                 </div>
               </div>
             </article>
-          ))}
+          )
+        }
+
+        <div class="featured-side">
+          {
+            featuredCars.slice(1, 5).map((car) => (
+              <article class="card card-sm">
+                <a href={`/listing/${car.slug}/`} class="card-img-link">
+                  {car.image ? (
+                    <img src={car.image} alt={car.title} loading="lazy" />
+                  ) : (
+                    <div class="placeholder">No image</div>
+                  )}
+                  {car.offerType?.toLowerCase() === "sold" && (
+                    <span class="sold-badge">Sold</span>
+                  )}
+                  {car.images.length > 0 && (
+                    <span class="img-count">{car.images.length}</span>
+                  )}
+                </a>
+                <div class="card-body">
+                  <a href={`/listing/${car.slug}/`} class="card-title-link">
+                    <h3>{car.title}</h3>
+                  </a>
+                  <p class="price">{formatPrice(car.price)}</p>
+                  <div class="card-specs">
+                    {car.year && <span>{car.year}</span>}
+                    {car.fuelType && <span>{car.fuelType}</span>}
+                    {car.driveType && <span>{car.driveType}</span>}
+                  </div>
+                </div>
+              </article>
+            ))
+          }
         </div>
       </div>
     </section>
 
-    <section class="makes">
-      <h2>Popular Makes</h2>
-      <div class="make-grid">
-        {
-          popularMakes.map(([make, count]) => (
-            <a
-              href={`/search/?make=${encodeURIComponent(make)}`}
-              class="make-pill"
-            >
-              <span>{make}</span>
-              <small>{count} Listings</small>
-            </a>
-          ))
-        }
-      </div>
-    </section>
+    <PopularMakes makes={popularMakesData} client:load />
 
     <section class="why-us">
       <h2>Why choose us?</h2>
@@ -243,12 +285,51 @@ const localBusinessSchema = {
     overflow: hidden;
   }
 
+  .hero-content {
+    max-width: 1466px;
+    margin: 0 auto;
+    padding: 0 30px;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 2rem;
+  }
+
+  .hero-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .hero-subtitle {
-    max-width: 64ch;
+    max-width: 48ch;
     color: var(--subtitle-on-dark);
     font-size: clamp(1rem, 3.5vw, 22px);
     font-weight: 700;
     line-height: clamp(1.5rem, 5vw, 36px);
+  }
+
+  .btn-outline-hero {
+    display: inline-block;
+    text-decoration: none;
+    border: 2px solid #fff;
+    color: #fff;
+    background: transparent;
+    padding: 0.7rem 2rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    margin-top: 0.5rem;
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+
+  .btn-outline-hero:hover {
+    background: #fff;
+    color: var(--dark);
   }
 
   h1 {
@@ -266,20 +347,79 @@ const localBusinessSchema = {
     margin: 0;
   }
 
-  .hero-content {
-    max-width: 1466px;
-    margin: 0 auto;
-    padding: 0 30px;
-    position: relative;
-    z-index: 1;
-  }
-
   .ucda-badge {
     width: 120px;
     height: auto;
     margin-bottom: 1rem;
     border-radius: 8px;
     object-fit: contain;
+  }
+
+  /* Hero search panel (right side white card) */
+  .hero-search-panel {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    min-width: 320px;
+    max-width: 380px;
+    color: var(--ink);
+  }
+
+  .hero-search-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .hero-field {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 600;
+    appearance: auto;
+  }
+
+  .hero-price-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .hero-search-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .hero-advanced {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .hero-advanced:hover {
+    color: var(--ink);
+  }
+
+  .hero-search-btn {
+    padding: 0.55rem 1.8rem;
+    font-size: 0.88rem;
+  }
+
+  .hero-search-label {
+    margin: 0.55rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .hero-search-label strong {
+    color: var(--ink);
   }
 
   .btn {
@@ -291,81 +431,9 @@ const localBusinessSchema = {
     font-size: 16px;
   }
 
-  .hero-search {
-    margin-top: 1.2rem;
-  }
-
-  .hero-search-label {
-    margin: 0.55rem 0 0;
-    font-size: 0.95rem;
-    color: var(--subtitle-on-dark);
-  }
-
-  .hero-search-label strong {
-    color: #fff;
-  }
-
-  .hero-search-form {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    align-items: stretch;
-  }
-
-  .hero-select {
-    flex: 1;
-    min-width: 180px;
-    max-width: 320px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 10px;
-    padding: 0.65rem 0.8rem;
-    font-size: 0.95rem;
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    font-weight: 600;
-  }
-
-  .hero-select option {
-    color: var(--ink);
-    background: #fff;
-  }
-
   .btn-primary {
     color: #fff;
     background: var(--brand-red);
-  }
-
-  .makes {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .make-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 0.7rem;
-    margin-top: 0.75rem;
-  }
-
-  .make-pill {
-    display: grid;
-    gap: 0.25rem;
-    padding: 0.72rem 0.8rem;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    text-decoration: none;
-    background: #fff;
-  }
-
-  .make-pill span {
-    font-weight: 800;
-  }
-
-  .make-pill small {
-    color: var(--muted);
   }
 
   .section-head {
@@ -380,11 +448,17 @@ const localBusinessSchema = {
   .section-eyebrow {
     width: 100%;
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: var(--brand-red);
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+
+  .section-head h2 {
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
   }
 
   .section-head a {
@@ -581,7 +655,7 @@ const localBusinessSchema = {
     width: 80px;
     height: 80px;
     object-fit: contain;
-    margin-bottom: 1rem;
+    margin: 0 auto 1rem;
   }
 
   .why-grid h3 {
@@ -600,7 +674,16 @@ const localBusinessSchema = {
 
   @media (max-width: 700px) {
     .hero {
-      padding: 1.25rem;
+      padding: 5rem 1.25rem 2rem;
+    }
+
+    .hero-content {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-search-panel {
+      min-width: auto;
+      max-width: 100%;
     }
 
     .featured-grid {
@@ -609,6 +692,250 @@ const localBusinessSchema = {
 
     .featured-side {
       grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<style is:global>
+  .pm-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .pm-heading {
+    margin: 0 0 0.75rem;
+    font-weight: 700;
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+  }
+
+  /* ── Tabs ── */
+  .pm-tabs-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 1.2rem;
+  }
+
+  .pm-tabs-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pm-tabs {
+    display: flex;
+    gap: 0.55rem;
+    white-space: nowrap;
+  }
+
+  .pm-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.6rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
+    text-align: left;
+    min-width: 110px;
+    flex-shrink: 0;
+  }
+
+  .pm-tab:hover {
+    border-color: var(--brand-red);
+  }
+
+  .pm-tab--active {
+    border-color: var(--brand-red);
+    background: var(--primary-light, #fff0eb);
+  }
+
+  .pm-tab-make {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+
+  .pm-tab-count {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  /* ── Carousel ── */
+  .pm-carousel {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .pm-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pm-carousel-track {
+    display: flex;
+    gap: 22px;
+  }
+
+  /* ── Card ── */
+  .pm-card {
+    flex: 0 0 calc(25% - 16.5px);
+    min-width: 0;
+    scroll-snap-align: start;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
+    transition: box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pm-card:hover {
+    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+  }
+
+  .pm-card-img-bg {
+    position: relative;
+  }
+
+  .pm-card-img-link {
+    display: block;
+    position: relative;
+    padding-top: 55.52%;
+    overflow: hidden;
+  }
+
+  .pm-card-img-link img,
+  .pm-card-img-link .pm-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: var(--bg-placeholder);
+  }
+
+  .pm-placeholder {
+    display: grid;
+    place-items: center;
+    color: var(--placeholder);
+    font-size: 0.9rem;
+  }
+
+  .pm-sold-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--brand-red);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    z-index: 1;
+  }
+
+  .pm-img-count {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+    z-index: 1;
+  }
+
+  .pm-img-count svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ── Card body ── */
+  .pm-card-body {
+    padding: 0.85rem 0.95rem;
+    flex: 1;
+  }
+
+  .pm-card-title-link {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .pm-card-body h4 {
+    margin: 0 0 0.3rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pm-price {
+    margin: 0 0 0.6rem;
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: var(--ink);
+  }
+
+  .pm-card-separator {
+    height: 1px;
+    background: var(--line);
+    margin-bottom: 0.6rem;
+  }
+
+  .pm-card-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.5rem;
+  }
+
+  .pm-card-specs div {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .pm-card-specs div + div::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--muted);
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  /* ── Responsive breakpoints matching live site ── */
+  @media (max-width: 1199px) {
+    .pm-card {
+      flex: 0 0 calc(33.333% - 15px);
+    }
+  }
+
+  @media (max-width: 899px) {
+    .pm-card {
+      flex: 0 0 calc(50% - 11px);
+    }
+  }
+
+  @media (max-width: 599px) {
+    .pm-card {
+      flex: 0 0 100%;
     }
   }
 </style>

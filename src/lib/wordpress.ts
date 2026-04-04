@@ -76,6 +76,16 @@ interface WpPost {
   };
 }
 
+interface WpPage {
+  id: number;
+  slug: string;
+  date?: string;
+  modified?: string;
+  title?: { rendered?: string };
+  content?: { rendered?: string };
+  excerpt?: { rendered?: string };
+}
+
 export interface BlogPost {
   id: number;
   slug: string;
@@ -85,6 +95,40 @@ export interface BlogPost {
   date: string;
   modified: string;
   featuredImage?: string;
+}
+
+export interface CmsPageContent {
+  id: number;
+  slug: string;
+  title: string;
+  htmlContent: string;
+  excerpt: string;
+  date?: string;
+  modified?: string;
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface FaqPageContent {
+  page: CmsPageContent | null;
+  items: FaqItem[];
+}
+
+export interface TeamPageContent {
+  page: CmsPageContent | null;
+  sourceSlug: string | null;
+}
+
+export interface ContactModel {
+  page: CmsPageContent | null;
+  address?: string;
+  phone?: string;
+  email?: string;
+  mapUrl?: string;
+  socialLinks: string[];
 }
 
 type VehicaTermKey =
@@ -385,6 +429,144 @@ const mapPost = (post: WpPost): BlogPost => {
     modified: post.modified,
     featuredImage,
   };
+};
+
+const mapPage = (page: WpPage): CmsPageContent => {
+  const htmlContent = page.content?.rendered ?? "";
+  return {
+    id: page.id,
+    slug: page.slug,
+    title: decodeEntities(page.title?.rendered ?? "Untitled page"),
+    htmlContent,
+    excerpt: stripHtml(page.excerpt?.rendered ?? htmlContent).slice(0, 280),
+    date: page.date,
+    modified: page.modified,
+  };
+};
+
+const PAGE_FIELDS = [
+  "id",
+  "slug",
+  "date",
+  "modified",
+  "title",
+  "content",
+  "excerpt",
+].join(",");
+
+const getPageBySlug = async (slug: string): Promise<CmsPageContent | null> => {
+  const endpoint = `${getApiBase()}/wp/v2/pages?slug=${encodeURIComponent(slug)}&per_page=1&_fields=${PAGE_FIELDS}`;
+  const response = await fetchWithRetry(endpoint, `getPageBySlug:${slug}`);
+
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as WpPage[];
+  const page = payload[0];
+  return page ? mapPage(page) : null;
+};
+
+const cleanText = (value: string): string =>
+  decodeEntities(stripHtml(value)).replace(/\s+/g, " ").trim();
+
+const extractFaqItems = (html: string): FaqItem[] => {
+  const detailMatches = [
+    ...html.matchAll(
+      /<summary[^>]*>([\s\S]*?)<\/summary>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi,
+    ),
+  ];
+  if (detailMatches.length > 0) {
+    return detailMatches
+      .map((match) => ({
+        question: cleanText(match[1] ?? ""),
+        answer: cleanText(match[2] ?? ""),
+      }))
+      .filter((item) => item.question && item.answer);
+  }
+
+  const headingMatches = [
+    ...html.matchAll(
+      /<h[2-6][^>]*>([\s\S]*?)<\/h[2-6]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi,
+    ),
+  ];
+  return headingMatches
+    .map((match) => ({
+      question: cleanText(match[1] ?? ""),
+      answer: cleanText(match[2] ?? ""),
+    }))
+    .filter((item) => item.question && item.answer);
+};
+
+const extractFirstMatch = (
+  input: string,
+  pattern: RegExp,
+): string | undefined => {
+  const match = input.match(pattern);
+  return match?.[1]?.trim();
+};
+
+const extractContactModel = (page: CmsPageContent | null): ContactModel => {
+  if (!page) {
+    return {
+      page: null,
+      socialLinks: [],
+    };
+  }
+
+  const html = page.htmlContent;
+  const phoneHref = extractFirstMatch(html, /href=["']tel:([^"']+)["']/i);
+  const emailHref = extractFirstMatch(html, /href=["']mailto:([^"']+)["']/i);
+  const mapHref = extractFirstMatch(
+    html,
+    /href=["'](https?:\/\/maps\.google\.[^"']+)["']/i,
+  );
+  const addressLabel = extractFirstMatch(
+    html,
+    /Address<\/strong>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i,
+  );
+
+  const socialLinks = [...html.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)]
+    .map((m) => m[1])
+    .filter((link) => /facebook|instagram|x\.com|twitter/i.test(link));
+
+  return {
+    page,
+    address: addressLabel ? cleanText(addressLabel) : undefined,
+    phone: phoneHref ? decodeURIComponent(phoneHref) : undefined,
+    email: emailHref ? decodeURIComponent(emailHref) : undefined,
+    mapUrl: mapHref,
+    socialLinks,
+  };
+};
+
+export const getAboutPageContent = async (): Promise<CmsPageContent | null> => {
+  return getPageBySlug("about-us");
+};
+
+export const getFaqPageContent = async (): Promise<FaqPageContent> => {
+  const page = await getPageBySlug("faq");
+  return {
+    page,
+    items: page ? extractFaqItems(page.htmlContent) : [],
+  };
+};
+
+export const getTeamPageContent = async (): Promise<TeamPageContent> => {
+  const primary = await getPageBySlug("our-team");
+  if (primary) {
+    return { page: primary, sourceSlug: "our-team" };
+  }
+
+  const fallback = await getPageBySlug("meet-the-team");
+  if (fallback) {
+    return { page: fallback, sourceSlug: "meet-the-team" };
+  }
+
+  return { page: null, sourceSlug: null };
+};
+
+export const getContactPageContent = async (): Promise<ContactModel> => {
+  const page = await getPageBySlug("contact-us");
+  return extractContactModel(page);
 };
 
 export const getPosts = async (limit = 20): Promise<BlogPost[]> => {

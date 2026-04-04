@@ -1,10 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-
-interface FaqItem {
-  question: string;
-  answer: string;
-}
+import { getFaqPageContent, type FaqItem } from "../../lib/wordpress";
 
 const faqLeft: FaqItem[] = [
   {
@@ -67,6 +63,30 @@ const faqRight: FaqItem[] = [
       "Absolutely. We offer competitive pricing tailored for export clients through a network of shippers, and we can assist with documentation, shipping logistics, and compliance to ensure a smooth transaction from purchase\u00a0to\u00a0delivery.",
   },
 ];
+
+type FetchState = "ok" | "not-found" | "error";
+
+let faqFetchState: FetchState = "ok";
+let cmsFaqItems: FaqItem[] = [];
+
+try {
+  const faq = await getFaqPageContent();
+  if (faq.page || faq.items.length > 0) {
+    cmsFaqItems = faq.items;
+  } else {
+    faqFetchState = "not-found";
+  }
+} catch (error) {
+  faqFetchState = "error";
+  console.error("[about-us] Failed to load FAQ content from WordPress", error);
+}
+
+const fallbackFaqItems = [...faqLeft, ...faqRight];
+const effectiveFaqItems =
+  cmsFaqItems.length > 0 ? cmsFaqItems : fallbackFaqItems;
+const faqMidpoint = Math.ceil(effectiveFaqItems.length / 2);
+const renderFaqLeft = effectiveFaqItems.slice(0, faqMidpoint);
+const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
 ---
 
 <Layout
@@ -74,34 +94,41 @@ const faqRight: FaqItem[] = [
   description="Learn about Alfursan Auto — a trusted used car dealership in the Greater Toronto Area specializing in retail sales, wholesale deals, and international exports."
 >
   <main class="container">
-    <!-- ── Heading ──────────────────────────────────── -->
-    <section class="heading">
-      <p class="kicker">About Us</p>
-      <h1>About us</h1>
-    </section>
+    {
+      faqFetchState !== "ok" && (
+        <p class="cms-status" role="status">
+          {faqFetchState === "error"
+            ? "Live FAQ content could not be loaded right now. Showing fallback content."
+            : "Live FAQ content is not available. Showing fallback content."}
+        </p>
+      )
+    }
 
     <!-- ── Intro (two-column: text + image) ─────────── -->
     <section class="intro">
       <div class="intro-text">
-        <p class="lead">
-          How Alfursan Auto began is rooted in one idea. Buying a car should be
-          simple, honest, and straightforward.
-        </p>
-        <p>
-          Founded by <strong>Raad Al-Husban</strong>, Alfursan Auto has grown
-          into a trusted name for used car sales, wholesale deals, and
-          international exports in the Greater Toronto Area. Every vehicle is
-          handpicked and inspected for quality and reliability.
-        </p>
-        <p>
-          From the moment you walk in, we aim to make your experience clear and
-          stress-free. Whether you're buying locally or exporting overseas, our
-          goal is to make sure you leave with confidence.
-        </p>
-        <p>
-          Our team is here to serve with transparency, knowledge, and a genuine
-          drive to help you find the right vehicle.
-        </p>
+        <>
+          <h1 class="about-title">About us</h1>
+          <p class="lead">
+            How Alfursan Auto began is rooted in one idea. Buying a car should
+            be simple, honest, and straightforward.
+          </p>
+          <p>
+            Founded by <strong>Raad Al-Husban</strong>, Alfursan Auto has grown
+            into a trusted name for used car sales, wholesale deals, and
+            international exports in the Greater Toronto Area. Every vehicle is
+            handpicked and inspected for quality and reliability.
+          </p>
+          <p class="callout">
+            From the moment you walk in, we aim to make your experience clear
+            and stress-free. Whether you're buying locally or exporting
+            overseas, our goal is to make sure you leave with confidence.
+          </p>
+          <p>
+            Our team is here to serve with transparency, knowledge, and a
+            genuine drive to help you find the right vehicle.
+          </p>
+        </>
 
         <div class="social-bar">
           <span class="social-label">Follow us</span>
@@ -194,7 +221,7 @@ const faqRight: FaqItem[] = [
       <div class="faq-grid">
         <div class="faq-column">
           {
-            faqLeft.map((item) => (
+            renderFaqLeft.map((item) => (
               <details class="faq-item">
                 <summary>{item.question}</summary>
                 <p>{item.answer}</p>
@@ -205,7 +232,7 @@ const faqRight: FaqItem[] = [
 
         <div class="faq-column">
           {
-            faqRight.map((item) => (
+            renderFaqRight.map((item) => (
               <details class="faq-item">
                 <summary>{item.question}</summary>
                 <p>{item.answer}</p>
@@ -223,72 +250,79 @@ const faqRight: FaqItem[] = [
   .container {
     max-width: 1466px;
     margin: 0 auto;
-    padding: 2rem 30px 4rem;
+    padding: 2.2rem 30px 4rem;
   }
 
-  /* ── Heading band ────────────────────────────────── */
-  .heading {
-    background: var(--dark);
-    color: #fff;
-    border-radius: 16px;
-    padding: 1.2rem;
-    margin-bottom: 2rem;
-  }
-
-  .kicker {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.8rem;
-    color: var(--subtitle-on-dark);
-    font-weight: 800;
-  }
-
-  h1 {
-    margin: 0.35rem 0 0;
-    font-size: clamp(1.45rem, 3.3vw, 2.2rem);
+  .cms-status {
+    margin: 0 0 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid #f2d6a1;
+    background: #fff4dd;
+    color: #7a4d00;
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
   /* ── Intro section ───────────────────────────────── */
   .intro {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    gap: clamp(1.5rem, 3vw, 2.8rem);
     margin-bottom: 3rem;
     align-items: start;
   }
 
+  .about-title {
+    margin: 0 0 1.15rem;
+    font-size: clamp(2.1rem, 5vw, 5.1rem);
+    line-height: 1.02;
+    color: #202638;
+    letter-spacing: -0.02em;
+  }
+
   .intro-text .lead {
-    font-size: 1.15rem;
-    font-weight: 500;
-    margin: 0 0 1.2rem;
-    color: var(--ink);
-    line-height: 1.6;
+    font-size: clamp(2rem, 2.15vw, 2.9rem);
+    font-weight: 400;
+    margin: 0 0 1.35rem;
+    color: #6a6d74;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+    max-width: 20ch;
   }
 
   .intro-text p {
-    margin: 0 0 1.2rem;
-    color: var(--muted-dark, var(--ink));
-    font-size: 1rem;
-    line-height: 1.75;
+    margin: 0 0 1.35rem;
+    color: #666a72;
+    font-size: clamp(1.02rem, 1.35vw, 1.12rem);
+    line-height: 1.72;
+    max-width: 42ch;
+  }
+
+  .intro-text .callout {
+    border-left: 5px solid #c8281b;
+    padding-left: 1.05rem;
+    color: #5f636b;
+    max-width: 46ch;
   }
 
   .intro-text strong {
-    color: var(--ink);
+    color: #4e525a;
   }
 
   .intro-image {
     position: relative;
-    border-radius: 16px;
+    border-radius: 28px;
     overflow: hidden;
-    min-height: 380px;
+    min-height: 460px;
   }
 
   .intro-image-inner {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, var(--dark) 0%, #1a1f2e 100%);
-    border-radius: 16px;
+    background: url("https://alfursanauto.ca/wp-content/uploads/2025/05/alfursan-banner.webp")
+      center center / cover no-repeat;
+    border-radius: 28px;
   }
 
   /* ── Social bar ──────────────────────────────────── */
@@ -296,7 +330,7 @@ const faqRight: FaqItem[] = [
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
   }
 
   .social-label {
@@ -486,7 +520,33 @@ const faqRight: FaqItem[] = [
     }
 
     .intro-image {
-      min-height: 240px;
+      order: -1;
+      min-height: 320px;
+      border-radius: 22px;
+    }
+
+    .intro-image-inner {
+      border-radius: 22px;
+    }
+
+    .about-title {
+      font-size: clamp(2.8rem, 11vw, 4.2rem);
+      margin-bottom: 1rem;
+    }
+
+    .intro-text .lead {
+      font-size: clamp(1.05rem, 7.2vw, 3rem);
+      max-width: none;
+      line-height: 1.26;
+    }
+
+    .intro-text p,
+    .intro-text .callout {
+      max-width: none;
+    }
+
+    .social-bar {
+      margin-top: 0.2rem;
     }
 
     .ceo-section {

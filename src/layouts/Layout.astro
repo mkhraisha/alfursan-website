@@ -75,6 +75,10 @@ const isActive = (href: string): boolean => {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      href="https://fonts.googleapis.com/css?family=Muli:300,300italic,400,400italic,500,500italic,600,600italic,700,700italic,800,800italic,900,900italic&display=swap"
+      rel="stylesheet"
+    />
+    <link
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap"
       rel="stylesheet"
     />
@@ -110,8 +114,9 @@ const isActive = (href: string): boolean => {
               </a>
             ))
           }
-          <a href="/contact-us/" class="cta">Book a Demo</a>
         </nav>
+
+        <a href="/contact-us/" class="cta">+ Book a Demo</a>
 
         <details class="mobile-nav">
           <summary>Menu</summary>
@@ -126,7 +131,7 @@ const isActive = (href: string): boolean => {
                 </a>
               ))
             }
-            <a href="/contact-us/" class="cta">Book a Demo</a>
+            <a href="/contact-us/" class="cta">+ Book a Demo</a>
           </nav>
         </details>
       </div>
@@ -136,17 +141,15 @@ const isActive = (href: string): boolean => {
 
     <footer class="site-footer">
       <div class="shell footer-grid">
-        <div>
-          <p class="footer-brand">AlfursanAuto.ca</p>
-          <p class="footer-text">
-            Trusted used car dealership in the Greater Toronto Area focused on
-            quality inventory, transparent service, and export-ready support.
-          </p>
-        </div>
-
-        <div>
-          <p class="footer-title">Quick Links</p>
-          <ul>
+        <div class="footer-col-brand">
+          <a href="/" class="footer-logo">
+            <img
+              src="https://alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent-reversed.png"
+              alt="AlfursanAuto.ca"
+              loading="lazy"
+            />
+          </a>
+          <ul class="footer-links-grid">
             <li><a href="/search/">Listings</a></li>
             <li><a href="/faq/">FAQ</a></li>
             <li><a href="/about-us/">About us</a></li>
@@ -154,38 +157,47 @@ const isActive = (href: string): boolean => {
           </ul>
         </div>
 
-        <div>
-          <p class="footer-title">Contact</p>
-          <ul>
-            <li><a href="tel:+14168384007">+1 (416) 838-4007</a></li>
-            <li>
-              <a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a>
-            </li>
-            <li>
-              <a
-                href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6"
-                target="_blank"
-                rel="noreferrer">5866 Mayfield Rd, Caledon, ON</a
-              >
-            </li>
-            <li class="social-links">
-              <a
-                href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/"
-                target="_blank"
-                rel="noreferrer">Facebook</a
-              >
-              <a
-                href="https://www.instagram.com/alfursanauto/"
-                target="_blank"
-                rel="noreferrer">Instagram</a
-              >
-            </li>
-          </ul>
+        <div class="footer-col-desc">
+          <p class="footer-text">
+            Alfursan Auto is a trusted used car dealership based in the Greater
+            Toronto Area, specializing in retail sales, wholesale deals, and
+            international vehicle exports. We're committed to offering quality
+            vehicles, transparent service, and personalized support whether
+            you're buying locally or shipping overseas. Driven by honesty and
+            reliability, Alfursan Auto makes your car buying experience smooth,
+            secure, and hassle-free.
+          </p>
+        </div>
+
+        <div class="footer-col-contact">
+          <a href="tel:+14168384007" class="footer-phone">
+            <span class="footer-phone-prefix">+1</span> (416) 838-4007
+          </a>
+          <a href="mailto:sales@alfursanauto.ca" class="footer-email"
+            >sales@alfursanauto.ca</a
+          >
+          <p class="footer-address">5866 Mayfield Rd, Caledon, ON L7C 0Z6</p>
         </div>
       </div>
 
       <div class="shell footer-bottom">
         <p>© 2025 Alfursan Auto. All rights reserved.</p>
+        <div class="footer-social">
+          <a
+            href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/"
+            target="_blank"
+            rel="noreferrer"
+            class="social-icon"
+            aria-label="Facebook">f</a
+          >
+          <a
+            href="https://www.instagram.com/alfursanauto/"
+            target="_blank"
+            rel="noreferrer"
+            class="social-icon"
+            aria-label="Instagram">in</a
+          >
+        </div>
       </div>
     </footer>
 
@@ -219,6 +231,10 @@ const isActive = (href: string): boolean => {
       sans-serif;
     color: var(--ink);
     background: var(--bg);
+    font-size: 16px;
+    line-height: 1.69;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
   }
 
   :global(a) {
@@ -253,6 +269,11 @@ const isActive = (href: string): boolean => {
     color: #fff;
   }
 
+  .site-header.header-transparent .desktop-nav a.active {
+    background: transparent;
+    font-weight: 800;
+  }
+
   .site-header.header-transparent .header-contact {
     color: rgba(255, 255, 255, 0.75) !important;
   }
@@ -261,9 +282,12 @@ const isActive = (href: string): boolean => {
     color: #fff !important;
   }
 
-  .site-header.header-transparent .desktop-nav .cta {
+  .site-header.header-transparent .desktop-nav .cta,
+  .site-header.header-transparent .cta {
     filter: none;
     color: #fff;
+    border-color: #fff;
+    background: transparent;
   }
 
   .site-header.header-transparent.scrolled {
@@ -293,8 +317,11 @@ const isActive = (href: string): boolean => {
     color: var(--brand-red) !important;
   }
 
-  .site-header.header-transparent.scrolled .desktop-nav .cta {
-    color: #fff;
+  .site-header.header-transparent.scrolled .desktop-nav .cta,
+  .site-header.header-transparent.scrolled .cta {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: transparent;
   }
 
   .shell {
@@ -303,7 +330,6 @@ const isActive = (href: string): boolean => {
     padding: 0.9rem 30px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 0.8rem;
   }
 
@@ -324,14 +350,17 @@ const isActive = (href: string): boolean => {
     align-items: center;
   }
 
+  .cta {
+    margin-left: auto;
+  }
+
   .desktop-nav a,
   .mobile-panel a {
     color: var(--ink);
     text-decoration: none;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-weight: 600;
     letter-spacing: 0.02em;
-    font-size: 0.82rem;
+    font-size: 0.88rem;
     border-radius: 999px;
     padding: 0.4rem 0.68rem;
   }
@@ -348,8 +377,25 @@ const isActive = (href: string): boolean => {
   }
 
   .desktop-nav .cta,
-  .mobile-panel .cta {
-    background: var(--brand-red);
+  .mobile-panel .cta,
+  .cta {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--ink);
+    font-weight: 700;
+    padding: 0.5rem 1.2rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    text-decoration: none;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .desktop-nav .cta:hover,
+  .mobile-panel .cta:hover,
+  .cta:hover {
+    background: var(--ink);
     color: #fff;
   }
 
@@ -407,34 +453,89 @@ const isActive = (href: string): boolean => {
 
   .footer-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr 1.2fr;
-    gap: 1.5rem;
-    padding-top: 2rem;
-    padding-bottom: 1.6rem;
+    grid-template-columns: 1fr 1.8fr 1fr;
+    gap: 2rem;
+    padding-top: 3rem;
+    padding-bottom: 2.5rem;
+    align-items: start;
   }
 
-  .footer-brand {
-    font-weight: 800;
-    margin: 0 0 0.7rem;
+  .footer-logo {
+    display: inline-block;
+    margin-bottom: 1.2rem;
+  }
+
+  .footer-logo img {
+    height: 36px;
+    width: auto;
+  }
+
+  .footer-links-grid {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1.5rem;
+  }
+
+  .footer-links-grid a {
+    font-size: 0.92rem;
+    color: var(--surface);
+    text-decoration: none;
+    position: relative;
+    padding-left: 0.9rem;
+  }
+
+  .footer-links-grid a::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--brand-red);
   }
 
   .footer-text {
     margin: 0;
     line-height: 1.7;
     color: var(--surface);
+    font-size: 0.92rem;
   }
 
-  .footer-title {
-    margin: 0 0 0.7rem;
+  .footer-col-contact {
+    text-align: right;
+  }
+
+  .footer-phone {
+    display: block;
+    text-decoration: none;
+    color: var(--surface);
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 0.3rem;
+  }
+
+  .footer-phone-prefix {
+    color: var(--brand-red);
     font-weight: 800;
   }
 
-  .site-footer ul {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: grid;
-    gap: 0.45rem;
+  .footer-email {
+    display: block;
+    text-decoration: none;
+    color: var(--surface);
+    font-size: 0.92rem;
+  }
+
+  .footer-address {
+    margin: 0.4rem 0 0;
+    font-size: 0.85rem;
+    color: var(--surface);
+    opacity: 0.75;
   }
 
   .site-footer a {
@@ -442,23 +543,43 @@ const isActive = (href: string): boolean => {
     color: var(--surface);
   }
 
-  .social-links {
-    display: flex;
-    gap: 0.7rem;
-    flex-wrap: wrap;
-  }
-
   .footer-bottom {
     border-top: 1px solid var(--footer-divider);
     padding-top: 0.8rem;
     padding-bottom: 1rem;
-    justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .footer-bottom p {
     margin: 0;
     color: var(--surface);
     font-size: 0.85rem;
+  }
+
+  .footer-social {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .social-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--footer-divider);
+    color: var(--surface);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .social-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
   }
 
   @media (max-width: 640px) {

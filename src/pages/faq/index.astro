@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { getFaqPageContent } from "../../lib/wordpress";
 
 interface FaqItem {
   question: string;
@@ -67,75 +68,142 @@ const rightColumn: FaqItem[] = [
       "Absolutely. We offer competitive pricing tailored for export clients through a network of shippers, and we can assist with documentation, shipping logistics, and compliance to ensure a smooth transaction from purchase\u00a0to\u00a0delivery.",
   },
 ];
+
+type FetchState = "ok" | "not-found" | "error";
+const MIN_FAQ_ITEMS_FOR_CMS = 8;
+
+let fetchState: FetchState = "ok";
+let cmsFaqItems: FaqItem[] = [];
+
+try {
+  const faq = await getFaqPageContent();
+  // Use CMS items only when parsing returned a complete FAQ set.
+  if (faq.items.length >= MIN_FAQ_ITEMS_FOR_CMS) {
+    cmsFaqItems = faq.items;
+  } else if (!faq.page) {
+    fetchState = "not-found";
+  }
+} catch (error) {
+  fetchState = "error";
+  console.error("[faq] Failed to load FAQ content from WordPress", error);
+}
+
+const fallbackFaqItems = [...leftColumn, ...rightColumn];
+const effectiveFaqItems =
+  cmsFaqItems.length > 0 ? cmsFaqItems : fallbackFaqItems;
+const midpoint = Math.ceil(effectiveFaqItems.length / 2);
+const renderLeftColumn = effectiveFaqItems.slice(0, midpoint);
+const renderRightColumn = effectiveFaqItems.slice(midpoint);
 ---
 
 <Layout
-  title="FAQ | Alfursan Auto"
-  description="Frequently asked questions about buying, financing, exporting, and servicing vehicles at Alfursan Auto."
+  title="FAQ - AlfursanAuto.ca"
+  description="FAQ about buying, financing, delivery, certification, and export services at Alfursan Auto."
+  transparentHeader={true}
 >
   <main class="container">
-    <section class="heading">
-      <p class="kicker">Support</p>
-      <h1>Frequently Asked Questions</h1>
+    {
+      fetchState !== "ok" && (
+        <p class="cms-status" role="status">
+          {fetchState === "error"
+            ? "Live FAQ content could not be loaded right now. Showing fallback content."
+            : "Live FAQ content is not available. Showing fallback content."}
+        </p>
+      )
+    }
+
+    <section class="faq-shell">
+      <section class="heading">
+        <h2>Frequently Asked Questions</h2>
+      </section>
+
+      <div class="faq-grid">
+        <div class="faq-column">
+          {
+            renderLeftColumn.map((item, index) => (
+              <details class="faq-item" open={index === 0}>
+                <summary class="faq-question">
+                  <span>{item.question}</span>
+                </summary>
+                <div class="faq-answer">
+                  <p>{item.answer}</p>
+                </div>
+              </details>
+            ))
+          }
+        </div>
+
+        <div class="faq-column">
+          {
+            renderRightColumn.map((item, index) => (
+              <details class="faq-item" open={index === 0}>
+                <summary class="faq-question">
+                  <span>{item.question}</span>
+                </summary>
+                <div class="faq-answer">
+                  <p>{item.answer}</p>
+                </div>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="cta-row">
+        <a href="/about-us/" class="btn">Learn more</a>
+      </div>
     </section>
-
-    <div class="faq-grid">
-      <div class="faq-column">
-        {
-          leftColumn.map((item) => (
-            <details class="faq-item">
-              <summary>{item.question}</summary>
-              <p>{item.answer}</p>
-            </details>
-          ))
-        }
-      </div>
-
-      <div class="faq-column">
-        {
-          rightColumn.map((item) => (
-            <details class="faq-item">
-              <summary>{item.question}</summary>
-              <p>{item.answer}</p>
-            </details>
-          ))
-        }
-      </div>
-    </div>
-
-    <div class="cta-row">
-      <a href="/about-us/" class="btn">Learn more</a>
-    </div>
   </main>
 </Layout>
 
 <style>
   .container {
+    position: relative;
     max-width: 1466px;
     margin: 0 auto;
-    padding: 2rem 30px 4rem;
+    padding: calc(2rem + 84px) 30px 4rem;
+  }
+
+  .container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 100vw;
+    height: 110px;
+    transform: translateX(-50%);
+    background: #040404;
+    z-index: -1;
+  }
+
+  .faq-shell {
+    background: #d4d8e2;
+    border-radius: 24px;
+    padding: clamp(1.2rem, 2vw, 1.8rem);
+  }
+
+  .cms-status {
+    margin: 0 0 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid #f2d6a1;
+    background: #fff4dd;
+    color: #7a4d00;
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
   .heading {
-    background: var(--dark);
-    color: #fff;
-    border-radius: 16px;
-    padding: 1.2rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: clamp(1rem, 1.8vw, 1.9rem);
   }
 
-  .kicker {
+  h2 {
     margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.8rem;
-    color: var(--subtitle-on-dark);
+    font-size: clamp(2.4rem, 5vw, 4.6rem);
+    line-height: 1.08;
     font-weight: 800;
-  }
-
-  h1 {
-    margin: 0.35rem 0 0;
-    font-size: clamp(1.45rem, 3.3vw, 2.2rem);
+    text-align: center;
+    color: #1f2434;
   }
 
   .faq-grid {
@@ -153,66 +221,93 @@ const rightColumn: FaqItem[] = [
   .faq-column {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.7rem;
   }
 
   .faq-item {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    background: #e5e5e8;
+    border: 1px solid #c5ccda;
+    border-radius: 20px;
     overflow: hidden;
+    transition: border-color 0.2s ease;
   }
 
-  .faq-item summary {
-    padding: 1rem 1.2rem;
-    font-weight: 700;
-    font-size: 0.95rem;
-    cursor: pointer;
+  .faq-item[open] {
+    border-color: #cd463a;
+  }
+
+  .faq-question {
     list-style: none;
+    padding: clamp(1rem, 1.2vw, 1.35rem) clamp(1rem, 1.4vw, 1.4rem);
+    font-weight: 700;
+    font-size: clamp(1.05rem, 1.35vw, 1.15rem);
+    color: #222838;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    text-align: left;
   }
 
-  .faq-item summary::-webkit-details-marker {
+  .faq-question::-webkit-details-marker {
     display: none;
   }
 
-  .faq-item summary::after {
-    content: "+";
-    font-size: 1.3rem;
+  .faq-question span:first-child {
+    display: inline-block;
+  }
+
+  .faq-question::after {
+    content: "⌄";
+    font-size: 1.6rem;
     font-weight: 400;
-    color: var(--muted);
+    line-height: 1;
+    color: #131313;
     flex-shrink: 0;
-    transition: transform 0.2s;
+    transition: transform 0.2s ease;
   }
 
-  .faq-item[open] summary::after {
-    content: "−";
+  .faq-item[open] .faq-question::after {
+    transform: rotate(180deg);
   }
 
-  .faq-item p {
+  .faq-answer {
+    border-top: 1px solid #cd463a;
+  }
+
+  .faq-answer p {
     margin: 0;
-    padding: 0 1.2rem 1rem;
-    color: var(--muted-dark);
-    font-size: 0.92rem;
-    line-height: 1.6;
+    padding: 0 clamp(1rem, 1.3vw, 1.4rem) clamp(1.1rem, 1.4vw, 1.35rem);
+    color: #60656f;
+    font-size: clamp(1rem, 1.18vw, 1.04rem);
+    line-height: 1.65;
   }
 
   .cta-row {
     text-align: center;
-    margin-top: 2rem;
+    margin-top: 2.3rem;
   }
 
   .btn {
     display: inline-block;
     text-decoration: none;
-    background: var(--brand-red);
+    background: #c92214;
     color: #fff;
-    border-radius: 10px;
-    padding: 0.7rem 1.6rem;
+    border-radius: 12px;
+    padding: 0.72rem 1.95rem;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 900px) {
+    .faq-shell {
+      border-radius: 20px;
+    }
+
+    h2 {
+      max-width: 10ch;
+      margin: 0 auto;
+    }
   }
 </style>

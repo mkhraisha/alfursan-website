@@ -33,10 +33,13 @@ export default function LoanCalculator() {
     totalInterest = totalPayments - principal;
   }
 
+  const paymentText = canCalculate ? formatCurrency(monthlyPayment) : "-";
+  const interestText = canCalculate ? formatCurrency(totalInterest) : "-";
+  const totalText = canCalculate ? formatCurrency(totalPayments) : "-";
+
   return (
     <div className="calc-wrapper">
       <div className="calc-intro">
-        <h2>Loan Calculator</h2>
         <p>
           Use our loan calculator to calculate payments over the life of your
           loan. Enter your information to see how much your monthly payments
@@ -47,20 +50,23 @@ export default function LoanCalculator() {
 
       <form className="calc-fields" onSubmit={(e) => e.preventDefault()}>
         <label>
-          <span>
+          <span className="label-text">
             Price <span className="required">*</span>
           </span>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="e.g. 20000"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-          />
+          <div className="input-with-suffix">
+            <span className="prefix icon-prefix icon-price">◈</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="e.g. 20000"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          </div>
         </label>
 
         <label>
-          <span>
+          <span className="label-text">
             Interest Rate <span className="required">*</span>
           </span>
           <div className="input-with-suffix">
@@ -70,24 +76,27 @@ export default function LoanCalculator() {
               value={rate}
               onChange={(e) => setRate(e.target.value)}
             />
-            <span className="suffix">%</span>
+            <span className="suffix icon-suffix">%</span>
           </div>
         </label>
 
         <label>
-          <span>
+          <span className="label-text">
             Period (months) <span className="required">*</span>
           </span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={months}
-            onChange={(e) => setMonths(e.target.value)}
-          />
+          <div className="input-with-suffix">
+            <span className="prefix icon-prefix icon-period">▦</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
+            />
+          </div>
         </label>
 
         <label>
-          <span>Down Payment</span>
+          <span className="label-text">Down Payment</span>
           <div className="input-with-suffix">
             <span className="prefix">$</span>
             <input
@@ -104,20 +113,20 @@ export default function LoanCalculator() {
       <div className="results">
         <div className="result-col">
           <h3>Monthly Payment</h3>
-          <p className="result-value">
-            {canCalculate ? formatCurrency(monthlyPayment) : "-"}
+          <p className={`result-value ${!canCalculate ? "placeholder" : ""}`}>
+            {paymentText}
           </p>
         </div>
         <div className="result-col">
           <h3>Total Interest</h3>
-          <p className="result-value">
-            {canCalculate ? formatCurrency(totalInterest) : "-"}
+          <p className={`result-value ${!canCalculate ? "placeholder" : ""}`}>
+            {interestText}
           </p>
         </div>
         <div className="result-col">
           <h3>Total Payments</h3>
-          <p className="result-value">
-            {canCalculate ? formatCurrency(totalPayments) : "-"}
+          <p className={`result-value ${!canCalculate ? "placeholder" : ""}`}>
+            {totalText}
           </p>
         </div>
       </div>

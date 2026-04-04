@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { getTeamPageContent } from "../../lib/wordpress";
 
 const stats = [
   { value: "15+", label: "Years in Business" },
@@ -7,6 +8,23 @@ const stats = [
   { value: "50k+", label: "Cars Sold" },
   { value: "8", label: "Locations" },
 ];
+
+type FetchState = "ok" | "not-found" | "error";
+
+let fetchState: FetchState = "ok";
+let teamHtml: string | null = null;
+
+try {
+  const team = await getTeamPageContent();
+  if (team.page) {
+    teamHtml = team.page.htmlContent;
+  } else {
+    fetchState = "not-found";
+  }
+} catch (error) {
+  fetchState = "error";
+  console.error("[our-team] Failed to load team content from WordPress", error);
+}
 ---
 
 <Layout
@@ -14,6 +32,16 @@ const stats = [
   description="Meet the Alfursan Auto team. We've been proudly serving our community for over 15 years, helping you find a car that fits your needs and budget."
 >
   <main class="container">
+    {
+      fetchState !== "ok" && (
+        <p class="cms-status" role="status">
+          {fetchState === "error"
+            ? "Live team content could not be loaded right now. Showing fallback content."
+            : "Live team content is not available. Showing fallback content."}
+        </p>
+      )
+    }
+
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="/">Homepage</a>
       <span class="sep">&rsaquo;</span>
@@ -26,12 +54,20 @@ const stats = [
     </section>
 
     <section class="intro-card">
-      <h2>We've been proudly serving our community for over 15 years</h2>
-      <p>
-        We know how difficult it can be to find your dream car, and our team of
-        experts are dedicated to helping you find a model that not only
-        interests you but fits with your budget.
-      </p>
+      {
+        teamHtml ? (
+          <div class="cms-content" set:html={teamHtml} />
+        ) : (
+          <>
+            <h2>We've been proudly serving our community for over 15 years</h2>
+            <p>
+              We know how difficult it can be to find your dream car, and our
+              team of experts are dedicated to helping you find a model that not
+              only interests you but fits with your budget.
+            </p>
+          </>
+        )
+      }
     </section>
 
     <section class="stats-row">
@@ -66,6 +102,24 @@ const stats = [
     max-width: 1466px;
     margin: 0 auto;
     padding: 2rem 30px 4rem;
+  }
+
+  .cms-status {
+    margin: 0 0 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid #f2d6a1;
+    background: #fff4dd;
+    color: #7a4d00;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .cms-content :global(p) {
+    margin: 0 0 1rem;
+    line-height: 1.75;
+    color: var(--muted-dark, var(--ink));
+    font-size: 1.05rem;
   }
 
   .breadcrumb {

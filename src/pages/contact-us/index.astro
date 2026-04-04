@@ -1,5 +1,66 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import { getContactPageContent } from "../../lib/wordpress";
+
+type FetchState = "ok" | "not-found" | "error";
+
+const fallbackIntro =
+  "Alfursan Auto is a trusted used car dealership based in the Greater Toronto Area, specializing in retail sales, wholesale deals, and international vehicle exports.";
+const fallbackAddress = "5866 Mayfield Rd, Caledon, ON L7C 0Z6";
+const fallbackMapHref =
+  "https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6";
+const fallbackPhone = "+1 (416) 838-4007";
+const fallbackEmail = "sales@alfursanauto.ca";
+const fallbackSocialLinks = [
+  {
+    href: "https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/",
+    label: "Facebook",
+  },
+  {
+    href: "https://www.instagram.com/alfursanauto/",
+    label: "Instagram",
+  },
+];
+
+const labelForSocialLink = (href: string): string => {
+  if (/instagram/i.test(href)) return "Instagram";
+  if (/facebook/i.test(href)) return "Facebook";
+  if (/x\.com|twitter/i.test(href)) return "X";
+  return "Social";
+};
+
+let fetchState: FetchState = "ok";
+let introText = fallbackIntro;
+let address = fallbackAddress;
+let mapHref = fallbackMapHref;
+let phone = fallbackPhone;
+let email = fallbackEmail;
+let socialLinks = fallbackSocialLinks;
+
+try {
+  const contact = await getContactPageContent();
+  if (contact.page) {
+    introText = contact.page.excerpt || fallbackIntro;
+    address = contact.address || fallbackAddress;
+    mapHref = contact.mapUrl || fallbackMapHref;
+    phone = contact.phone || fallbackPhone;
+    email = contact.email || fallbackEmail;
+    if (contact.socialLinks.length > 0) {
+      socialLinks = contact.socialLinks.map((href) => ({
+        href,
+        label: labelForSocialLink(href),
+      }));
+    }
+  } else {
+    fetchState = "not-found";
+  }
+} catch (error) {
+  fetchState = "error";
+  console.error(
+    "[contact-us] Failed to load contact content from WordPress",
+    error,
+  );
+}
 ---
 
 <Layout
@@ -7,6 +68,16 @@ import Layout from "../../layouts/Layout.astro";
   description="Get in touch with Alfursan Auto — a trusted used car dealership in the Greater Toronto Area. Call, email, or visit us today."
 >
   <main class="container">
+    {
+      fetchState !== "ok" && (
+        <p class="cms-status" role="status">
+          {fetchState === "error"
+            ? "Live contact content could not be loaded right now. Showing fallback content."
+            : "Live contact content is not available. Showing fallback content."}
+        </p>
+      )
+    }
+
     <section class="heading">
       <p class="kicker">Contact</p>
       <h1>Contact us</h1>
@@ -15,42 +86,31 @@ import Layout from "../../layouts/Layout.astro";
     <div class="two-col">
       <article class="content-card">
         <h2>Get in Touch</h2>
-        <p class="intro">
-          Alfursan Auto is a trusted used car dealership based in the Greater
-          Toronto Area, specializing in retail sales, wholesale deals, and
-          international vehicle exports.
-        </p>
+        <p class="intro">{introText}</p>
 
         <div class="contact-info">
           <div class="info-item">
             <strong>Address</strong>
-            <a
-              href="https://maps.google.com/?q=5866+Mayfield+Rd%2C+Caledon%2C+ON+L7C+0Z6"
-              target="_blank"
-              rel="noreferrer">5866 Mayfield Rd, Caledon, ON L7C 0Z6</a
-            >
+            <a href={mapHref} target="_blank" rel="noreferrer">{address}</a>
           </div>
           <div class="info-item">
             <strong>Phone</strong>
-            <a href="tel:+14168384007">+1 (416) 838-4007</a>
+            <a href={`tel:${phone}`}>{phone}</a>
           </div>
           <div class="info-item">
             <strong>Email</strong>
-            <a href="mailto:sales@alfursanauto.ca">sales@alfursanauto.ca</a>
+            <a href={`mailto:${email}`}>{email}</a>
           </div>
           <div class="info-item">
             <strong>Follow Us</strong>
             <div class="social">
-              <a
-                href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/"
-                target="_blank"
-                rel="noreferrer">Facebook</a
-              >
-              <a
-                href="https://www.instagram.com/alfursanauto/"
-                target="_blank"
-                rel="noreferrer">Instagram</a
-              >
+              {
+                socialLinks.map((social) => (
+                  <a href={social.href} target="_blank" rel="noreferrer">
+                    {social.label}
+                  </a>
+                ))
+              }
             </div>
           </div>
         </div>
@@ -123,6 +183,17 @@ import Layout from "../../layouts/Layout.astro";
     max-width: 1466px;
     margin: 0 auto;
     padding: 2rem 30px 4rem;
+  }
+
+  .cms-status {
+    margin: 0 0 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid #f2d6a1;
+    background: #fff4dd;
+    color: #7a4d00;
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
   .heading {
