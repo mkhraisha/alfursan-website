@@ -1,5 +1,7 @@
 # Astro Starter Kit: Basics
 
+This entire Repo is vibe coded.
+
 ```sh
 npm create astro@latest -- --template basics
 ```
