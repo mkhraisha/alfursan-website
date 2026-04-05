@@ -644,7 +644,7 @@ export default function InventoryFilters({ cars }: Props) {
         {paginatedCars.map((car) => (
           <article className="car-row" key={car.id}>
             <a
-              href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+              href={`/listing/${car.slug}/`}
               className="car-thumb-link"
             >
               {car.image ? (
@@ -667,7 +667,7 @@ export default function InventoryFilters({ cars }: Props) {
 
             <div className="car-details">
               <a
-                href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+                href={`/listing/${car.slug}/`}
                 className="car-title-link"
               >
                 <h2 className="car-title">{car.title}</h2>
@@ -691,7 +691,7 @@ export default function InventoryFilters({ cars }: Props) {
             <div className="car-price-col">
               <p className="car-price">{formatPrice(car.price)}</p>
               <a
-                href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+                href={`/listing/${car.slug}/`}
                 className="financing-link"
               >
                 Calculate financing

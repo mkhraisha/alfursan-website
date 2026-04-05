@@ -15,7 +15,7 @@ const soldCars = allCars.filter(
 >
   <main class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href={import.meta.env.BASE_URL}>Homepage</a>
+      <a href="/">Homepage</a>
       <span class="sep">&rsaquo;</span>
       <span>Sold</span>
     </nav>
@@ -24,7 +24,7 @@ const soldCars = allCars.filter(
       <h1>Sold</h1>
       <p>
         These vehicles have already been sold. Browse to see what kinds of cars
-        we carry, or <a href={`${import.meta.env.BASE_URL}search/`}>view available listings</a>.
+        we carry, or <a href="/search/">view available listings</a>.
       </p>
     </section>
     <InventoryFilters cars={soldCars} client:load />

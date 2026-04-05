@@ -1,13 +1,14 @@
 // @ts-check
 import { defineConfig } from "astro/config";
-
+import vercel from "@astrojs/vercel";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://mkhraisha.github.io",
-  base: "/alfursan-website",
+  output: "static",
+  adapter: vercel(),
+  site: "https://alfursan-website.vercel.app",
   trailingSlash: "always",
   redirects: {
     // Legacy utility/page aliases

@@ -55,7 +55,7 @@ export default function PopularMakes({ makes }: Props) {
           {cars.map((car) => (
             <article className="pm-card" key={car.id}>
               <div className="pm-card-img-bg">
-                <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} className="pm-card-img-link">
+                <a href={`/listing/${car.slug}/`} className="pm-card-img-link">
                   {car.image ? (
                     <img src={car.image} alt={car.title} loading="lazy" />
                   ) : (
@@ -85,7 +85,7 @@ export default function PopularMakes({ makes }: Props) {
               </div>
               <div className="pm-card-body">
                 <a
-                  href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+                  href={`/listing/${car.slug}/`}
                   className="pm-card-title-link"
                 >
                   <h4>{car.title}</h4>
@@ -118,7 +118,7 @@ export default function PopularMakes({ makes }: Props) {
         </div>
         {activeGroup && (
           <a
-            href={`${import.meta.env.BASE_URL}search/?make=${encodeURIComponent(activeMake.toLowerCase())}`}
+            href={`/search/?make=${encodeURIComponent(activeMake.toLowerCase())}`}
             className="pm-view-all"
           >
             View {activeGroup.count} {activeMake}

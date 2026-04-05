@@ -97,7 +97,7 @@ const localBusinessSchema = {
           Looking for something specific? We'll find it, certify it, and get you
           the best deal.
         </p>
-        <a href={`${import.meta.env.BASE_URL}search/`} class="btn btn-outline-hero">View Cars</a>
+        <a href="/search/" class="btn btn-outline-hero">View Cars</a>
       </div>
 
       <div class="hero-right">
@@ -122,7 +122,7 @@ const localBusinessSchema = {
               </select>
             </div>
             <div class="hero-search-actions">
-              <a href={`${import.meta.env.BASE_URL}search/`} class="hero-advanced">Advanced Search</a>
+              <a href="/search/" class="hero-advanced">Advanced Search</a>
               <button type="submit" class="btn btn-primary hero-search-btn"
                 >Search</button
               >
@@ -156,7 +156,7 @@ const localBusinessSchema = {
           featuredCars[0] && (
             <article class="card card-hero">
               <a
-                href={`${import.meta.env.BASE_URL}listing/${featuredCars[0].slug}/`}
+                href={`/listing/${featuredCars[0].slug}/`}
                 class="card-img-link"
               >
                 {featuredCars[0].image ? (
@@ -177,7 +177,7 @@ const localBusinessSchema = {
               </a>
               <div class="card-body">
                 <a
-                  href={`${import.meta.env.BASE_URL}listing/${featuredCars[0].slug}/`}
+                  href={`/listing/${featuredCars[0].slug}/`}
                   class="card-title-link"
                 >
                   <h3>{featuredCars[0].title}</h3>
@@ -209,7 +209,7 @@ const localBusinessSchema = {
           {
             featuredCars.slice(1, 5).map((car) => (
               <article class="card card-sm">
-                <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} class="card-img-link">
+                <a href={`/listing/${car.slug}/`} class="card-img-link">
                   {car.image ? (
                     <img src={car.image} alt={car.title} loading="lazy" />
                   ) : (
@@ -223,7 +223,7 @@ const localBusinessSchema = {
                   )}
                 </a>
                 <div class="card-body">
-                  <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} class="card-title-link">
+                  <a href={`/listing/${car.slug}/`} class="card-title-link">
                     <h3>{car.title}</h3>
                   </a>
                   <p class="price">{formatPrice(car.price)}</p>
@@ -255,7 +255,7 @@ const localBusinessSchema = {
           </a>
         </div>
       </div>
-      <a href={`${import.meta.env.BASE_URL}search/`} class="btn btn-primary social-bar-cta">View {totalListings} Used</a>
+      <a href="/search/" class="btn btn-primary social-bar-cta">View {totalListings} Used</a>
     </div>
 
     <PopularMakes makes={popularMakesData} client:load />
