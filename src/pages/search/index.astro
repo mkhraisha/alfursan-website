@@ -7,7 +7,7 @@ const cars = await getCars(100);
 ---
 
 <Layout
-  title="Listings | Alfursan Auto"
+  title="Search | Alfursan Auto"
   description="Browse available vehicles at Alfursan Auto."
 >
   <main class="container">
@@ -16,30 +16,22 @@ const cars = await getCars(100);
       <span class="sep">&rsaquo;</span>
       <span>Search</span>
     </nav>
-    <section class="heading">
-      <p class="kicker">Inventory</p>
-      <h1>Available Listings</h1>
-      <p>
-        Browse inspected vehicles and filter results to match your budget and
-        preferences.
-      </p>
-    </section>
     <InventoryFilters cars={cars} client:load />
   </main>
 </Layout>
 
 <style>
   .container {
-    max-width: 1466px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 2rem 30px 4rem;
+    padding: 1.25rem 24px 4rem;
   }
 
   .breadcrumb {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     font-size: 0.85rem;
   }
 
@@ -57,88 +49,66 @@ const cars = await getCars(100);
     color: var(--muted);
   }
 
-  .heading {
-    background: var(--dark);
-    color: #fff;
-    border-radius: 16px;
-    padding: 1.2rem;
-    margin-bottom: 1rem;
-  }
-
-  .kicker {
-    margin: 0;
-    font-size: 0.8rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--subtitle-on-dark);
-    text-transform: uppercase;
-  }
-
-  h1 {
-    margin: 0.35rem 0;
-    font-size: clamp(1.45rem, 3.3vw, 2.2rem);
-  }
-
-  .heading p {
-    margin: 0;
-    color: var(--subtitle-on-dark);
-  }
-
+  /* ── Filter bar ── */
   :global(.filters) {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.8rem;
-    margin-bottom: 0.9rem;
-    background: var(--surface);
+    background: #f5f6f8;
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 0.9rem;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-  }
-
-  :global(.filters label) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--filter-label);
-  }
-
-  :global(.filters input),
-  :global(.filters select) {
-    border: 1px solid var(--input-border);
     border-radius: 8px;
-    padding: 0.52rem 0.6rem;
-    font-size: 0.92rem;
+    padding: 0.7rem 1rem;
+    margin-bottom: 0.6rem;
+  }
+
+  :global(.filter-row) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  :global(.filter-row select),
+  :global(.filter-row input) {
+    flex: 1 1 130px;
+    min-width: 0;
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    padding: 0.46rem 0.55rem;
+    font-size: 0.86rem;
     background: #fff;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  :global(.filter-actions) {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
   :global(.reset) {
-    align-self: end;
-    border: 1px solid var(--active-filter-border);
-    background: var(--bg-active-filter);
-    color: var(--active-filter-text);
-    border-radius: 8px;
-    padding: 0.52rem 0.6rem;
-    font-weight: 700;
+    background: none;
+    border: none;
+    color: var(--brand-red);
+    font-size: 0.86rem;
+    font-weight: 600;
     cursor: pointer;
+    padding: 0.46rem 0.4rem;
+    text-decoration: underline;
+    white-space: nowrap;
   }
 
   :global(.more-filters-toggle) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    color: var(--ink);
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-weight: 700;
-    font-size: 0.88rem;
+    background: #fff;
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    padding: 0.46rem 0.8rem;
+    font-size: 0.86rem;
+    font-weight: 600;
     cursor: pointer;
-    margin-bottom: 0.6rem;
-    transition: border-color 0.15s;
+    color: var(--ink);
+    white-space: nowrap;
+    transition: border-color 0.15s, color 0.15s;
   }
 
   :global(.more-filters-toggle:hover) {
@@ -146,219 +116,299 @@ const cars = await getCars(100);
     color: var(--brand-red);
   }
 
+  /* ── Extra filters ── */
   :global(.extra-filters) {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.8rem;
-    margin-bottom: 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 0.9rem;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-  }
-
-  :global(.extra-filters label) {
     display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--filter-label);
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    padding: 0.7rem 1rem;
+    background: #f5f6f8;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
   }
 
   :global(.extra-filters select) {
-    border: 1px solid var(--input-border);
+    flex: 1 1 155px;
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    padding: 0.46rem 0.55rem;
+    font-size: 0.86rem;
+    background: #fff;
+    color: var(--ink);
+  }
+
+  /* ── Results header ── */
+  :global(.results-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.65rem;
+  }
+
+  :global(.results-count) {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  :global(.sort-group) {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.86rem;
+  }
+
+  :global(.sort-label) {
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  :global(.sort-select) {
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    padding: 0.38rem 0.55rem;
+    font-size: 0.86rem;
+    background: #fff;
+    color: var(--ink);
+  }
+
+  /* ── Inventory list ── */
+  :global(.inventory-list) {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
     border-radius: 8px;
-    padding: 0.52rem 0.6rem;
-    font-size: 0.92rem;
+    overflow: hidden;
     background: #fff;
   }
 
-  :global(.muted) {
-    color: var(--meta);
-    margin-bottom: 1.5rem;
-  }
-
-  :global(.grid) {
-    display: grid;
+  :global(.car-row) {
+    display: flex;
+    align-items: center;
     gap: 1rem;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    transition: background 0.12s;
   }
 
-  :global(.card) {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-    transition: box-shadow 0.2s;
+  :global(.car-row:last-child) {
+    border-bottom: none;
   }
 
-  :global(.card:hover) {
-    box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+  :global(.car-row:hover) {
+    background: #fafbfc;
   }
 
-  :global(.card-img-link) {
-    display: block;
+  :global(.car-thumb-link) {
     position: relative;
+    flex-shrink: 0;
+    display: block;
+    line-height: 0;
   }
 
-  :global(.sold-badge) {
-    position: absolute;
-    top: 10px;
-    left: 10px;
+  :global(.car-thumb) {
+    width: 155px;
+    height: 104px;
+    object-fit: cover;
+    display: block;
+    border-radius: 4px;
+    background: #eee;
+  }
+
+  :global(.car-thumb-placeholder) {
+    width: 155px;
+    height: 104px;
+    display: grid;
+    place-items: center;
+    background: #f0f0f2;
+    color: #aaa;
+    font-size: 0.78rem;
+    border-radius: 4px;
+  }
+
+  :global(.car-details) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  :global(.car-title) {
+    font-size: 0.93rem;
+    font-weight: 700;
+    margin: 0 0 0.2rem;
+    line-height: 1.35;
+    color: var(--ink);
+  }
+
+  :global(.car-title-link) {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  :global(.car-title-link:hover .car-title) {
+    color: var(--brand-red);
+  }
+
+  :global(.car-subtitle) {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0 0 0.38rem;
+  }
+
+  :global(.car-tags) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  :global(.year-pill) {
     background: var(--brand-red);
     color: #fff;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
+    padding: 0.12rem 0.42rem;
+    border-radius: 4px;
+  }
+
+  :global(.spec-pill) {
+    background: #f0f0f2;
+    color: var(--ink);
+    font-size: 0.7rem;
+    padding: 0.12rem 0.42rem;
+    border-radius: 4px;
+  }
+
+  :global(.car-price-col) {
+    flex-shrink: 0;
+    text-align: right;
+    min-width: 130px;
+  }
+
+  :global(.car-price) {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--brand-red);
+    margin: 0 0 0.22rem;
+  }
+
+  :global(.financing-link) {
+    font-size: 0.76rem;
+    color: var(--muted);
+    text-decoration: none;
+    display: block;
+  }
+
+  :global(.financing-link:hover) {
+    color: var(--brand-red);
+    text-decoration: underline;
+  }
+
+  /* ── Badges (sold / img-count) ── */
+  :global(.sold-badge) {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: var(--brand-red);
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
+    padding: 0.12rem 0.38rem;
+    border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
 
   :global(.img-count) {
     position: absolute;
-    bottom: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.6);
+    bottom: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.58);
     color: #fff;
-    font-size: 0.75rem;
+    font-size: 0.66rem;
     font-weight: 700;
-    padding: 0.15rem 0.45rem;
-    border-radius: 5px;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
   }
 
-  :global(.card img),
-  :global(.placeholder) {
-    display: block;
-    width: 100%;
-    height: 180px;
-    object-fit: cover;
-    background: var(--bg-placeholder);
-  }
-
-  :global(.placeholder) {
-    display: grid;
-    place-items: center;
-    color: var(--placeholder);
-    font-size: 0.9rem;
-  }
-
-  :global(.card-content) {
-    padding: 0.9rem;
-  }
-
-  :global(.card-content h2) {
-    font-size: 1rem;
-    margin: 0 0 0.35rem;
-    line-height: 1.35;
-  }
-
-  :global(.meta) {
-    color: var(--meta);
-    font-size: 0.92rem;
-    margin: 0 0 0.4rem;
-  }
-
-  :global(.price) {
-    margin: 0 0 0.5rem;
-    font-weight: 800;
-    font-size: 1.1rem;
-  }
-
-  :global(.card-title-link) {
-    text-decoration: none;
-    color: inherit;
-  }
-
-  :global(.card-specs) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  :global(.card-specs span) {
-    font-size: 0.82rem;
-    color: var(--muted);
-  }
-
-  :global(.card-specs span + span::before) {
-    content: "";
-    display: inline-block;
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--muted);
-    vertical-align: middle;
-    margin-right: 0.5rem;
-  }
-
-  :global(.btn) {
-    display: inline-block;
-    text-decoration: none;
-    background: var(--brand-red);
-    color: #fff;
-    border-radius: 9px;
-    padding: 0.5rem 0.7rem;
-    font-size: 0.92rem;
-  }
-
+  /* ── Pagination ── */
   :global(.pagination) {
-    margin-top: 1.2rem;
+    margin-top: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.6rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
   }
 
   :global(.pagination button) {
-    border: 1px solid var(--border-light);
-    background: var(--surface);
-    border-radius: 8px;
-    padding: 0.42rem 0.62rem;
-    font-size: 0.9rem;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    padding: 0.38rem 0.68rem;
+    font-size: 0.88rem;
     cursor: pointer;
+    min-width: 34px;
+    transition: border-color 0.12s, color 0.12s;
+  }
+
+  :global(.pagination button:hover:not(:disabled)) {
+    border-color: var(--brand-red);
+    color: var(--brand-red);
   }
 
   :global(.pagination button:disabled) {
-    opacity: 0.5;
+    opacity: 0.38;
     cursor: not-allowed;
   }
 
   :global(.pagination .pages) {
     display: flex;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 0.3rem;
   }
 
   :global(.pagination .pages button.active) {
-    border-color: var(--brand-red);
     background: var(--brand-red);
+    border-color: var(--brand-red);
     color: #fff;
     font-weight: 700;
   }
 
-  @media (max-width: 940px) {
-    :global(.filters) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    :global(.filter-row select),
+    :global(.filter-row input) {
+      flex: 1 1 110px;
     }
 
-    :global(.extra-filters) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    :global(.car-thumb),
+    :global(.car-thumb-placeholder) {
+      width: 120px;
+      height: 80px;
+    }
+
+    :global(.car-price-col) {
+      min-width: 100px;
     }
   }
 
   @media (max-width: 560px) {
-    :global(.filters) {
-      grid-template-columns: 1fr;
+    :global(.car-row) {
+      flex-wrap: wrap;
     }
 
-    :global(.extra-filters) {
-      grid-template-columns: 1fr;
+    :global(.car-price-col) {
+      width: 100%;
+      text-align: left;
+      min-width: 0;
+    }
+
+    :global(.filter-row) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    :global(.filter-actions) {
+      margin-left: 0;
     }
   }
 </style>

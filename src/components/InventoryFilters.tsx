@@ -9,6 +9,7 @@ type Props = {
 type Filters = {
   make: string;
   model: string;
+  minPrice: string;
   maxPrice: string;
   maxMileage: string;
   condition: string;
@@ -24,6 +25,7 @@ type Filters = {
 const EMPTY_FILTERS: Filters = {
   make: "",
   model: "",
+  minPrice: "",
   maxPrice: "",
   maxMileage: "",
   condition: "",
@@ -38,9 +40,6 @@ const EMPTY_FILTERS: Filters = {
 
 const EXTRA_FILTER_KEYS: Array<keyof Filters> = [
   "condition",
-  "vehicleType",
-  "driveType",
-  "fuelType",
   "transmission",
   "color",
 ];
@@ -86,6 +85,7 @@ const readFiltersFromUrl = (): Filters => {
   return {
     make: params.get("make") ?? "",
     model: params.get("model") ?? "",
+    minPrice: params.get("minPrice") ?? "",
     maxPrice: params.get("maxPrice") ?? "",
     maxMileage: params.get("maxMileage") ?? "",
     condition: params.get("condition") ?? "",
@@ -109,6 +109,9 @@ const writeFiltersToUrl = (filters: Filters): void => {
 
   if (filters.model) params.set("model", filters.model);
   else params.delete("model");
+
+  if (filters.minPrice) params.set("minPrice", filters.minPrice);
+  else params.delete("minPrice");
 
   if (filters.maxPrice) params.set("maxPrice", filters.maxPrice);
   else params.delete("maxPrice");
@@ -136,6 +139,7 @@ const writeFiltersToUrl = (filters: Filters): void => {
 
 export default function InventoryFilters({ cars }: Props) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [showMore, setShowMore] = useState(false);
   const resultsRef = useRef<HTMLElement | null>(null);
   const didMountRef = useRef(false);
 
@@ -145,6 +149,7 @@ export default function InventoryFilters({ cars }: Props) {
     options?: { ignoreMake?: boolean; ignoreModel?: boolean },
   ): boolean => {
     const maxPrice = parsePositiveInt(activeFilters.maxPrice);
+    const minPrice = parsePositiveInt(activeFilters.minPrice);
     const maxMileage = parsePositiveInt(activeFilters.maxMileage);
 
     if (
@@ -167,6 +172,14 @@ export default function InventoryFilters({ cars }: Props) {
       typeof maxPrice === "number" &&
       typeof car.price === "number" &&
       car.price > maxPrice
+    ) {
+      return false;
+    }
+
+    if (
+      typeof minPrice === "number" &&
+      typeof car.price === "number" &&
+      car.price < minPrice
     ) {
       return false;
     }
@@ -312,8 +325,6 @@ export default function InventoryFilters({ cars }: Props) {
     (key) => filters[key] !== "",
   ).length;
 
-  const [showMore, setShowMore] = useState(false);
-
   const filteredCars = useMemo(() => {
     return cars.filter((car) => matchesFilters(car, filters));
   }, [cars, filters]);
@@ -407,6 +418,7 @@ export default function InventoryFilters({ cars }: Props) {
       const didCriteriaChange =
         next.make !== current.make ||
         next.model !== current.model ||
+        next.minPrice !== current.minPrice ||
         next.maxPrice !== current.maxPrice ||
         next.maxMileage !== current.maxMileage ||
         next.condition !== current.condition ||
@@ -439,228 +451,211 @@ export default function InventoryFilters({ cars }: Props) {
 
   return (
     <>
+      {/* ── Filter bar ── */}
       <section className="filters">
-        <label>
-          Make
+        <div className="filter-row">
           <select
             value={filters.make}
-            onChange={(event) => onMakeChange(event.target.value)}
+            onChange={(e) => onMakeChange(e.target.value)}
           >
-            <option value="">All makes</option>
-            {makeOptions.map((makeOption) => (
-              <option key={makeOption.value} value={makeOption.value}>
-                {makeOption.value} ({makeOption.count})
+            <option value="">All Makes</option>
+            {makeOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
               </option>
             ))}
           </select>
-        </label>
 
-        <label>
-          Model
           <select
             value={filters.model}
-            onChange={(event) =>
-              updateFilters((current) => ({
-                ...current,
-                model: event.target.value,
-              }))
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, model: e.target.value }))
             }
           >
-            <option value="">All models</option>
-            {modelOptions.map((modelOption) => (
-              <option key={modelOption.value} value={modelOption.value}>
-                {modelOption.value} ({modelOption.count})
+            <option value="">All Models</option>
+            {modelOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
               </option>
             ))}
           </select>
-        </label>
 
-        <label>
-          Max Price (CAD)
           <input
             type="number"
             inputMode="numeric"
             min="0"
-            placeholder="e.g. 20000"
+            placeholder="Min Price"
+            value={filters.minPrice}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, minPrice: e.target.value }))
+            }
+          />
+
+          <input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            placeholder="Max Price"
             value={filters.maxPrice}
-            onChange={(event) =>
-              updateFilters((current) => ({
-                ...current,
-                maxPrice: event.target.value,
-              }))
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, maxPrice: e.target.value }))
             }
           />
-        </label>
 
-        <label>
-          Max Mileage (KM)
           <input
             type="number"
             inputMode="numeric"
             min="0"
-            placeholder="e.g. 120000"
+            placeholder="Mileage"
             value={filters.maxMileage}
-            onChange={(event) =>
-              updateFilters((current) => ({
-                ...current,
-                maxMileage: event.target.value,
-              }))
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, maxMileage: e.target.value }))
             }
           />
-        </label>
 
-        <label>
-          Sort
           <select
-            value={filters.sort}
-            onChange={(event) =>
-              updateFilters((current) => ({
-                ...current,
-                sort: event.target.value,
-              }))
+            value={filters.vehicleType}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, vehicleType: e.target.value }))
             }
           >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="">Body Type</option>
+            {extraFilterOptions.vehicleType.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
               </option>
             ))}
           </select>
-        </label>
 
-        <button type="button" className="reset" onClick={onReset}>
-          Reset
-        </button>
+          <select
+            value={filters.driveType}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, driveType: e.target.value }))
+            }
+          >
+            <option value="">Drive Type</option>
+            {extraFilterOptions.driveType.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={filters.fuelType}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, fuelType: e.target.value }))
+            }
+          >
+            <option value="">Fuel Type</option>
+            {extraFilterOptions.fuelType.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
+              </option>
+            ))}
+          </select>
+
+          <div className="filter-actions">
+            <button type="button" className="reset" onClick={onReset}>
+              Clear all
+            </button>
+            <button
+              type="button"
+              className="more-filters-toggle"
+              onClick={() => setShowMore((prev) => !prev)}
+            >
+              {showMore ? "Hide" : "+"} More Filters
+              {activeExtraCount > 0 ? ` (${activeExtraCount})` : ""}
+            </button>
+          </div>
+        </div>
       </section>
 
-      <button
-        type="button"
-        className="more-filters-toggle"
-        onClick={() => setShowMore((prev) => !prev)}
-      >
-        {showMore ? "Hide" : "More"} Filters
-        {activeExtraCount > 0 ? ` (${activeExtraCount})` : ""}
-      </button>
-
+      {/* ── Extra filters (Condition / Transmission / Color) ── */}
       {showMore && (
         <section className="extra-filters">
-          <label>
-            Condition
-            <select
-              value={filters.condition}
-              onChange={(e) =>
-                updateFilters((c) => ({ ...c, condition: e.target.value }))
-              }
-            >
-              <option value="">All</option>
-              {extraFilterOptions.condition.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.value} ({o.count})
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            value={filters.condition}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, condition: e.target.value }))
+            }
+          >
+            <option value="">All Conditions</option>
+            {extraFilterOptions.condition.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
+              </option>
+            ))}
+          </select>
 
-          <label>
-            Body Type
-            <select
-              value={filters.vehicleType}
-              onChange={(e) =>
-                updateFilters((c) => ({ ...c, vehicleType: e.target.value }))
-              }
-            >
-              <option value="">All</option>
-              {extraFilterOptions.vehicleType.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.value} ({o.count})
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            value={filters.transmission}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, transmission: e.target.value }))
+            }
+          >
+            <option value="">Transmission</option>
+            {extraFilterOptions.transmission.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
+              </option>
+            ))}
+          </select>
 
-          <label>
-            Drivetrain
-            <select
-              value={filters.driveType}
-              onChange={(e) =>
-                updateFilters((c) => ({ ...c, driveType: e.target.value }))
-              }
-            >
-              <option value="">All</option>
-              {extraFilterOptions.driveType.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.value} ({o.count})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Fuel Type
-            <select
-              value={filters.fuelType}
-              onChange={(e) =>
-                updateFilters((c) => ({ ...c, fuelType: e.target.value }))
-              }
-            >
-              <option value="">All</option>
-              {extraFilterOptions.fuelType.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.value} ({o.count})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Transmission
-            <select
-              value={filters.transmission}
-              onChange={(e) =>
-                updateFilters((c) => ({ ...c, transmission: e.target.value }))
-              }
-            >
-              <option value="">All</option>
-              {extraFilterOptions.transmission.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.value} ({o.count})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Color
-            <select
-              value={filters.color}
-              onChange={(e) =>
-                updateFilters((c) => ({ ...c, color: e.target.value }))
-              }
-            >
-              <option value="">All</option>
-              {extraFilterOptions.color.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.value} ({o.count})
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            value={filters.color}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, color: e.target.value }))
+            }
+          >
+            <option value="">Color</option>
+            {extraFilterOptions.color.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value} ({o.count})
+              </option>
+            ))}
+          </select>
         </section>
       )}
 
-      <p className="muted">
-        Showing {firstShown}-{lastShown} of {sortedCars.length} matching
-        vehicles ({cars.length} total).
-      </p>
+      {/* ── Results header ── */}
+      <div className="results-header">
+        <strong className="results-count">{sortedCars.length} Results</strong>
+        <div className="sort-group">
+          <span className="sort-label">Sort by:</span>
+          <select
+            className="sort-select"
+            value={filters.sort}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, sort: e.target.value }))
+            }
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-      <section className="grid" ref={resultsRef}>
+      {/* ── Inventory list ── */}
+      <section className="inventory-list" ref={resultsRef}>
         {paginatedCars.map((car) => (
-          <article className="card" key={car.id}>
-            <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} className="card-img-link">
+          <article className="car-row" key={car.id}>
+            <a
+              href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+              className="car-thumb-link"
+            >
               {car.image ? (
-                <img src={car.image} alt={car.title} loading="lazy" />
+                <img
+                  src={car.image}
+                  alt={car.title}
+                  className="car-thumb"
+                  loading="lazy"
+                />
               ) : (
-                <div className="placeholder">No image</div>
+                <div className="car-thumb car-thumb-placeholder">No image</div>
               )}
               {car.offerType?.toLowerCase() === "sold" && (
                 <span className="sold-badge">Sold</span>
@@ -670,48 +665,65 @@ export default function InventoryFilters({ cars }: Props) {
               )}
             </a>
 
-            <div className="card-content">
-              <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} className="card-title-link">
-                <h2>{car.title}</h2>
+            <div className="car-details">
+              <a
+                href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+                className="car-title-link"
+              >
+                <h2 className="car-title">{car.title}</h2>
               </a>
-              <p className="price">{formatPrice(car.price)}</p>
-              <div className="card-specs">
-                {car.year && <span>{car.year}</span>}
-                {car.fuelType && <span>{car.fuelType}</span>}
-                {car.driveType && <span>{car.driveType}</span>}
+              <p className="car-subtitle">
+                {[car.model, car.make, car.mileageKm]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </p>
+              <div className="car-tags">
+                {car.year && <span className="year-pill">{car.year}</span>}
+                {car.transmission && (
+                  <span className="spec-pill">{car.transmission}</span>
+                )}
+                {car.driveType && (
+                  <span className="spec-pill">{car.driveType}</span>
+                )}
               </div>
+            </div>
+
+            <div className="car-price-col">
+              <p className="car-price">{formatPrice(car.price)}</p>
+              <a
+                href={`${import.meta.env.BASE_URL}listing/${car.slug}/`}
+                className="financing-link"
+              >
+                Calculate financing
+              </a>
             </div>
           </article>
         ))}
       </section>
 
-      {totalPages > 1 ? (
+      {/* ── Pagination ── */}
+      {totalPages > 1 && (
         <nav className="pagination" aria-label="Inventory pagination">
           <button
             type="button"
             onClick={() =>
-              setFilters((current) => ({
-                ...current,
-                page: Math.max(1, current.page - 1),
-              }))
+              setFilters((c) => ({ ...c, page: Math.max(1, c.page - 1) }))
             }
             disabled={currentPage === 1}
           >
-            Previous
+            ‹
           </button>
 
           <div className="pages">
-            {paginationPages.map((pageNumber) => (
+            {paginationPages.map((n) => (
               <button
-                key={pageNumber}
+                key={n}
                 type="button"
-                className={pageNumber === currentPage ? "active" : undefined}
-                onClick={() =>
-                  setFilters((current) => ({ ...current, page: pageNumber }))
-                }
-                aria-current={pageNumber === currentPage ? "page" : undefined}
+                className={n === currentPage ? "active" : undefined}
+                onClick={() => setFilters((c) => ({ ...c, page: n }))}
+                aria-current={n === currentPage ? "page" : undefined}
               >
-                {pageNumber}
+                {n}
               </button>
             ))}
           </div>
@@ -719,17 +731,18 @@ export default function InventoryFilters({ cars }: Props) {
           <button
             type="button"
             onClick={() =>
-              setFilters((current) => ({
-                ...current,
-                page: Math.min(totalPages, current.page + 1),
+              setFilters((c) => ({
+                ...c,
+                page: Math.min(totalPages, c.page + 1),
               }))
             }
             disabled={currentPage === totalPages}
           >
-            Next
+            ›
           </button>
         </nav>
-      ) : null}
+      )}
     </>
   );
 }
+
