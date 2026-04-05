@@ -469,6 +469,22 @@ const cleanText = (value: string): string =>
   decodeEntities(stripHtml(value)).replace(/\s+/g, " ").trim();
 
 const extractFaqItems = (html: string): FaqItem[] => {
+  // Strategy 1: Elementor accordion widget (.elementor-accordion-title + .elementor-tab-content p)
+  const accordionMatches = [
+    ...html.matchAll(
+      /<a[^>]*class="[^"]*elementor-accordion-title[^"]*"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<div[^>]*class="[^"]*elementor-tab-content[^"]*"[^>]*>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi,
+    ),
+  ];
+  if (accordionMatches.length > 0) {
+    return accordionMatches
+      .map((match) => ({
+        question: cleanText(match[1] ?? ""),
+        answer: cleanText(match[2] ?? ""),
+      }))
+      .filter((item) => item.question && item.answer);
+  }
+
+  // Strategy 2: HTML <details>/<summary> accordion
   const detailMatches = [
     ...html.matchAll(
       /<summary[^>]*>([\s\S]*?)<\/summary>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi,
@@ -483,6 +499,7 @@ const extractFaqItems = (html: string): FaqItem[] => {
       .filter((item) => item.question && item.answer);
   }
 
+  // Strategy 3: heading → paragraph pairs
   const headingMatches = [
     ...html.matchAll(
       /<h[2-6][^>]*>([\s\S]*?)<\/h[2-6]>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi,
