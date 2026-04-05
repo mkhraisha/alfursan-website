@@ -6,7 +6,8 @@ import sitemap from "@astrojs/sitemap";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://alfursanauto.ca",
+  site: "https://mkhraisha.github.io",
+  base: "/alfursan-website",
   trailingSlash: "always",
   redirects: {
     // Legacy utility/page aliases
