@@ -275,27 +275,28 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
 
   .about-title {
     margin: 0 0 1.15rem;
-    font-size: clamp(2.1rem, 5vw, 5.1rem);
+    font-size: 50px;
+    font-weight: 900;
     line-height: 1.02;
-    color: #202638;
+    color: var(--ink);
     letter-spacing: -0.02em;
   }
 
   .intro-text .lead {
-    font-size: clamp(2rem, 2.15vw, 2.9rem);
+    font-size: 20px;
     font-weight: 400;
     margin: 0 0 1.35rem;
-    color: #6a6d74;
-    line-height: 1.22;
+    color: #6f6f6f;
+    line-height: 27px;
     letter-spacing: -0.01em;
-    max-width: 20ch;
+    max-width: 42ch;
   }
 
   .intro-text p {
     margin: 0 0 1.35rem;
-    color: #666a72;
-    font-size: clamp(1.02rem, 1.35vw, 1.12rem);
-    line-height: 1.72;
+    color: #6f6f6f;
+    font-size: 16px;
+    line-height: 27px;
     max-width: 42ch;
   }
 
@@ -363,44 +364,47 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
   /* ── CEO section ─────────────────────────────────── */
   .ceo-section {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 24.5% 33.8% 1fr;
     gap: 0;
-    background: var(--dark);
-    border-radius: 16px;
+    background: #dfdfdf url('https://alfursanauto.ca/wp-content/uploads/2025/06/website-banner-bottom-alfursanauto.jpg') 0% 0% / cover;
+    border-radius: 20px;
     overflow: hidden;
     margin-bottom: 3rem;
-    min-height: 280px;
+    height: 317px;
   }
 
   .ceo-image {
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 2rem 1rem 0;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.15), transparent);
+    position: relative;
+    overflow: hidden;
+    padding: 0;
   }
 
   .ceo-image img {
-    max-height: 240px;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    max-height: none;
     object-fit: contain;
   }
 
   .ceo-quote {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 2.5rem 2rem;
+    justify-content: flex-start;
+    padding: 87px 0 0 0;
     color: #fff;
   }
 
   .ceo-quote h2 {
-    font-size: 1.35rem;
+    font-size: 36px;
+    font-weight: 900;
     margin: 0 0 0.4rem;
     color: #fff;
   }
 
   .quote-mark {
-    font-size: 4rem;
+    font-size: 25px;
     line-height: 1;
     color: var(--brand-red);
     font-family: Georgia, serif;
@@ -417,27 +421,27 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
   .ceo-cta {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: flex-start;
-    padding: 2.5rem 2rem;
-    background: var(--brand-red);
+    padding: 91px 25px 22px 22px;
     color: #fff;
   }
 
   .ceo-cta h2 {
-    font-size: 1.35rem;
+    font-size: 24px;
+    font-weight: 900;
     margin: 0 0 1.2rem;
     color: #fff;
   }
 
   .btn-primary {
     display: inline-block;
-    padding: 0.7rem 1.6rem;
-    background: #fff;
-    color: var(--brand-red);
-    border-radius: 8px;
+    padding: 18px;
+    background: var(--brand-red);
+    color: #fff;
+    border-radius: 10px;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 21px;
     text-decoration: none;
     transition: opacity 0.2s;
   }
@@ -452,7 +456,8 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
   }
 
   .faq-heading {
-    font-size: 1.6rem;
+    font-size: 50px;
+    font-weight: 900;
     margin: 0 0 1.5rem;
     color: var(--ink);
   }
@@ -478,8 +483,8 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
 
   .faq-item summary {
     padding: 1rem 1.2rem;
-    font-weight: 700;
-    font-size: 0.95rem;
+    font-weight: 500;
+    font-size: 17px;
     cursor: pointer;
     list-style: none;
     display: flex;
@@ -530,14 +535,14 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
     }
 
     .about-title {
-      font-size: clamp(2.8rem, 11vw, 4.2rem);
+      font-size: clamp(2rem, 8vw, 50px);
       margin-bottom: 1rem;
     }
 
     .intro-text .lead {
-      font-size: clamp(1.05rem, 7.2vw, 3rem);
+      font-size: 18px;
       max-width: none;
-      line-height: 1.26;
+      line-height: 25px;
     }
 
     .intro-text p,
