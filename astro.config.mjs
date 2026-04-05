@@ -64,4 +64,14 @@ export default defineConfig({
     "/search/toyota/rav-4-xle/": "/search/?make=toyota&model=rav-4-xle",
   },
   integrations: [react(), sitemap()],
+  vite: {
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+      ],
+    },
+  },
 });

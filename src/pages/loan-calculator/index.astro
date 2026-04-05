@@ -22,44 +22,45 @@ import Layout from "../../layouts/Layout.astro";
   .container {
     max-width: 1466px;
     margin: 0 auto;
-    padding: 2rem 30px 4rem;
+    padding: 2rem 15px 4rem;
   }
 
   .calculator-shell {
-    background: #dfe2ea;
-    border-radius: 24px;
-    padding: clamp(1rem, 2vw, 2rem);
+    background: #f2f5fb;
+    border-radius: 20px;
+    padding: 3.125rem 0 4.375rem;
   }
 
   .heading {
-    margin-bottom: 1.3rem;
+    margin-bottom: 2.5rem;
   }
 
   h2 {
     margin: 0;
     text-align: center;
-    color: #1f2434;
-    line-height: 1.03;
-    font-size: clamp(2.6rem, 7vw, 5rem);
+    color: var(--ink);
+    line-height: 1.1;
+    font-size: 3.125rem;
+    font-weight: 900;
   }
 
   :global(.calc-wrapper) {
     max-width: 980px;
     margin: 0 auto;
-    background: #f3f4f6;
-    border: 1px solid #d2d7e2;
-    border-radius: 18px;
-    padding: clamp(1.2rem, 2.2vw, 2rem);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0 0.9375rem;
     box-shadow: none;
   }
 
   :global(.calc-intro p) {
     max-width: 70ch;
-    margin: 0 auto 1.4rem;
+    margin: 0 auto 1.75rem;
     color: #4f5662;
     text-align: center;
-    font-size: 1.03rem;
-    line-height: 1.55;
+    font-size: 1rem;
+    line-height: 1.6;
   }
 
   :global(.calc-fields) {
@@ -92,11 +93,12 @@ import Layout from "../../layouts/Layout.astro";
   }
 
   :global(.calc-fields input) {
-    border: 1px solid #bac3cf;
-    border-radius: 12px;
-    padding: 0.72rem 0.8rem;
-    font-size: 1.05rem;
-    color: #2a3040;
+    border: 1px solid #e7edf3;
+    border-radius: 10px;
+    padding: 0.625rem 1.6875rem 0.625rem 4.3125rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #000;
     background: #fff;
     width: 100%;
   }
@@ -104,8 +106,8 @@ import Layout from "../../layouts/Layout.astro";
   :global(.input-with-suffix) {
     display: flex;
     align-items: center;
-    border: 1px solid #bac3cf;
-    border-radius: 12px;
+    border: 1px solid #e7edf3;
+    border-radius: 10px;
     background: #fff;
     overflow: hidden;
   }
@@ -114,6 +116,7 @@ import Layout from "../../layouts/Layout.astro";
     border: none;
     border-radius: 0;
     flex: 1;
+    padding: 0.625rem 0.75rem;
   }
 
   :global(.suffix),
@@ -121,7 +124,7 @@ import Layout from "../../layouts/Layout.astro";
     padding: 0 0.75rem;
     color: #8f99a9;
     font-weight: 700;
-    font-size: 1.05rem;
+    font-size: 1rem;
     flex-shrink: 0;
     background: #f3f5f9;
     height: 100%;
@@ -130,97 +133,106 @@ import Layout from "../../layouts/Layout.astro";
   }
 
   :global(.prefix) {
-    border-right: 1px solid #d1d7e0;
+    border-right: 1px solid #e7edf3;
   }
 
   :global(.suffix) {
-    border-left: 1px solid #d1d7e0;
+    border-left: 1px solid #e7edf3;
   }
 
   :global(.prefix.icon-prefix) {
-    color: #cc2e1f;
-    font-size: 1.2rem;
+    color: var(--brand-red);
+    font-size: 1.1rem;
   }
 
   :global(.suffix.icon-suffix) {
-    color: #cc2e1f;
+    color: var(--brand-red);
   }
 
   :global(.icon-price),
   :global(.icon-period) {
-    font-size: 1.32rem;
+    font-size: 1.1rem;
     font-weight: 800;
     line-height: 1;
   }
 
+  /* Horizontal separator between form and results */
+  :global(.calc-separator) {
+    height: 1px;
+    background: #e7e9ee;
+    margin: 2.5rem 0 4rem;
+  }
+
   :global(.results) {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid #d2d7e2;
-    border-bottom: 1px solid #cb3e32;
-    border-left: 1px solid #cb3e32;
-    border-right: 1px solid #cb3e32;
-    border-radius: 22px;
+    display: flex;
+    max-width: 800px;
+    margin: 0 auto;
+    border: 1px solid var(--brand-red);
+    border-radius: 20px;
     overflow: hidden;
+    background: #fff;
   }
 
   @media (max-width: 560px) {
     :global(.results) {
-      grid-template-columns: 1fr;
+      flex-direction: column;
     }
 
     :global(.result-col + .result-col) {
-      border-top: 1px solid #d5dae3;
+      border-top: 1px solid #e7e9ee;
+      border-left: none;
     }
   }
 
   :global(.result-col) {
     text-align: center;
-    padding: 1.1rem 0.8rem;
+    padding: 0 2.1875rem;
+    flex: 1;
   }
 
   :global(.result-col + .result-col) {
-    border-left: 1px solid #d5dae3;
+    border-left: 1px solid #e7e9ee;
   }
 
   :global(.result-col h3) {
-    margin: 0;
-    font-size: 1.25rem;
+    margin: 1.875rem 0 0.5rem;
+    font-size: 1.1875rem;
     font-weight: 600;
-    color: #8e98a8;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: var(--ink);
+    text-transform: none;
+    letter-spacing: normal;
   }
 
   :global(.result-value) {
-    margin: 0.45rem 0 0;
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--ink);
+    margin: 0 0 2.25rem;
+    font-size: 1.1875rem;
+    font-weight: 700;
+    color: var(--brand-red);
   }
 
   :global(.result-value.placeholder) {
-    color: #cb3e32;
+    color: var(--brand-red);
   }
 
   :global(.disclaimer) {
-    margin: 1.2rem 0 0;
+    margin: 1.5rem 0 0;
     text-align: center;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 0.875rem;
+    line-height: 1.55;
     color: #6f7787;
   }
 
   @media (max-width: 1024px) {
+    h2 {
+      font-size: 2.8rem;
+    }
+
     :global(.calc-fields .label-text) {
       font-size: 0.95rem;
     }
 
     :global(.calc-fields input) {
-      font-size: 1rem;
+      font-size: 0.9rem;
     }
 
     :global(.result-col h3) {
@@ -228,43 +240,34 @@ import Layout from "../../layouts/Layout.astro";
     }
 
     :global(.result-value) {
-      font-size: 1.4rem;
+      font-size: 1rem;
     }
 
     :global(.disclaimer) {
-      font-size: 0.86rem;
+      font-size: 0.82rem;
     }
   }
 
   @media (max-width: 640px) {
     .calculator-shell {
       border-radius: 20px;
-      padding: 1.2rem 0.9rem 1.6rem;
+      padding: 2rem 0 2.5rem;
     }
 
     h2 {
-      max-width: 11ch;
-      margin: 0 auto;
-      font-size: clamp(2.45rem, 9vw, 4rem);
+      font-size: clamp(2rem, 9vw, 3rem);
     }
 
     :global(.calc-wrapper) {
-      background: transparent;
-      border: none;
-      padding: 0;
+      padding: 0 1rem;
     }
 
-    :global(.calc-fields .label-text) {
-      font-size: 1.15rem;
+    :global(.results) {
+      max-width: 100%;
     }
 
-    :global(.calc-fields input) {
-      font-size: 1.2rem;
-    }
-
-    :global(.suffix),
-    :global(.prefix) {
-      font-size: 1.2rem;
+    :global(.result-col) {
+      padding: 0 1rem;
     }
   }
 </style>

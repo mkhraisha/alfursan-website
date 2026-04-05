@@ -110,6 +110,8 @@ export default function LoanCalculator() {
         </label>
       </form>
 
+      <div className="calc-separator" />
+
       <div className="results">
         <div className="result-col">
           <h3>Monthly Payment</h3>
