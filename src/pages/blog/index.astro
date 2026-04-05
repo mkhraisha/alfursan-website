@@ -20,7 +20,7 @@ const formatDate = (iso: string): string => {
 >
   <main class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="/">Homepage</a>
+      <a href={import.meta.env.BASE_URL}>Homepage</a>
       <span class="sep">&rsaquo;</span>
       <span>Blog</span>
     </nav>
@@ -85,7 +85,7 @@ const formatDate = (iso: string): string => {
               </a>
             ))
           }
-          <a href="/blog/" class="sidebar-link">Read All Posts</a>
+          <a href={`${import.meta.env.BASE_URL}blog/`} class="sidebar-link">Read All Posts</a>
         </div>
 
         <div class="sidebar-section">

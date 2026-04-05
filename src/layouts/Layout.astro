@@ -28,19 +28,19 @@ const {
 const canonicalURL = new URL(Astro.url.pathname, SITE_URL).href;
 const ogImage = image ?? DEFAULT_OG_IMAGE;
 
+const BASE = import.meta.env.BASE_URL;
 const navLinks: NavLink[] = [
-  { label: "Home", href: "/" },
-  { label: "Search", href: "/search/" },
-  { label: "About us", href: "/about-us/" },
-  { label: "Contact", href: "/contact-us/" },
+  { label: "Home", href: BASE },
+  { label: "Search", href: `${BASE}search/` },
+  { label: "About us", href: `${BASE}about-us/` },
+  { label: "Contact", href: `${BASE}contact-us/` },
 ];
 
 const currentPath = Astro.url.pathname;
 const isActive = (href: string): boolean => {
-  if (href === "/") {
-    return currentPath === "/";
+  if (href === BASE) {
+    return currentPath === BASE || currentPath === BASE.slice(0, -1);
   }
-
   return currentPath.startsWith(href);
 };
 ---
@@ -50,8 +50,8 @@ const isActive = (href: string): boolean => {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
+    <link rel="icon" href={`${import.meta.env.BASE_URL}favicon.ico`} />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <title>{title}</title>
@@ -95,7 +95,7 @@ const isActive = (href: string): boolean => {
       class:list={["site-header", { "header-transparent": transparentHeader }]}
     >
       <div class="shell">
-        <a href="/" class="brand" aria-label="Alfursan Auto Home">
+        <a href={import.meta.env.BASE_URL} class="brand" aria-label="Alfursan Auto Home">
           <img
             src="https://alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent.png"
             alt="Alfursan Auto"
@@ -116,7 +116,7 @@ const isActive = (href: string): boolean => {
           }
         </nav>
 
-        <a href="/contact-us/" class="cta">+ Book a Demo</a>
+        <a href={`${import.meta.env.BASE_URL}contact-us/`} class="cta">+ Book a Demo</a>
 
         <details class="mobile-nav">
           <summary>Menu</summary>
@@ -131,7 +131,7 @@ const isActive = (href: string): boolean => {
                 </a>
               ))
             }
-            <a href="/contact-us/" class="cta">+ Book a Demo</a>
+            <a href={`${import.meta.env.BASE_URL}contact-us/`} class="cta">+ Book a Demo</a>
           </nav>
         </details>
       </div>
@@ -142,7 +142,7 @@ const isActive = (href: string): boolean => {
     <footer class="site-footer">
       <div class="shell footer-grid">
         <div class="footer-col-brand">
-          <a href="/" class="footer-logo">
+          <a href={import.meta.env.BASE_URL} class="footer-logo">
             <img
               src="https://alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent-reversed.png"
               alt="AlfursanAuto.ca"
@@ -150,10 +150,10 @@ const isActive = (href: string): boolean => {
             />
           </a>
           <ul class="footer-links-grid">
-            <li><a href="/search/">Listings</a></li>
-            <li><a href="/faq/">FAQ</a></li>
-            <li><a href="/about-us/">About us</a></li>
-            <li><a href="/contact-us/">Contact</a></li>
+            <li><a href={`${import.meta.env.BASE_URL}search/`}>Listings</a></li>
+            <li><a href={`${import.meta.env.BASE_URL}faq/`}>FAQ</a></li>
+            <li><a href={`${import.meta.env.BASE_URL}about-us/`}>About us</a></li>
+            <li><a href={`${import.meta.env.BASE_URL}contact-us/`}>Contact</a></li>
           </ul>
         </div>
 

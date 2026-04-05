@@ -656,7 +656,7 @@ export default function InventoryFilters({ cars }: Props) {
       <section className="grid" ref={resultsRef}>
         {paginatedCars.map((car) => (
           <article className="card" key={car.id}>
-            <a href={`/listing/${car.slug}/`} className="card-img-link">
+            <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} className="card-img-link">
               {car.image ? (
                 <img src={car.image} alt={car.title} loading="lazy" />
               ) : (
@@ -671,7 +671,7 @@ export default function InventoryFilters({ cars }: Props) {
             </a>
 
             <div className="card-content">
-              <a href={`/listing/${car.slug}/`} className="card-title-link">
+              <a href={`${import.meta.env.BASE_URL}listing/${car.slug}/`} className="card-title-link">
                 <h2>{car.title}</h2>
               </a>
               <p className="price">{formatPrice(car.price)}</p>

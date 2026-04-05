@@ -43,7 +43,7 @@ try {
     }
 
     <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a href="/">Homepage</a>
+      <a href={import.meta.env.BASE_URL}>Homepage</a>
       <span class="sep">&rsaquo;</span>
       <span>Our Team</span>
     </nav>
@@ -88,7 +88,7 @@ try {
         today.
       </p>
       <div class="cta-buttons">
-        <a href="/contact-us/" class="btn btn-primary">Contact Us</a>
+        <a href={`${import.meta.env.BASE_URL}contact-us/`} class="btn btn-primary">Contact Us</a>
         <a href="tel:+14168384007" class="btn btn-outline"
           >Call +1 (416) 838-4007</a
         >
