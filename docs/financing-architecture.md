@@ -17,6 +17,27 @@ Encrypt SIN in `src/lib/crypto.ts` before the Supabase insert — not via pgcryp
 **ADR-003: No draft persistence for SIN field**
 SIN is never written to `localStorage`, `sessionStorage`, or any storage mechanism until the final server-side submission. All other form fields may use `sessionStorage` for draft recovery between steps. Rationale: PIPEDA minimization principle — collect only when necessary, only for the stated purpose.
 
+**ADR-004: Presigned URL upload for driver's license — never relay files through Vercel**
+Vercel serverless functions cap request body at 4.5 MB. Phone camera license photos are 3–10 MB per side. The API route issues a presigned PUT URL from Supabase Storage; the client uploads directly to storage (bypassing Vercel entirely). The API route never handles file bytes — only validates intent, issues the URL, and records the resulting storage path in the DB.
+
+**ADR-005: Staged upload lifecycle for license documents**
+Driver's license images are uploaded to a private Supabase Storage bucket (`license-documents`) under a temporary `tmp/{draftId}/...` prefix first. On successful form submission, the server finalizes them under `applications/{applicationId}/...`; abandoned uploads are deleted by a scheduled cleanup job after 24 hours. This prevents orphaned files when users drop off mid-flow.
+
+**ADR-006: RBAC with `admin_users` allowlist table — required for DMS expansion**
+Replace the single-email magic link gate with a Supabase `admin_users` table (email, role, is_active). Supabase Auth handles identity (magic link); `admin_users` handles authorization. Middleware looks up the authenticated user's email in `admin_users`, checks `is_active`, and attaches `role` to `Astro.locals`. Every admin page checks one permission using `can(locals.role, 'permission:action')`. Rationale: adding a second user without this requires a code change and redeploy; retrofitting RBAC after financing is live requires a production DB migration against real applicant data.
+
+**ADR-007: Permission map defined in `src/lib/permissions.ts`**
+A single source-of-truth permission matrix maps permission keys to allowed roles. Roles: `owner | manager | staff`. Adding a new DMS module (vehicles, leads, settings) only requires: (1) add permission keys to the map, (2) add one `can()` check at the top of each new route. No middleware changes needed for future modules.
+
+**ADR-008: Supabase-native server access model**
+Use Supabase the way its platform features expect: browser auth uses the anon key; server-side routes, signed Storage URLs, and privileged admin reads use a server-only admin client. The service-role credential is allowed only in server routes/modules and is never exposed to the browser, serialized into HTML, or imported by shared client code.
+
+**ADR-009: DMS route namespace — build incrementally within `/admin/`**
+Phase 1: `/admin/` (home), `/admin/applications/`, `/admin/users/`. Future phases add `/admin/vehicles/`, `/admin/leads/`, `/admin/settings/` without restructuring. Each module is self-contained: its own pages, permission keys, and query layer.
+
+**ADR-010: Vehicle data migration path — plan now, build in Phase 2**
+Public site currently reads inventory from WordPress API (`src/lib/wordpress.ts`). When vehicle management is added to the DMS, a `vehicles` Supabase table will be created matching the current data shape. A `src/lib/inventory.ts` abstraction will be introduced as the single data-source interface for public pages. Swapping from WordPress to Supabase only changes `inventory.ts` — no public page changes. The WordPress API remains read-only until Phase 2 is complete and validated.
+
 ---
 
 ## Hosting Decision
@@ -28,14 +49,7 @@ SIN is never written to `localStorage`, `sessionStorage`, or any storage mechani
 - Native Astro SSR support via `@astrojs/vercel` adapter
 - Serverless API routes handle all form processing server-side
 - Auto-provisioned HTTPS on your custom domain
-- **Note**: The `base: '/alfursan-website'` setting in `astro.config.mjs` was added for GitHub Pages and must be removed when deploying to Vercel with a custom domain. All `import.meta.env.BASE_URL` href prefixes in `.astro` and `.tsx` files will need to revert to plain `/` paths.
-
-### Long term: Hostinger VPS _(when you want to consolidate)_
-
-- You're already paying — makes sense once the site is stable
-- Install Node.js + PM2 on your VPS, use `@astrojs/node` adapter in standalone mode
-- More ops work (you manage the server) but lower ongoing cost long-term
-- **Migration is easy**: swap the adapter in `astro.config.mjs`, redeploy — no application code changes needed
+- **Current repo alignment**: the Vercel adapter is already installed and the old GitHub Pages base-path work is already gone. The pending config changes are switching `output` from `static` to `hybrid` and aligning `astro.config.mjs` `site` with the production domain used by layout canonicals (`https://alfursanauto.ca`).
 
 ---
 
@@ -45,15 +59,15 @@ SIN is never written to `localStorage`, `sessionStorage`, or any storage mechani
 Customer Browser
     │
     │  HTTPS POST /api/financing
-    │  (with CSRF token + rate limit check)
+    │  (with Origin/Referer validation + rate limit check)
     ▼
 Astro API Route  ──────────────────────────────────────────────
     │  1. Validate all fields with Zod schema                  │
     │  2. Encrypt SIN with AES-256-GCM                         │
     │     (encryption key lives in env var, never in code)     │
-    │  3. INSERT encrypted record into Supabase                 │
-    │  4. Send "New application received" email via Resend      │
-    │     (email contains NO PII — just applicant name + date) │
+    │  3. INSERT encrypted record into Supabase                │
+    │  4. Send "New application received" email via Resend     │
+    │     (email contains NO PII — reference ID only)          │
     └──────────────────────────────────────────────────────────
               │                          │
               ▼                          ▼
@@ -63,7 +77,7 @@ Astro API Route  ─────────────────────
               │  (admin reads — SIN decrypted server-side)
               ▼
 Admin Dashboard /admin/applications
-    - Magic link login (only your email)
+    - Magic link login + `admin_users` allowlist
     - List all applications with status
     - Click to view full details
     - SIN decrypted on-demand, never sent to browser in bulk
@@ -75,14 +89,15 @@ Admin Dashboard /admin/applications
 
 ### 1. Infrastructure Setup
 
-| Service | Purpose | Cost |
-|---------|---------|------|
-| Vercel | Hosting + serverless functions | Free |
-| Supabase | Postgres database + Auth | Free (500MB) |
-| Resend | Dealer notification emails | Free (3,000/mo) |
-| Upstash Redis | Rate limiting | Free (10,000 req/day) |
+| Service       | Purpose                            | Cost                          |
+| ------------- | ---------------------------------- | ----------------------------- |
+| Vercel        | Hosting + serverless functions     | Free                          |
+| Supabase      | Postgres database + Auth + Storage | Free (500MB DB + 1GB Storage) |
+| Resend        | Dealer notification emails         | Free (3,000/mo)               |
+| Upstash Redis | Rate limiting                      | Free (10,000 req/day)         |
 
 Required environment variables (never committed to git):
+
 ```
 SUPABASE_URL=
 SUPABASE_SERVICE_KEY=      # write-only from API route
@@ -100,6 +115,7 @@ UPSTASH_REDIS_REST_TOKEN=
 Multi-step form (4 steps, progress indicator at top):
 
 **Step 1 — Personal Information**
+
 - Full legal name
 - Date of birth
 - Social Insurance Number (SIN) ← encrypted immediately on server
@@ -107,24 +123,36 @@ Multi-step form (4 steps, progress indicator at top):
 - Time at current address
 - Phone number
 - Email address
+- Marital status
+- Old address (if < 2 years at current)
 
 **Step 2 — Employment**
+
 - Employment status (Full-time / Part-time / Self-employed / Other)
 - Employer name
 - Job title
 - Gross annual income
 - Time at current employer
+- Previous employer + time there (if < 2 years at current)
 
 **Step 3 — Vehicle & Loan Details**
+
 - Vehicle year / make / model (pre-filled if coming from a listing page)
 - Purchase price
 - Down payment amount
 - Preferred loan term (24 / 36 / 48 / 60 / 72 / 84 months)
+- VIN
+- Driver's License — Front _(optional — image/jpeg, image/png, image/heic, application/pdf, max 8 MB)_
+- Driver's License — Back _(optional — same file constraints)_
+
+> Files upload directly to Supabase Storage via presigned PUT URL — never pass through the Vercel function (see ADR-004). Client-side preview shown after selection.
+> Upload flow: `/api/financing/upload-url` issues signed PUT URLs under `tmp/{draftId}/...`; final submission promotes approved files to `applications/{applicationId}/...`; a scheduled cleanup deletes abandoned `tmp/` uploads older than 24 hours.
 
 **Step 4 — Consent & Authorization**
-- ☐ I authorize Alfursan Auto to pull my credit report for financing purposes
+
 - ☐ I confirm the information provided is accurate
 - ☐ I have read and accept the [Privacy Policy]
+- ☐ I authorize Alfursan Auto to collect and retain a copy of my driver's license for identity verification and regulatory audit purposes _(shown only if license was uploaded)_
 - Submit button
 
 ---
@@ -139,7 +167,8 @@ POST /api/financing
   ├── Check rate limit (5 submissions / IP / hour via Upstash)
   ├── Validate all fields with Zod (types, formats, required)
   ├── Encrypt SIN → "v1:<base64-ciphertext>" (AES-256-GCM, key version prefixed)
-  ├── INSERT into Supabase `applications` table (using api_writer role — INSERT only)
+  ├── INSERT into Supabase `applications` table (server-only admin client)
+  ├── Finalize any staged license uploads into `applications/{applicationId}/...`
   ├── Send Resend email to dealer: "New application REF-[UUID] received at [timestamp]"
   │   (NO name, NO PII — reference number only)
   └── Return { success: true } or structured error
@@ -148,6 +177,7 @@ POST /api/financing
 **CSRF protection**: Validate `Origin` / `Referer` header server-side + `SameSite=Strict` on admin session cookie. No hidden token fields needed — stateless and works with multi-step React forms.
 
 **What is NOT in server logs:**
+
 - SIN (never logged anywhere)
 - Full name
 - Date of birth
@@ -190,6 +220,13 @@ CREATE TABLE applications (
   down_payment    NUMERIC,
   loan_term_months INT,
   listing_slug    TEXT,  -- link back to the listing if applicable
+  vin             TEXT,
+
+  -- Identity Documents (stored in Supabase Storage private bucket, paths only)
+  license_front_path  TEXT,   -- e.g. "licenses/{uuid}/front.jpg" — NULL if not uploaded
+  license_back_path   TEXT,   -- e.g. "licenses/{uuid}/back.jpg"  — NULL if not uploaded
+  license_uploaded_at TIMESTAMPTZ,  -- timestamp of upload, NULL if not uploaded
+  license_consent     BOOLEAN DEFAULT false,  -- explicit consent for license collection
 
   -- Compliance / Audit
   consent_timestamp TIMESTAMPTZ NOT NULL,
@@ -204,76 +241,102 @@ Records every admin action on sensitive data. Required to demonstrate compliance
 ```sql
 CREATE TABLE application_audit (
   id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  application_id UUID REFERENCES applications(id) ON DELETE CASCADE,
-  action         TEXT NOT NULL,  -- 'viewed_sin' | 'status_changed' | 'deleted' | 'exported'
+  application_id UUID REFERENCES applications(id) ON DELETE SET NULL,
+  application_ref TEXT NOT NULL, -- stable application UUID captured at write time
+  action         TEXT NOT NULL,  -- 'viewed_sin' | 'viewed_license' | 'status_changed' | 'deleted' | 'exported'
   admin_email    TEXT NOT NULL,
   ip_hash        TEXT,
   created_at     TIMESTAMPTZ DEFAULT now()
 );
 ```
 
-The admin detail page writes a row to `application_audit` every time it decrypts a SIN server-side.
+The admin detail page writes a row to `application_audit` every time it decrypts a SIN server-side, and every time it generates a signed URL for a license image. Audit rows must survive application deletion.
 
-#### Database users — do NOT use service_role in application code
+#### Supabase access model
 
-> ⚠️ Supabase's `service_role` key bypasses RLS unconditionally — it is a superuser credential. RLS policies cannot restrict it. Do not use it in API routes or admin pages.
+Use two distinct clients:
 
-Create restricted Postgres roles instead:
+- `src/lib/supabase-browser.ts` — anon client for browser login/session flows only
+- `src/lib/supabase-admin.ts` — server-only admin client for form inserts, Storage signed URLs, admin SSR reads, and audit writes
 
-```sql
--- API route: write-only, cannot read any data back
-CREATE ROLE api_writer WITH LOGIN PASSWORD '<strong-random-password>';
-GRANT INSERT ON applications TO api_writer;
+> ⚠️ `SUPABASE_SERVICE_KEY` is a privileged secret. It is allowed only in server-only modules, API routes, and middleware. It must never be imported into client bundles, rendered into page props, or exposed in public env vars.
 
--- Admin dashboard: read applications + update status + write audit log
-CREATE ROLE admin_reader WITH LOGIN PASSWORD '<strong-random-password>';
-GRANT SELECT ON applications TO admin_reader;
-GRANT UPDATE (status) ON applications TO admin_reader;
-GRANT INSERT, SELECT ON application_audit TO admin_reader;
-```
+**Row Level Security and authorization:**
 
-Use connection strings with these restricted roles in the respective modules:
-- `src/lib/supabase.ts` → exports two clients: `dbWriter` (api_writer) and `dbAdmin` (admin_reader)
-- `service_role` key is never used in application code
-
-**Row Level Security:**
 - Enable RLS on both tables as a secondary layer
-- `api_writer` role: INSERT policy on `applications` only
-- `admin_reader` role: SELECT/UPDATE policy scoped to authenticated admin session
+- Browser-facing auth/session flows use the anon key and standard Supabase Auth
+- Server-only routes verify the authenticated user and then enforce `admin_users` + permission checks in application code before using the admin client
+- Storage bucket remains private; all reads use short-lived signed URLs issued server-side
 
 ---
 
 ### 5. Admin Dashboard — `/admin/`
 
-Protected by Supabase Auth magic link — only your email address can log in.
+Protected by Supabase Auth (magic link) + `admin_users` allowlist table (see ADR-006). Any email not in `admin_users` is rejected even if Supabase Auth issues them a token.
 
-| Page | Path | What it shows |
-|------|------|---------------|
-| Login | `/admin/` | "Send magic link" form |
-| Applications list | `/admin/applications/` | Name, date, vehicle, status badge, action button |
-| Application detail | `/admin/applications/[id]/` | All fields; SIN decrypted server-side on demand |
+#### Route map (Phase 1 — build now)
+
+| Page               | Path                        | Permission                  | What it shows                         |
+| ------------------ | --------------------------- | --------------------------- | ------------------------------------- |
+| Login              | `/admin/`                   | public                      | Send magic link form                  |
+| Dashboard home     | `/admin/dashboard/`         | any role                    | Stats overview (new apps count, etc.) |
+| Applications list  | `/admin/applications/`      | `financing:read`            | Name, date, vehicle, status badge     |
+| Application detail | `/admin/applications/[id]/` | `financing:read`            | All fields; SIN decrypted on demand   |
+| User management    | `/admin/users/`             | `users:manage` (owner only) | List/add/deactivate authorized users  |
+
+#### Route map (future phases — namespace reserved, not built)
+
+| Phase | Path               | Module                                       |
+| ----- | ------------------ | -------------------------------------------- |
+| 2     | `/admin/vehicles/` | Inventory management (CRUD for car listings) |
+| 3     | `/admin/leads/`    | CRM / lead tracking                          |
+| 4     | `/admin/settings/` | Site config, business hours, pricing rules   |
+
+#### Role definitions
+
+| Role      | Who                     | Can do                                               |
+| --------- | ----------------------- | ---------------------------------------------------- |
+| `owner`   | Dealer principal        | Everything — all modules, user management, deletions |
+| `manager` | Finance/sales manager   | Read + write all data modules; cannot manage users   |
+| `staff`   | Reception / floor staff | Read-only access to assigned modules                 |
 
 Status workflow: `new` → `reviewing` → `approved` / `declined`
+
+#### `admin_users` table
+
+```sql
+CREATE TABLE admin_users (
+  id         UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  email      TEXT UNIQUE NOT NULL,
+  role       TEXT NOT NULL DEFAULT 'staff'  CHECK (role IN ('owner', 'manager', 'staff')),
+  is_active  BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS: browser-authenticated reads can be allowed selectively if needed later;
+-- for Phase 1, server code remains the enforcement point for role checks.
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
+```
 
 ---
 
 ## Security Summary
 
-| Threat | Mitigation |
-|--------|-----------|
-| SIN stolen from database breach | AES-256-GCM encryption — ciphertext is useless without the key |
-| Encryption key rotation breaks records | Key version prefix `"v1:<ciphertext>"` — rotate gracefully, old keys kept until all records re-encrypted |
-| SIN stolen from server logs | Never logged — stripped before any log statement |
-| Spam / bot submissions | Rate limiting (5/IP/hour) + Origin header validation + Zod validation |
-| CSRF attacks on form submission | Origin/Referer header check server-side + `SameSite=Strict` on admin cookie |
-| SIN exposed in browser storage | SIN field never written to `localStorage` or `sessionStorage` — React state only |
-| Unauthorized dashboard access | Supabase Auth magic link — only your email |
-| Over-privileged DB access | Restricted Postgres roles (`api_writer`, `admin_reader`) — `service_role` never used in app code |
-| Data in transit intercepted | HTTPS everywhere (Vercel enforces) |
-| Malicious input / SQL injection | Zod validation + Supabase parameterized queries |
-| Third party reading submissions | No FormSubmit or similar — data goes directly to your DB |
-| No record of who viewed PII | `application_audit` table — logs every SIN decrypt, status change, delete |
-| DB outage from project pause | Supabase keep-alive cron (daily ping) or Pro tier when live |
+| Threat                                 | Mitigation                                                                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| SIN stolen from database breach        | AES-256-GCM encryption — ciphertext is useless without the key                                                                   |
+| Encryption key rotation breaks records | Key version prefix `"v1:<ciphertext>"` — rotate gracefully, old keys kept until all records re-encrypted                         |
+| SIN stolen from server logs            | Never logged — stripped before any log statement                                                                                 |
+| Spam / bot submissions                 | Rate limiting (5/IP/hour) + Origin header validation + Zod validation                                                            |
+| CSRF attacks on form submission        | Origin/Referer header check server-side + `SameSite=Strict` on admin cookie                                                      |
+| SIN exposed in browser storage         | SIN field never written to `localStorage` or `sessionStorage` — React state only                                                 |
+| Unauthorized dashboard access          | `admin_users` allowlist + RBAC roles — magic link alone is not sufficient; email must exist in allowlist with `is_active = true` |
+| Over-privileged DB access              | Privileged Supabase key stays server-only; browser uses anon key; all admin actions require `admin_users` + permission checks    |
+| Data in transit intercepted            | HTTPS everywhere (Vercel enforces)                                                                                               |
+| Malicious input / SQL injection        | Zod validation + Supabase parameterized queries                                                                                  |
+| Third party reading submissions        | No FormSubmit or similar — data goes directly to your DB                                                                         |
+| No record of who viewed PII            | `application_audit` table — logs every SIN decrypt, status change, delete                                                        |
+| DB outage from project pause           | Supabase keep-alive cron (daily ping) or Pro tier when live                                                                      |
 
 ---
 
@@ -283,7 +346,7 @@ Status workflow: `new` → `reviewing` → `approved` / `declined`
 - ☑ Privacy policy link on form
 - ☑ `consent_timestamp` recorded with every application
 - ☑ Data used only for stated purpose (financing) — not marketing
-- ☑ On deletion request: admin can DELETE row from Supabase (cascades to audit log)
+- ☑ On deletion request: admin can DELETE row from Supabase while retaining non-PII audit history
 - ☑ On access request: admin can export single record
 - ☑ Audit log (`application_audit`) tracks every access to PII — demonstrable on request
 - ☑ IP address stored as SHA-256 hash only — raw IP is considered PII in Canada
@@ -295,6 +358,7 @@ Status workflow: `new` → `reviewing` → `approved` / `declined`
 The ciphertext format includes a version prefix: `"v1:<base64-ciphertext>"`
 
 **Key rotation procedure** (when needed):
+
 1. Add `SIN_ENCRYPTION_KEY_V2` to Vercel env vars
 2. Update `crypto.ts` to encrypt new records with `v2`, decrypt old `v1` records with `KEY_V1`
 3. Run a one-time migration script to re-encrypt all `v1` rows as `v2`
@@ -307,24 +371,32 @@ The ciphertext format includes a version prefix: `"v1:<base64-ciphertext>"`
 ## Files to Create / Modify
 
 ### New files
+
 ```
-src/pages/financing/index.astro          # Multi-step form (prerender = false)
-src/pages/api/financing.ts               # Server-side API route (prerender = false)
-src/pages/admin/index.astro              # Magic link login (prerender = false)
-src/pages/admin/applications/index.astro # List view (prerender = false)
-src/pages/admin/applications/[id].astro  # Detail view — writes to audit log on SIN decrypt (prerender = false)
-src/lib/supabase.ts                      # Two DB clients: dbWriter (api_writer role), dbAdmin (admin_reader role)
-src/lib/crypto.ts                        # AES-256-GCM encrypt/decrypt with key version prefix
-src/lib/rate-limit.ts                    # Upstash rate limiter
-src/middleware.ts                        # Auth guard for /admin/* routes
-.env.example                             # Documents required env vars
-docs/privacy-policy.md                   # Draft privacy policy
+src/pages/financing/index.astro               # Multi-step form (prerender = false)
+src/pages/api/financing.ts                    # Server-side POST handler (prerender = false)
+src/pages/api/financing/upload-url.ts         # Issues presigned PUT URL for license upload (prerender = false)
+src/pages/admin/index.astro                   # Magic link login (prerender = false)
+src/pages/admin/dashboard/index.astro         # Dashboard home — stats overview (prerender = false)
+src/pages/admin/applications/index.astro      # List view (prerender = false)
+src/pages/admin/applications/[id].astro       # Detail view — writes to audit log on SIN decrypt + license view (prerender = false)
+src/pages/admin/users/index.astro             # User management — owner only (prerender = false)
+src/lib/supabase-browser.ts                   # Browser anon client for auth/session flows
+src/lib/supabase-admin.ts                     # Server-only admin client for privileged Supabase calls
+src/lib/crypto.ts                             # AES-256-GCM encrypt/decrypt with key version prefix
+src/lib/rate-limit.ts                         # Upstash rate limiter
+src/lib/permissions.ts                        # RBAC permission map + can() helper
+src/middleware.ts                             # Auth guard: Supabase session + admin_users allowlist + role attach
+.env.example                                  # Documents required env vars
+docs/privacy-policy.md                        # Draft privacy policy
 ```
 
 ### Modified files
+
 ```
-astro.config.mjs    # Add @astrojs/vercel adapter, set output: 'hybrid' (NOT 'server' — keeps all existing pages static)
-package.json        # Add @astrojs/vercel, @supabase/supabase-js, resend, zod, @upstash/ratelimit, @upstash/redis
+astro.config.mjs    # Change `output` to 'hybrid' and align `site` to https://alfursanauto.ca
+package.json        # Dependencies already added; keep Supabase/Resend/Upstash/Zod set
+.env.example        # Keep server-only vs public env usage explicit
 ```
 
 > ⚠️ **Do not use `output: 'server'`** — this would force all 40 existing static pages through serverless functions on every request, eliminating performance benefits and increasing Vercel function costs. Use `output: 'hybrid'` and add `export const prerender = false` only to API routes and admin pages.
@@ -333,15 +405,15 @@ package.json        # Add @astrojs/vercel, @supabase/supabase-js, resend, zod, @
 
 ## Deployment Steps (Vercel)
 
-1. `npm install @astrojs/vercel @supabase/supabase-js resend zod @upstash/ratelimit @upstash/redis`
-2. Update `astro.config.mjs`: add Vercel adapter, set `output: 'hybrid'`, **remove `base: '/alfursan-website'`**
-3. Revert all `import.meta.env.BASE_URL` href prefixes in `.astro` and `.tsx` files back to plain `/` paths
-4. Create Supabase project → run schema SQL (applications + application_audit) → create `api_writer` and `admin_reader` roles → configure RLS
-5. Create Resend account → verify `alfursanauto.ca` domain
-6. Create Upstash Redis database
-7. Add all env vars to Vercel dashboard (including `SIN_ENCRYPTION_KEY` — generate with `openssl rand -hex 32`)
-8. Connect Vercel to GitHub repo → auto-deploy on push
-9. Point `alfursanauto.ca` DNS to Vercel
+1. Verify the current dependency set is installed (`@astrojs/vercel`, Supabase, Resend, Upstash, Zod are already present in the repo).
+2. Update `astro.config.mjs`: change `output` to `hybrid` and set `site` to `https://alfursanauto.ca`.
+3. Create Supabase project → run schema SQL (`applications`, `application_audit`, `admin_users`) → configure private `license-documents` bucket → insert first owner row into `admin_users`.
+4. Create Resend account → verify `alfursanauto.ca` domain.
+5. Create Upstash Redis database.
+6. Add all env vars to Vercel dashboard (including `SIN_ENCRYPTION_KEY` — generate with `openssl rand -hex 32`).
+7. Add a scheduled cleanup job for `license-documents/tmp/` objects older than 24 hours.
+8. Connect Vercel to GitHub repo → auto-deploy on push.
+9. Point `alfursanauto.ca` DNS to Vercel.
 
 ---
 
