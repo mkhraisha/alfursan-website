@@ -7,6 +7,7 @@ Whenever a task is completed, mark it `[x]` here in the same change set.
 
 - [x] Retire migration planning docs and switch repo focus to financing work.
 - [x] Finalize financing architecture plan in `docs/financing-architecture.md`.
+- [x] Ignore local Vercel output and dev-server logs in git.
 
 ## Platform And Configuration
 
