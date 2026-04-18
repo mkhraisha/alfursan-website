@@ -1,0 +1,468 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getAdminClient } from "../../../lib/supabase-admin";
+import { can } from "../../../lib/permissions";
+import { createHash } from "node:crypto";
+
+const { adminEmail, adminRole } = Astro.locals;
+const { id } = Astro.params;
+
+if (!id) return Astro.redirect("/admin/applications/");
+
+const supabase = getAdminClient();
+
+// ── Handle POST actions ───────────────────────────────────────────────────────
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = form.get("action");
+  const ip = Astro.request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ipHash = createHash("sha256").update(ip).digest("hex");
+
+  if (action === "status_change" && can(adminRole!, "financing:write")) {
+    const newStatus = form.get("status") as string;
+    const valid = ["new", "reviewing", "approved", "declined"];
+    if (valid.includes(newStatus)) {
+      await supabase.from("applications").update({ status: newStatus }).eq("id", id);
+      await supabase.from("application_audit").insert({
+        application_id: id,
+        application_ref: id,
+        action: "status_changed",
+        admin_email: adminEmail,
+        ip_hash: ipHash,
+      });
+    }
+  }
+
+  if (action === "delete" && can(adminRole!, "financing:delete")) {
+    // Fetch storage paths before deleting the row
+    const { data: toDelete } = await supabase
+      .from("applications")
+      .select("license_front_path, license_back_path")
+      .eq("id", id)
+      .single();
+
+    await supabase.from("application_audit").insert({
+      application_id: id,
+      application_ref: id,
+      action: "deleted",
+      admin_email: adminEmail,
+      ip_hash: ipHash,
+    });
+    await supabase.from("applications").delete().eq("id", id);
+
+    // Delete storage files (best-effort; don't block redirect on failure)
+    const paths = [toDelete?.license_front_path, toDelete?.license_back_path].filter(Boolean) as string[];
+    if (paths.length > 0) {
+      await supabase.storage.from("license-documents").remove(paths);
+    }
+
+    return Astro.redirect("/admin/applications/");
+  }
+
+  // Redirect back to same page after mutation (PRG pattern)
+  return Astro.redirect(`/admin/applications/${id}/`);
+}
+
+// ── Fetch application ─────────────────────────────────────────────────────────
+const { data: app, error } = await supabase
+  .from("applications")
+  .select("*")
+  .eq("id", id)
+  .single();
+
+if (error || !app) return Astro.redirect("/admin/applications/");
+
+// ── Fetch audit log ───────────────────────────────────────────────────────────
+const { data: auditRows } = await supabase
+  .from("application_audit")
+  .select("action, admin_email, created_at")
+  .eq("application_ref", id)
+  .order("created_at", { ascending: false });
+
+// ── Generate signed URL for license (if applicable) ───────────────────────────
+let licenseFrontUrl: string | null = null;
+let licenseBackUrl: string | null = null;
+
+const ip = Astro.request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+const ipHash = createHash("sha256").update(ip).digest("hex");
+
+if (app.license_front_path && can(adminRole!, "financing:read")) {
+  const { data } = await supabase.storage
+    .from("license-documents")
+    .createSignedUrl(app.license_front_path, 300); // 5-min expiry
+  if (data) {
+    licenseFrontUrl = data.signedUrl;
+    // Write audit row (non-blocking)
+    supabase.from("application_audit").insert({
+      application_id: id,
+      application_ref: id,
+      action: "viewed_license",
+      admin_email: adminEmail,
+      ip_hash: ipHash,
+    });
+  }
+}
+
+if (app.license_back_path && can(adminRole!, "financing:read")) {
+  const { data } = await supabase.storage
+    .from("license-documents")
+    .createSignedUrl(app.license_back_path, 300);
+  if (data) licenseBackUrl = data.signedUrl;
+}
+
+function fmt(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function money(v: number | null) {
+  if (v == null) return "—";
+  return `$${Number(v).toLocaleString("en-CA")}`;
+}
+
+const statusColor: Record<string, string> = {
+  new: "#3b82f6",
+  reviewing: "#f59e0b",
+  approved: "#1a7f4b",
+  declined: "#B92111",
+};
+
+const STATUSES = ["new", "reviewing", "approved", "declined"];
+---
+
+<AdminLayout title={`Application — ${app.full_name}`} activeNav="applications">
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <a href="/admin/applications/">Applications</a>
+    <span>›</span>
+    <span>{app.full_name}</span>
+  </div>
+
+  <div class="page-header">
+    <div>
+      <h1>{app.full_name}</h1>
+      <p class="ref">REF-{app.id}</p>
+    </div>
+    <div class="header-actions">
+      <span
+        class="badge"
+        style={`background:${statusColor[app.status]}22; color:${statusColor[app.status]}`}
+      >
+        {app.status}
+      </span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Left column: application details -->
+    <div class="details">
+
+      <!-- Personal -->
+      <div class="card">
+        <h2 class="card__title">Personal</h2>
+        <dl class="dl">
+          <dt>Full Name</dt><dd>{app.full_name}</dd>
+          <dt>Date of Birth</dt><dd>{app.dob ?? "—"}</dd>
+          <dt>Email</dt><dd><a href={`mailto:${app.email}`}>{app.email}</a></dd>
+          <dt>Phone</dt><dd>{app.phone ?? "—"}</dd>
+          <dt>Address</dt><dd>{app.address ?? "—"}</dd>
+          <dt>Postal Code</dt><dd>{app.postal_code ?? "—"}</dd>
+          <dt>Time at Address</dt><dd>{app.time_at_address ?? "—"}</dd>
+          {app.prev_address && <><dt>Previous Address</dt><dd>{app.prev_address}</dd></>}
+          <dt>Marital Status</dt><dd>{app.marital_status ?? "—"}</dd>
+        </dl>
+      </div>
+
+      <!-- Employment -->
+      <div class="card">
+        <h2 class="card__title">Employment</h2>
+        <dl class="dl">
+          <dt>Status</dt><dd>{app.employment_status ?? "—"}</dd>
+          <dt>Employer</dt><dd>{app.employer ?? "—"}</dd>
+          <dt>Job Title</dt><dd>{app.job_title ?? "—"}</dd>
+          <dt>Annual Income</dt><dd>{money(app.annual_income)}</dd>
+          <dt>Time at Employer</dt><dd>{app.time_at_employer ?? "—"}</dd>
+          {app.prev_employer && (
+            <>
+              <dt>Previous Employer</dt><dd>{app.prev_employer}</dd>
+              <dt>Time at Prev. Employer</dt><dd>{app.prev_time_at_employer ?? "—"}</dd>
+            </>
+          )}
+        </dl>
+      </div>
+
+      <!-- Vehicle & Loan -->
+      <div class="card">
+        <h2 class="card__title">Vehicle & Loan</h2>
+        <dl class="dl">
+          <dt>Vehicle</dt>
+          <dd>
+            {[app.vehicle_year, app.vehicle_make, app.vehicle_model].filter(Boolean).join(" ") || "—"}
+          </dd>
+          <dt>Price</dt><dd>{money(app.vehicle_price)}</dd>
+          <dt>Down Payment</dt><dd>{money(app.down_payment)}</dd>
+          <dt>Loan Term</dt>
+          <dd>{app.loan_term_months ? `${app.loan_term_months} months` : "—"}</dd>
+          <dt>VIN</dt><dd>{app.vin ?? "—"}</dd>
+          {app.listing_slug && (
+            <>
+              <dt>Listing</dt>
+              <dd>
+                <a href={`/listings/${app.listing_slug}/`} target="_blank" rel="noopener">
+                  {app.listing_slug}
+                </a>
+              </dd>
+            </>
+          )}
+        </dl>
+      </div>
+
+      <!-- Driver's License -->
+      {(licenseFrontUrl || licenseBackUrl) && (
+        <div class="card">
+          <h2 class="card__title">Driver's License</h2>
+          <p class="license-note">Links expire in 5 minutes.</p>
+          <div class="license-imgs">
+            {licenseFrontUrl && (
+              <a href={licenseFrontUrl} target="_blank" rel="noopener" class="license-link">
+                Front →
+              </a>
+            )}
+            {licenseBackUrl && (
+              <a href={licenseBackUrl} target="_blank" rel="noopener" class="license-link">
+                Back →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      <!-- Submission metadata -->
+      <div class="card">
+        <h2 class="card__title">Submission</h2>
+        <dl class="dl">
+          <dt>Submitted</dt><dd>{fmt(app.created_at)}</dd>
+          <dt>Consent</dt><dd>{fmt(app.consent_timestamp)}</dd>
+          <dt>License Consent</dt><dd>{app.license_consent ? "Yes" : "No"}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Right column: actions + audit -->
+    <div class="sidebar">
+
+      <!-- Status change -->
+      {can(adminRole!, "financing:write") && (
+        <div class="card">
+          <h2 class="card__title">Change Status</h2>
+          <form method="POST">
+            <input type="hidden" name="action" value="status_change" />
+            <select name="status" class="select">
+              {STATUSES.map((s) => (
+                <option value={s} selected={s === app.status}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </option>
+              ))}
+            </select>
+            <button type="submit" class="btn btn--primary">Update Status</button>
+          </form>
+        </div>
+      )}
+
+      <!-- Export (owner/manager) -->
+      {can(adminRole!, "financing:export") && (
+        <div class="card">
+          <h2 class="card__title">Export</h2>
+          <a
+            href={`/api/admin/export-application?id=${app.id}`}
+            class="btn btn--outline"
+          >
+            Download JSON
+          </a>
+        </div>
+      )}
+
+      <!-- Danger zone (owner only) -->
+      {can(adminRole!, "financing:delete") && (
+        <div class="card card--danger">
+          <h2 class="card__title card__title--danger">Danger Zone</h2>
+          <p class="danger-note">
+            Deleting this application is irreversible. The audit log will be preserved.
+          </p>
+          <form
+            method="POST"
+            onsubmit="return confirm('Permanently delete this application? This cannot be undone.')"
+          >
+            <input type="hidden" name="action" value="delete" />
+            <button type="submit" class="btn btn--danger">Delete Application</button>
+          </form>
+        </div>
+      )}
+
+      <!-- Audit log -->
+      <div class="card">
+        <h2 class="card__title">Audit Log</h2>
+        {(auditRows ?? []).length === 0 ? (
+          <p class="empty">No events recorded.</p>
+        ) : (
+          <ul class="audit-list">
+            {(auditRows ?? []).map((row: { action: string; admin_email: string; created_at: string }) => (
+              <li class="audit-item">
+                <span class="audit-action">{row.action.replace(/_/g, " ")}</span>
+                <span class="audit-meta">
+                  {row.admin_email} · {fmt(row.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<style>
+  .breadcrumb {
+    font-size: 13px;
+    color: #99a1b2;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .breadcrumb a { color: #B92111; }
+
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .page-header h1 { font-size: 22px; font-weight: 800; color: #1a1d23; }
+  .ref { font-size: 12px; color: #99a1b2; margin-top: 4px; font-family: monospace; }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .details { display: flex; flex-direction: column; gap: 16px; }
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .card--danger { border-color: #fca5a5; background: #fff5f5; }
+  .card__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 14px;
+  }
+  .card__title--danger { color: #B92111; }
+
+  .dl {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 6px 12px;
+    font-size: 14px;
+  }
+  .dl dt { color: #99a1b2; font-weight: 500; }
+  .dl dd { color: #1a1d23; word-break: break-word; }
+  .dl a { color: #B92111; }
+
+  .license-note { font-size: 12px; color: #99a1b2; margin-bottom: 10px; }
+  .license-imgs { display: flex; gap: 10px; }
+  .license-link {
+    padding: 8px 16px;
+    background: #f0f2f5;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1d23;
+    border: 1px solid #e4e7ec;
+    transition: background 0.15s;
+  }
+  .license-link:hover { background: #e4e7ec; }
+
+  .select {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #e4e7ec;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #1a1d23;
+    background: #fff;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    border: none;
+    transition: opacity 0.15s;
+    text-decoration: none;
+  }
+  .btn--primary { background: #1a1d23; color: #fff; }
+  .btn--primary:hover { opacity: 0.85; }
+  .btn--outline {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    color: #1a1d23;
+  }
+  .btn--outline:hover { background: #f0f2f5; }
+  .btn--danger { background: #B92111; color: #fff; margin-top: 10px; }
+  .btn--danger:hover { opacity: 0.88; }
+
+  .danger-note { font-size: 13px; color: #7f1d1d; line-height: 1.5; }
+
+  .empty { font-size: 13px; color: #99a1b2; }
+
+  .audit-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .audit-item { display: flex; flex-direction: column; gap: 2px; }
+  .audit-action {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+    text-transform: capitalize;
+  }
+  .audit-meta { font-size: 11px; color: #99a1b2; }
+</style>

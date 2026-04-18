@@ -1,0 +1,63 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import FinancingForm from "../../components/FinancingForm";
+---
+
+<Layout
+  title="Apply for Financing — Alfursan Auto"
+  description="Apply for vehicle financing at Alfursan Auto. Fast, easy, and no obligation. Serving the Greater Toronto Area."
+>
+  <main class="financing-page">
+    <div class="financing-page__inner">
+      <header class="financing-page__header">
+        <h1>Apply for Financing</h1>
+        <p>
+          Complete the form below and our team will be in touch with financing
+          options tailored to your situation. No obligation, no hard credit pull
+          to get started.
+        </p>
+      </header>
+
+      <FinancingForm client:load />
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .financing-page {
+    min-height: 70vh;
+    background: #f7f9fd;
+    padding: 3rem 1rem 5rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .financing-page__inner {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .financing-page__header {
+    width: 100%;
+    text-align: center;
+  }
+
+  .financing-page__header h1 {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 800;
+    color: var(--ink, #222732);
+    margin-bottom: 0.5rem;
+  }
+
+  .financing-page__header p {
+    font-size: 15px;
+    color: var(--muted, #99a1b2);
+    max-width: 540px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+</style>

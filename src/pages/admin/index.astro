@@ -1,0 +1,176 @@
+---
+/**
+ * Admin login page — magic-link sign-in via Supabase Auth.
+ * This page is intentionally PUBLIC (excluded from middleware guard).
+ */
+const SUPABASE_URL = import.meta.env.SUPABASE_URL ?? "";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin Sign In — Alfursan Auto</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', sans-serif;
+        background: #f0f2f5;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e4e7ec;
+        border-radius: 12px;
+        padding: 40px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      }
+      .brand {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+      .brand__logo { color: #B92111; font-size: 28px; }
+      .brand__name {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a1d23;
+        margin-top: 8px;
+      }
+      .brand__sub { font-size: 13px; color: #99a1b2; margin-top: 4px; }
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1a1d23;
+        margin-bottom: 6px;
+      }
+      input[type="email"] {
+        display: block;
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #e4e7ec;
+        border-radius: 6px;
+        font-size: 15px;
+        font-family: inherit;
+        color: #1a1d23;
+        outline: none;
+      }
+      input[type="email"]:focus { border-color: #B92111; box-shadow: 0 0 0 3px rgba(185,33,17,0.1); }
+      button {
+        display: block;
+        width: 100%;
+        margin-top: 16px;
+        padding: 11px;
+        background: #B92111;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: opacity 0.15s;
+      }
+      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      #message {
+        margin-top: 16px;
+        font-size: 14px;
+        text-align: center;
+        min-height: 20px;
+        line-height: 1.5;
+      }
+      .msg-success { color: #1a7f4b; }
+      .msg-error { color: #B92111; }
+      .footer-note {
+        margin-top: 24px;
+        font-size: 12px;
+        color: #99a1b2;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="brand">
+        <div class="brand__logo">⬟</div>
+        <div class="brand__name">Alfursan Auto</div>
+        <div class="brand__sub">Admin Portal</div>
+      </div>
+
+      <form id="signin-form">
+        <label for="email">Email address</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="you@alfursanauto.ca"
+          autocomplete="email"
+          required
+        />
+        <button type="submit" id="submit-btn">Send Magic Link</button>
+      </form>
+
+      <p id="message"></p>
+      <p class="footer-note">Authorized personnel only. A sign-in link will be emailed to you.</p>
+    </div>
+
+    <script
+      define:vars={{ SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY }}
+    >
+      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+      const form = document.getElementById("signin-form");
+      const btn = document.getElementById("submit-btn");
+      const msg = document.getElementById("message");
+
+      // If user arrives here with a session already, redirect to dashboard
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session) {
+          window.location.replace("/admin/dashboard/");
+        }
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("email").value.trim();
+        if (!email) return;
+
+        btn.disabled = true;
+        btn.textContent = "Sending…";
+        msg.textContent = "";
+        msg.className = "";
+
+        const redirectTo = window.location.origin + "/admin/callback/";
+
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: redirectTo },
+        });
+
+        if (error) {
+          msg.textContent = error.message || "Something went wrong. Please try again.";
+          msg.className = "msg-error";
+          btn.disabled = false;
+          btn.textContent = "Send Magic Link";
+        } else {
+          msg.innerHTML = `<strong>Check your inbox.</strong><br>A sign-in link has been sent to <em>${email}</em>.`;
+          msg.className = "msg-success";
+          btn.textContent = "Link sent ✓";
+        }
+      });
+    </script>
+  </body>
+</html>

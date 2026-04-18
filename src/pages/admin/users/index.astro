@@ -1,0 +1,329 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getAdminClient } from "../../../lib/supabase-admin";
+import { can } from "../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+
+// Only owner can access this page
+if (!can(adminRole!, "users:manage")) {
+  return Astro.redirect("/admin/dashboard/");
+}
+
+const supabase = getAdminClient();
+
+let msg = "";
+
+// ── Handle POST ───────────────────────────────────────────────────────────────
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = form.get("action");
+
+  if (action === "add_user") {
+    const email = String(form.get("email") ?? "").toLowerCase().trim();
+    const role = String(form.get("role") ?? "staff");
+
+    if (!email.includes("@")) {
+      msg = "Invalid email address.";
+    } else {
+      const { error } = await supabase.from("admin_users").insert({
+        email,
+        role,
+        is_active: true,
+      });
+      if (error?.code === "23505") {
+        msg = "That email is already an admin user.";
+      } else if (error) {
+        msg = "Failed to add user. Please try again.";
+      } else {
+        msg = `${email} added as ${role}.`;
+      }
+    }
+  }
+
+  if (action === "toggle_active") {
+    const userId = form.get("user_id") as string;
+    const currentlyActive = form.get("currently_active") === "true";
+    await supabase
+      .from("admin_users")
+      .update({ is_active: !currentlyActive })
+      .eq("id", userId);
+    msg = `User ${currentlyActive ? "deactivated" : "reactivated"}.`;
+  }
+
+  if (action === "delete_user") {
+    const userId = form.get("user_id") as string;
+    await supabase.from("admin_users").delete().eq("id", userId);
+    msg = "User deleted.";
+  }
+
+  return Astro.redirect("/admin/users/?msg=" + encodeURIComponent(msg));
+}
+
+// Pick up flash message from redirect
+const flashMsg = Astro.url.searchParams.get("msg") ?? "";
+
+// ── Fetch users ───────────────────────────────────────────────────────────────
+const { data: users, error } = await supabase
+  .from("admin_users")
+  .select("id, email, role, is_active, created_at")
+  .order("created_at", { ascending: true });
+
+function fmt(iso: string) {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const roleColor: Record<string, string> = {
+  owner: "#1a7f4b",
+  manager: "#3b82f6",
+  staff: "#f59e0b",
+};
+---
+
+<AdminLayout title="Users" activeNav="users">
+  <div class="page-header">
+    <h1>Admin Users</h1>
+    <p>Manage who can access this dashboard.</p>
+  </div>
+
+  {flashMsg && (
+    <div class={`flash ${flashMsg.toLowerCase().includes("fail") || flashMsg.toLowerCase().includes("invalid") ? "flash--error" : "flash--ok"}`}>
+      {flashMsg}
+    </div>
+  )}
+
+  <!-- Add user form -->
+  <div class="card form-card">
+    <h2 class="card__title">Add User</h2>
+    <form method="POST" class="add-form">
+      <input type="hidden" name="action" value="add_user" />
+      <div class="field-row">
+        <input
+          type="email"
+          name="email"
+          placeholder="admin@example.com"
+          required
+          class="input"
+        />
+        <select name="role" class="select">
+          <option value="staff">Staff</option>
+          <option value="manager">Manager</option>
+          <option value="owner">Owner</option>
+        </select>
+        <button type="submit" class="btn btn--primary">Add</button>
+      </div>
+      <p class="field-hint">
+        The user will receive a magic-link invitation on their first sign-in attempt.
+      </p>
+    </form>
+  </div>
+
+  <!-- Users list -->
+  <div class="table-wrap section">
+    {error ? (
+      <div class="empty">Error loading users.</div>
+    ) : (users ?? []).length === 0 ? (
+      <div class="empty">No admin users found.</div>
+    ) : (
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Added</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(users ?? []).map((u) => (
+            <tr class={u.is_active ? "" : "row--inactive"}>
+              <td>{u.email}</td>
+              <td>
+                <span
+                  class="badge"
+                  style={`background:${roleColor[u.role]}22; color:${roleColor[u.role]}`}
+                >
+                  {u.role}
+                </span>
+              </td>
+              <td>
+                <span class={`status-dot ${u.is_active ? "status-dot--active" : "status-dot--inactive"}`}>
+                  {u.is_active ? "Active" : "Inactive"}
+                </span>
+              </td>
+              <td style="white-space:nowrap">{fmt(u.created_at)}</td>
+              <td>
+                <div class="row-actions">
+                  <form method="POST" style="display:inline">
+                    <input type="hidden" name="action" value="toggle_active" />
+                    <input type="hidden" name="user_id" value={u.id} />
+                    <input type="hidden" name="currently_active" value={String(u.is_active)} />
+                    <button type="submit" class="link-btn">
+                      {u.is_active ? "Deactivate" : "Reactivate"}
+                    </button>
+                  </form>
+                  <form
+                    method="POST"
+                    style="display:inline"
+                    onsubmit="return confirm('Delete this admin user? They will lose access immediately.')"
+                  >
+                    <input type="hidden" name="action" value="delete_user" />
+                    <input type="hidden" name="user_id" value={u.id} />
+                    <button type="submit" class="link-btn link-btn--danger">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</AdminLayout>
+
+<style>
+  .page-header { margin-bottom: 20px; }
+  .page-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
+  .page-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
+
+  .flash {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    border: 1px solid transparent;
+  }
+  .flash--ok { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+  .flash--error { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
+
+  .card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 14px;
+  }
+
+  .add-form {}
+  .field-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .input {
+    flex: 1;
+    min-width: 200px;
+    padding: 9px 12px;
+    border: 1px solid #e4e7ec;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #1a1d23;
+    background: #fff;
+  }
+  .input:focus { outline: 2px solid #B92111; border-color: transparent; }
+  .select {
+    padding: 9px 12px;
+    border: 1px solid #e4e7ec;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #1a1d23;
+    background: #fff;
+    cursor: pointer;
+  }
+  .field-hint { font-size: 12px; color: #99a1b2; margin-top: 8px; }
+
+  .btn {
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+  }
+  .btn--primary { background: #1a1d23; color: #fff; }
+  .btn--primary:hover { opacity: 0.85; }
+
+  .section {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .table-wrap { overflow-x: auto; }
+  .empty { padding: 20px; color: #99a1b2; font-size: 14px; }
+  .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  .table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f2f5;
+    color: #1a1d23;
+    vertical-align: middle;
+  }
+  .table tr:last-child td { border-bottom: none; }
+  .row--inactive td { opacity: 0.5; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .status-dot {
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .status-dot::before { content: "●"; font-size: 8px; }
+  .status-dot--active { color: #1a7f4b; }
+  .status-dot--active::before { color: #1a7f4b; }
+  .status-dot--inactive { color: #99a1b2; }
+  .status-dot--inactive::before { color: #99a1b2; }
+
+  .row-actions { display: flex; gap: 10px; align-items: center; }
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #3b82f6;
+  }
+  .link-btn:hover { text-decoration: underline; }
+  .link-btn--danger { color: #B92111; }
+</style>

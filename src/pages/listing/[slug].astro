@@ -199,6 +199,10 @@ const vehicleSchema: Record<string, unknown> = {
             Get in touch with us for more details, financing options, or to
             schedule a test drive.
           </p>
+          <a
+            href={`/financing/?slug=${car.slug}${car.year ? `&year=${car.year}` : ""}${car.make ? `&make=${encodeURIComponent(car.make)}` : ""}${car.model ? `&model=${encodeURIComponent(car.model)}` : ""}${car.price ? `&price=${car.price}` : ""}`}
+            class="btn-financing"
+          >Apply for Financing</a>
           <a href="/contact-us/" class="btn-contact">Send a Message</a>
           <a href="tel:+14168384007" class="btn-phone">Call +1 (416) 838-4007</a
           >
@@ -489,6 +493,18 @@ const vehicleSchema: Record<string, unknown> = {
     color: var(--muted);
     font-size: 0.9rem;
     line-height: 1.55;
+  }
+
+  .btn-financing {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    background: #1a7f4b;
+    color: #fff;
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-weight: 700;
+    margin-bottom: 0.6rem;
   }
 
   .btn-contact {
