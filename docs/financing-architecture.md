@@ -8,14 +8,14 @@ Build a secure financing application form that collects PII (including SIN) from
 
 ## Architecture Decision Records
 
-**ADR-001: Hybrid SSR over full SSR**
-Use `output: 'hybrid'`. Static pages stay static; only `/api/*` and `/admin/*` routes opt into SSR with `export const prerender = false`. Preserves performance of all 40 existing pages, reduces Vercel function costs.
+**ADR-001: Static output mode (Astro v5 hybrid behaviour)**
+Use `output: 'static'`. In Astro v5, `hybrid` was removed — `static` is now the hybrid mode: pages are pre-rendered by default; API routes and admin pages opt into SSR with `export const prerender = false`. Static pages stay static; only `/api/*` and `/admin/*` routes opt into SSR. Preserves performance of all 40 existing pages, reduces Vercel function costs.
 
-**ADR-002: Application-layer encryption over DB-layer**
-Encrypt SIN in `src/lib/crypto.ts` before the Supabase insert — not via pgcrypto inside the DB. DB-layer encryption still exposes plaintext to the DB superuser (Supabase staff). Application-layer means the ciphertext is all Supabase ever sees.
+**ADR-002: No SIN collection**
+SIN is not collected by this form. It can be added in a future phase if required by a lender partner, at which point application-layer AES-256-GCM encryption should be introduced (encrypt before insert; DB only ever sees ciphertext).
 
-**ADR-003: No draft persistence for SIN field**
-SIN is never written to `localStorage`, `sessionStorage`, or any storage mechanism until the final server-side submission. All other form fields may use `sessionStorage` for draft recovery between steps. Rationale: PIPEDA minimization principle — collect only when necessary, only for the stated purpose.
+**ADR-003: No draft persistence for sensitive fields**
+All non-sensitive form fields may use `sessionStorage` for draft recovery between steps.
 
 **ADR-004: Presigned URL upload for driver's license — never relay files through Vercel**
 Vercel serverless functions cap request body at 4.5 MB. Phone camera license photos are 3–10 MB per side. The API route issues a presigned PUT URL from Supabase Storage; the client uploads directly to storage (bypassing Vercel entirely). The API route never handles file bytes — only validates intent, issues the URL, and records the resulting storage path in the DB.
@@ -118,7 +118,6 @@ Multi-step form (4 steps, progress indicator at top):
 
 - Full legal name
 - Date of birth
-- Social Insurance Number (SIN) ← encrypted immediately on server
 - Current address + postal code
 - Time at current address
 - Phone number
@@ -163,10 +162,9 @@ Server-side only. Add `export const prerender = false` at the top. Runs on Verce
 
 ```
 POST /api/financing
-  ├── Validate Origin header matches alfursanauto.ca (CSRF protection)
+  ├── Validate Origin header matches site domain (CSRF protection)
   ├── Check rate limit (5 submissions / IP / hour via Upstash)
   ├── Validate all fields with Zod (types, formats, required)
-  ├── Encrypt SIN → "v1:<base64-ciphertext>" (AES-256-GCM, key version prefixed)
   ├── INSERT into Supabase `applications` table (server-only admin client)
   ├── Finalize any staged license uploads into `applications/{applicationId}/...`
   ├── Send Resend email to dealer: "New application REF-[UUID] received at [timestamp]"
@@ -178,7 +176,6 @@ POST /api/financing
 
 **What is NOT in server logs:**
 
-- SIN (never logged anywhere)
 - Full name
 - Date of birth
 - Any financial data
@@ -195,10 +192,9 @@ CREATE TABLE applications (
   created_at      TIMESTAMPTZ DEFAULT now(),
   status          TEXT DEFAULT 'new',  -- new | reviewing | approved | declined
 
-  -- Personal (SIN encrypted with key version prefix, rest plaintext)
+  -- Personal
   full_name       TEXT NOT NULL,
   dob             DATE NOT NULL,
-  sin_encrypted   TEXT NOT NULL,  -- format: "v1:<base64-AES-256-GCM-ciphertext>"
   address         TEXT,
   postal_code     TEXT,
   time_at_address TEXT,
@@ -243,7 +239,7 @@ CREATE TABLE application_audit (
   id             UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   application_id UUID REFERENCES applications(id) ON DELETE SET NULL,
   application_ref TEXT NOT NULL, -- stable application UUID captured at write time
-  action         TEXT NOT NULL,  -- 'viewed_sin' | 'viewed_license' | 'status_changed' | 'deleted' | 'exported'
+  action         TEXT NOT NULL,  -- 'viewed_license' | 'status_changed' | 'deleted' | 'exported'
   admin_email    TEXT NOT NULL,
   ip_hash        TEXT,
   created_at     TIMESTAMPTZ DEFAULT now()
@@ -324,18 +320,14 @@ ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 
 | Threat                                 | Mitigation                                                                                                                       |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| SIN stolen from database breach        | AES-256-GCM encryption — ciphertext is useless without the key                                                                   |
-| Encryption key rotation breaks records | Key version prefix `"v1:<ciphertext>"` — rotate gracefully, old keys kept until all records re-encrypted                         |
-| SIN stolen from server logs            | Never logged — stripped before any log statement                                                                                 |
 | Spam / bot submissions                 | Rate limiting (5/IP/hour) + Origin header validation + Zod validation                                                            |
 | CSRF attacks on form submission        | Origin/Referer header check server-side + `SameSite=Strict` on admin cookie                                                      |
-| SIN exposed in browser storage         | SIN field never written to `localStorage` or `sessionStorage` — React state only                                                 |
 | Unauthorized dashboard access          | `admin_users` allowlist + RBAC roles — magic link alone is not sufficient; email must exist in allowlist with `is_active = true` |
 | Over-privileged DB access              | Privileged Supabase key stays server-only; browser uses anon key; all admin actions require `admin_users` + permission checks    |
 | Data in transit intercepted            | HTTPS everywhere (Vercel enforces)                                                                                               |
 | Malicious input / SQL injection        | Zod validation + Supabase parameterized queries                                                                                  |
 | Third party reading submissions        | No FormSubmit or similar — data goes directly to your DB                                                                         |
-| No record of who viewed PII            | `application_audit` table — logs every SIN decrypt, status change, delete                                                        |
+| No record of who accessed data         | `application_audit` table — logs every license view, status change, delete                                                       |
 | DB outage from project pause           | Supabase keep-alive cron (daily ping) or Pro tier when live                                                                      |
 
 ---
@@ -348,23 +340,8 @@ ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 - ☑ Data used only for stated purpose (financing) — not marketing
 - ☑ On deletion request: admin can DELETE row from Supabase while retaining non-PII audit history
 - ☑ On access request: admin can export single record
-- ☑ Audit log (`application_audit`) tracks every access to PII — demonstrable on request
+- ☑ Audit log (`application_audit`) tracks every access to applicant data — demonstrable on request
 - ☑ IP address stored as SHA-256 hash only — raw IP is considered PII in Canada
-
-## Encryption Key Management
-
-`SIN_ENCRYPTION_KEY` is a 32-byte random hex value generated once and stored only in Vercel environment variables (never in code or git).
-
-The ciphertext format includes a version prefix: `"v1:<base64-ciphertext>"`
-
-**Key rotation procedure** (when needed):
-
-1. Add `SIN_ENCRYPTION_KEY_V2` to Vercel env vars
-2. Update `crypto.ts` to encrypt new records with `v2`, decrypt old `v1` records with `KEY_V1`
-3. Run a one-time migration script to re-encrypt all `v1` rows as `v2`
-4. Remove `KEY_V1` from env vars once all rows are migrated
-
-**Backup strategy**: Weekly `pg_dump` of the `applications` table exported to encrypted storage (Backblaze B2 or S3). Upgrade to Supabase Pro ($25/mo) in production for automatic daily backups.
 
 ---
 
@@ -379,11 +356,10 @@ src/pages/api/financing/upload-url.ts         # Issues presigned PUT URL for lic
 src/pages/admin/index.astro                   # Magic link login (prerender = false)
 src/pages/admin/dashboard/index.astro         # Dashboard home — stats overview (prerender = false)
 src/pages/admin/applications/index.astro      # List view (prerender = false)
-src/pages/admin/applications/[id].astro       # Detail view — writes to audit log on SIN decrypt + license view (prerender = false)
+src/pages/admin/applications/[id].astro       # Detail view — writes to audit log on license view (prerender = false)
 src/pages/admin/users/index.astro             # User management — owner only (prerender = false)
 src/lib/supabase-browser.ts                   # Browser anon client for auth/session flows
 src/lib/supabase-admin.ts                     # Server-only admin client for privileged Supabase calls
-src/lib/crypto.ts                             # AES-256-GCM encrypt/decrypt with key version prefix
 src/lib/rate-limit.ts                         # Upstash rate limiter
 src/lib/permissions.ts                        # RBAC permission map + can() helper
 src/middleware.ts                             # Auth guard: Supabase session + admin_users allowlist + role attach
@@ -394,12 +370,12 @@ docs/privacy-policy.md                        # Draft privacy policy
 ### Modified files
 
 ```
-astro.config.mjs    # Change `output` to 'hybrid' and align `site` to https://alfursanauto.ca
+astro.config.mjs    # output: 'static' (Astro v5 hybrid), site URL
 package.json        # Dependencies already added; keep Supabase/Resend/Upstash/Zod set
 .env.example        # Keep server-only vs public env usage explicit
 ```
 
-> ⚠️ **Do not use `output: 'server'`** — this would force all 40 existing static pages through serverless functions on every request, eliminating performance benefits and increasing Vercel function costs. Use `output: 'hybrid'` and add `export const prerender = false` only to API routes and admin pages.
+> ⚠️ **Do not use `output: 'server'`** — this would force all 40 existing static pages through serverless functions on every request, eliminating performance benefits and increasing Vercel function costs. Use `output: 'static'` (Astro v5 default, which behaves like the old `hybrid`) and add `export const prerender = false` only to API routes and admin pages.
 
 ---
 

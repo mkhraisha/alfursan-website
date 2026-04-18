@@ -1,0 +1,156 @@
+---
+/**
+ * Shared layout for all /admin/* pages.
+ * Requires Astro.locals.adminEmail to be set (enforced by middleware).
+ */
+interface Props {
+  title: string;
+  activeNav?: "dashboard" | "applications" | "users";
+}
+
+const { title, activeNav } = Astro.props;
+const { adminEmail, adminRole } = Astro.locals;
+
+const nav = [
+  { id: "dashboard", label: "Dashboard", href: "/admin/dashboard/" },
+  { id: "applications", label: "Applications", href: "/admin/applications/" },
+  ...(adminRole === "owner"
+    ? [{ id: "users", label: "Users", href: "/admin/users/" }]
+    : []),
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} — Alfursan Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', sans-serif;
+        background: #f0f2f5;
+        color: #1a1d23;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      a { color: inherit; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <!-- Top nav bar -->
+    <header class="admin-topbar">
+      <a href="/admin/dashboard/" class="admin-topbar__brand">
+        <span class="admin-topbar__logo">⬟</span>
+        <span>Alfursan <strong>Admin</strong></span>
+      </a>
+      <nav class="admin-topbar__nav">
+        {nav.map((item) => (
+          <a
+            href={item.href}
+            class={`admin-topbar__link${activeNav === item.id ? " admin-topbar__link--active" : ""}`}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+      <div class="admin-topbar__user">
+        <span class="admin-topbar__email">{adminEmail}</span>
+        <span class="admin-topbar__role">{adminRole}</span>
+        <a href="/admin/signout/" class="admin-topbar__signout">Sign out</a>
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="admin-main">
+      <slot />
+    </main>
+
+    <style>
+      .admin-topbar {
+        background: #1a1d23;
+        color: #e8eaf0;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        gap: 24px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+      .admin-topbar__brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 15px;
+        color: #ffffff;
+        white-space: nowrap;
+        margin-right: 8px;
+      }
+      .admin-topbar__logo {
+        color: #B92111;
+        font-size: 20px;
+      }
+      .admin-topbar__nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+      }
+      .admin-topbar__link {
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #99a1b2;
+        transition: background 0.15s, color 0.15s;
+      }
+      .admin-topbar__link:hover { background: rgba(255,255,255,0.07); color: #fff; }
+      .admin-topbar__link--active { background: rgba(185,33,17,0.2); color: #ef6b5b; }
+      .admin-topbar__user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: #99a1b2;
+        white-space: nowrap;
+      }
+      .admin-topbar__email { color: #c8ccd6; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+      .admin-topbar__role {
+        background: rgba(255,255,255,0.08);
+        border-radius: 4px;
+        padding: 2px 7px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #6b7280;
+      }
+      .admin-topbar__signout {
+        color: #B92111;
+        font-size: 13px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.15s;
+      }
+      .admin-topbar__signout:hover { background: rgba(185,33,17,0.15); }
+      .admin-main {
+        flex: 1;
+        padding: 28px 24px;
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+      }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,230 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getAdminClient } from "../../../lib/supabase-admin";
+import { can } from "../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+
+const supabase = getAdminClient();
+
+// Fetch status counts in parallel
+const [newRes, reviewingRes, approvedRes, declinedRes, recentRes] =
+  await Promise.all([
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "new"),
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "reviewing"),
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "declined"),
+    supabase
+      .from("applications")
+      .select("id, full_name, email, status, created_at, vehicle_year, vehicle_make, vehicle_model")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
+const counts = {
+  new: newRes.count ?? 0,
+  reviewing: reviewingRes.count ?? 0,
+  approved: approvedRes.count ?? 0,
+  declined: declinedRes.count ?? 0,
+};
+
+const recent = recentRes.data ?? [];
+
+function fmt(iso: string) {
+  return new Date(iso).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const statusColor: Record<string, string> = {
+  new: "#3b82f6",
+  reviewing: "#f59e0b",
+  approved: "#1a7f4b",
+  declined: "#B92111",
+};
+---
+
+<AdminLayout title="Dashboard" activeNav="dashboard">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Financing applications overview</p>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid">
+    {
+      [
+        { label: "New", value: counts.new, color: "#3b82f6", href: "/admin/applications/?status=new" },
+        { label: "Reviewing", value: counts.reviewing, color: "#f59e0b", href: "/admin/applications/?status=reviewing" },
+        { label: "Approved", value: counts.approved, color: "#1a7f4b", href: "/admin/applications/?status=approved" },
+        { label: "Declined", value: counts.declined, color: "#B92111", href: "/admin/applications/?status=declined" },
+      ].map((card) => (
+        <a href={card.href} class="stat-card">
+          <span class="stat-card__label">{card.label}</span>
+          <span class="stat-card__value" style={`color: ${card.color}`}>
+            {card.value}
+          </span>
+        </a>
+      ))
+    }
+  </div>
+
+  <!-- Recent applications -->
+  <div class="section">
+    <div class="section__header">
+      <h2>Recent Applications</h2>
+      <a href="/admin/applications/" class="section__link">View all →</a>
+    </div>
+
+    {recent.length === 0 ? (
+      <div class="empty">No applications yet.</div>
+    ) : (
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Vehicle</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {recent.map((app) => (
+              <tr>
+                <td>
+                  <div class="name-cell">
+                    <strong>{app.full_name}</strong>
+                    <span>{app.email}</span>
+                  </div>
+                </td>
+                <td>
+                  {[app.vehicle_year, app.vehicle_make, app.vehicle_model]
+                    .filter(Boolean)
+                    .join(" ") || "—"}
+                </td>
+                <td>
+                  <span
+                    class="badge"
+                    style={`background:${statusColor[app.status]}22; color:${statusColor[app.status]}`}
+                  >
+                    {app.status}
+                  </span>
+                </td>
+                <td>{fmt(app.created_at)}</td>
+                <td>
+                  <a href={`/admin/applications/${app.id}/`} class="row-link">
+                    View →
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+
+  {can(adminRole!, "manage_users") && (
+    <div class="section">
+      <div class="section__header">
+        <h2>Admin Access</h2>
+        <a href="/admin/users/" class="section__link">Manage users →</a>
+      </div>
+    </div>
+  )}
+</AdminLayout>
+
+<style>
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
+  .page-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px 24px;
+    display: block;
+    transition: box-shadow 0.15s;
+  }
+  .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .stat-card__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .stat-card__value { font-size: 36px; font-weight: 800; }
+
+  .section {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  .section__header h2 { font-size: 16px; font-weight: 700; color: #1a1d23; }
+  .section__link { font-size: 13px; color: #B92111; font-weight: 500; }
+
+  .empty { padding: 24px 20px; color: #99a1b2; font-size: 14px; }
+
+  .table-wrap { overflow-x: auto; }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  .table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f2f5;
+    color: #1a1d23;
+    vertical-align: middle;
+  }
+  .table tr:last-child td { border-bottom: none; }
+  .table tr:hover td { background: #f7f9fd; }
+
+  .name-cell strong { display: block; font-weight: 600; }
+  .name-cell span { display: block; font-size: 12px; color: #99a1b2; margin-top: 1px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .row-link { color: #B92111; font-size: 13px; font-weight: 500; white-space: nowrap; }
+</style>
