@@ -6,7 +6,10 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",
@@ -26,8 +29,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.4",
     "pixelmatch": "^7.1.0",
     "playwright": "^1.58.2",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "vitest": "^4.1.4"
   }
 }

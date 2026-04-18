@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS applications (
   address         TEXT,
   postal_code     TEXT,
   time_at_address TEXT,
-  prev_address    TEXT,           -- populated when time_at_address < 2 years
+  prev_addresses  JSONB,          -- [{address, postalCode, sinceYear, sinceMonth}, ...]
   phone           TEXT,
   email           TEXT NOT NULL,
   marital_status  TEXT,
@@ -55,8 +55,7 @@ CREATE TABLE IF NOT EXISTS applications (
   job_title            TEXT,
   annual_income        NUMERIC,
   time_at_employer     TEXT,
-  prev_employer        TEXT,      -- populated when time_at_employer < 2 years
-  prev_time_at_employer TEXT,
+  prev_employers       JSONB,     -- [{employer, sinceYear, sinceMonth}, ...]
 
   -- Vehicle & Loan
   vehicle_year      TEXT,

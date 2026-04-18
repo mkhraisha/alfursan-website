@@ -88,10 +88,21 @@ let licenseBackUrl: string | null = null;
 const ip = Astro.request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 const ipHash = createHash("sha256").update(ip).digest("hex");
 
+// Build a clean filename prefix: "FirstLast_REF-{shortId}"
+const shortId = (app.id as string).slice(0, 8).toUpperCase();
+const filePrefix = `REF-${shortId}`;
+
+function licenseFilename(storagePath: string, side: "front" | "back"): string {
+  const ext = storagePath.match(/\.[^.]+$/)?.[0] ?? ".jpg";
+  return `${filePrefix}_${side}${ext}`;
+}
+
 if (app.license_front_path && can(adminRole!, "financing:read")) {
   const { data } = await supabase.storage
     .from("license-documents")
-    .createSignedUrl(app.license_front_path, 300); // 5-min expiry
+    .createSignedUrl(app.license_front_path, 300, {
+      download: licenseFilename(app.license_front_path, "front"),
+    });
   if (data) {
     licenseFrontUrl = data.signedUrl;
     // Write audit row (non-blocking)
@@ -108,7 +119,9 @@ if (app.license_front_path && can(adminRole!, "financing:read")) {
 if (app.license_back_path && can(adminRole!, "financing:read")) {
   const { data } = await supabase.storage
     .from("license-documents")
-    .createSignedUrl(app.license_back_path, 300);
+    .createSignedUrl(app.license_back_path, 300, {
+      download: licenseFilename(app.license_back_path, "back"),
+    });
   if (data) licenseBackUrl = data.signedUrl;
 }
 
@@ -174,7 +187,12 @@ const STATUSES = ["new", "reviewing", "approved", "declined"];
           <dt>Address</dt><dd>{app.address ?? "—"}</dd>
           <dt>Postal Code</dt><dd>{app.postal_code ?? "—"}</dd>
           <dt>Time at Address</dt><dd>{app.time_at_address ?? "—"}</dd>
-          {app.prev_address && <><dt>Previous Address</dt><dd>{app.prev_address}</dd></>}
+          {app.prev_addresses && Array.isArray(app.prev_addresses) && (app.prev_addresses as any[]).map((p: any, i: number) => (
+            <>
+              <dt>Previous Address {i + 1}</dt>
+              <dd>{p.address}{p.postalCode ? `, ${p.postalCode}` : ""} <span style="color:#99a1b2;font-size:12px">(since {p.sinceMonth}/{p.sinceYear})</span></dd>
+            </>
+          ))}
           <dt>Marital Status</dt><dd>{app.marital_status ?? "—"}</dd>
         </dl>
       </div>
@@ -188,12 +206,12 @@ const STATUSES = ["new", "reviewing", "approved", "declined"];
           <dt>Job Title</dt><dd>{app.job_title ?? "—"}</dd>
           <dt>Annual Income</dt><dd>{money(app.annual_income)}</dd>
           <dt>Time at Employer</dt><dd>{app.time_at_employer ?? "—"}</dd>
-          {app.prev_employer && (
+          {app.prev_employers && Array.isArray(app.prev_employers) && (app.prev_employers as any[]).map((p: any, i: number) => (
             <>
-              <dt>Previous Employer</dt><dd>{app.prev_employer}</dd>
-              <dt>Time at Prev. Employer</dt><dd>{app.prev_time_at_employer ?? "—"}</dd>
+              <dt>Previous Employer {i + 1}</dt>
+              <dd>{p.employer} <span style="color:#99a1b2;font-size:12px">(since {p.sinceMonth}/{p.sinceYear})</span></dd>
             </>
-          )}
+          ))}
         </dl>
       </div>
 

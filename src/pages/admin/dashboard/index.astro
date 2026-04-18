@@ -18,7 +18,7 @@ const [newRes, reviewingRes, approvedRes, declinedRes, recentRes] =
     supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "declined"),
     supabase
       .from("applications")
-      .select("id, full_name, email, status, created_at, vehicle_year, vehicle_make, vehicle_model")
+      .select("id, full_name, email, status, created_at, vin")
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
@@ -88,7 +88,7 @@ const statusColor: Record<string, string> = {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Vehicle</th>
+              <th>VIN</th>
               <th>Status</th>
               <th>Date</th>
               <th></th>
@@ -104,9 +104,9 @@ const statusColor: Record<string, string> = {
                   </div>
                 </td>
                 <td>
-                  {[app.vehicle_year, app.vehicle_make, app.vehicle_model]
-                    .filter(Boolean)
-                    .join(" ") || "—"}
+                  <span style="font-family: monospace; font-size: 13px;">
+                    {app.vin || "—"}
+                  </span>
                 </td>
                 <td>
                   <span

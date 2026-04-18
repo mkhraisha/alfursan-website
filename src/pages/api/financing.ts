@@ -18,10 +18,6 @@ function isAllowedOrigin(request: Request): boolean {
   );
 }
 
-function extOf(path: string): string {
-  const m = path.match(/\.[^.]+$/);
-  return m ? m[0] : "";
-}
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -83,24 +79,27 @@ export const POST: APIRoute = async ({ request }) => {
       dob: d.dob,
       address: d.address || null,
       postal_code: d.postalCode || null,
-      time_at_address: d.timeAtAddress || null,
-      prev_address: d.prevAddress || null,
+      time_at_address: d.addressSinceYear && d.addressSinceMonth
+        ? `${d.addressSinceYear}-${String(d.addressSinceMonth).padStart(2, "0")}`
+        : null,
+      prev_addresses: d.prevAddresses && d.prevAddresses.length > 0 ? d.prevAddresses : null,
       phone: d.phone || null,
       email: d.email,
       marital_status: d.maritalStatus || null,
       employment_status: d.employmentStatus || null,
       employer: d.employer || null,
       job_title: d.jobTitle || null,
-      annual_income: d.annualIncome ? parseFloat(d.annualIncome) : null,
-      time_at_employer: d.timeAtEmployer || null,
-      prev_employer: d.prevEmployer || null,
-      prev_time_at_employer: d.prevTimeAtEmployer || null,
+  annual_income: d.annualIncome ? parseFloat(d.annualIncome.replace(/,/g, "")) : null,
+      time_at_employer: d.employerSinceYear && d.employerSinceMonth
+        ? `${d.employerSinceYear}-${String(d.employerSinceMonth).padStart(2, "0")}`
+        : null,
+      prev_employers: d.prevEmployers && d.prevEmployers.length > 0 ? d.prevEmployers : null,
       vehicle_year: d.vehicleYear || null,
       vehicle_make: d.vehicleMake || null,
       vehicle_model: d.vehicleModel || null,
-      vehicle_price: d.vehiclePrice ? parseFloat(d.vehiclePrice) : null,
-      down_payment: d.downPayment ? parseFloat(d.downPayment) : null,
-      loan_term_months: d.loanTermMonths ? parseInt(d.loanTermMonths) : null,
+      vehicle_price: d.vehiclePrice ? parseFloat(d.vehiclePrice.replace(/,/g, "")) : null,
+      down_payment: d.downPayment ? parseFloat(d.downPayment.replace(/,/g, "")) : null,
+      loan_term_months: d.loanTermMonths ? parseInt(d.loanTermMonths.replace(/,/g, "")) : null,
       vin: d.vin || null,
       listing_slug: d.listingSlug || null,
       license_front_path: null, // finalized below
@@ -120,27 +119,18 @@ export const POST: APIRoute = async ({ request }) => {
 
   const applicationId: string = row.id;
 
-  // ── Finalize license uploads (move from tmp/ to applications/{id}/) ───────
-  const moveFile = async (srcPath: string, side: "front" | "back") => {
-    const destPath = `applications/${applicationId}/${side}${extOf(srcPath)}`;
-    const { error } = await supabase.storage
-      .from("license-documents")
-      .move(srcPath, destPath);
-    if (!error) {
-      const col =
-        side === "front" ? "license_front_path" : "license_back_path";
-      await supabase
-        .from("applications")
-        .update({ [col]: destPath })
-        .eq("id", applicationId);
-    } else {
-      console.error(`[financing] Failed to move ${side} license:`, error);
-    }
-  };
+  // ── Store license paths (files stay in tmp/ — signed URLs work from any path) ─
+  const licenseUpdates: Record<string, string> = {};
+  if (d.draftId && d.licenseFrontPath) licenseUpdates.license_front_path = d.licenseFrontPath;
+  if (d.draftId && d.licenseBackPath)  licenseUpdates.license_back_path  = d.licenseBackPath;
 
-  if (d.draftId && d.licenseFrontPath)
-    await moveFile(d.licenseFrontPath, "front");
-  if (d.draftId && d.licenseBackPath) await moveFile(d.licenseBackPath, "back");
+  if (Object.keys(licenseUpdates).length > 0) {
+    const { error: pathErr } = await supabase
+      .from("applications")
+      .update(licenseUpdates)
+      .eq("id", applicationId);
+    if (pathErr) console.error("[financing] Failed to store license paths:", pathErr);
+  }
 
   // ── Notify dealer (non-fatal) ─────────────────────────────────────────────
   const resendKey = import.meta.env.RESEND_API_KEY;

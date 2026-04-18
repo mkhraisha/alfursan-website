@@ -3,13 +3,14 @@ import { defineConfig } from "astro/config";
 import vercel from "@astrojs/vercel";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
+import { checkEnvIntegration } from "./src/lib/check-env.ts";
 
 // https://astro.build/config
 export default defineConfig({
   output: "static",
   adapter: vercel(),
   site: "https://alfursan-website.vercel.app",
-  trailingSlash: "always",
+  trailingSlash: "ignore",
   redirects: {
     // Legacy utility/page aliases
     "/meet-the-team/": "/our-team/",
@@ -64,7 +65,7 @@ export default defineConfig({
     "/search/toyota/rav-4-le/": "/search/?make=toyota&model=rav-4-le",
     "/search/toyota/rav-4-xle/": "/search/?make=toyota&model=rav-4-xle",
   },
-  integrations: [react(), sitemap()],
+  integrations: [react(), sitemap(), checkEnvIntegration()],
   vite: {
     optimizeDeps: {
       include: [

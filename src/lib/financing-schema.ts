@@ -6,20 +6,30 @@ export const financingSchema = z.object({
   dob: z.string().min(1, "Date of birth is required"),
   address: z.string().min(3, "Address is required"),
   postalCode: z.string().min(1, "Postal code is required"),
-  timeAtAddress: z.string().min(1, "Required"),
-  prevAddress: z.string().optional(),
+  addressSinceYear: z.string().min(1, "Required"),
+  addressSinceMonth: z.string().min(1, "Required"),
+  prevAddresses: z.array(z.object({
+    address: z.string(),
+    postalCode: z.string(),
+    sinceYear: z.string(),
+    sinceMonth: z.string(),
+  })).optional(),
   phone: z.string().min(7, "Phone number is required"),
   email: z.string().email({ message: "Enter a valid email address" }),
-  maritalStatus: z.string().optional(),
+  maritalStatus: z.string().min(1, "Marital status is required"),
 
   // ── Step 2 — Employment ────────────────────────────────────────────────────
   employmentStatus: z.string().min(1, "Employment status is required"),
   employer: z.string().optional(),
   jobTitle: z.string().optional(),
   annualIncome: z.string().optional(),
-  timeAtEmployer: z.string().optional(),
-  prevEmployer: z.string().optional(),
-  prevTimeAtEmployer: z.string().optional(),
+  employerSinceYear: z.string().optional(),
+  employerSinceMonth: z.string().optional(),
+  prevEmployers: z.array(z.object({
+    employer: z.string(),
+    sinceYear: z.string(),
+    sinceMonth: z.string(),
+  })).optional(),
 
   // ── Step 3 — Vehicle & Loan ────────────────────────────────────────────────
   vehicleYear: z.string().optional(),
@@ -28,7 +38,7 @@ export const financingSchema = z.object({
   vehiclePrice: z.string().optional(),
   downPayment: z.string().optional(),
   loanTermMonths: z.string().optional(),
-  vin: z.string().optional(),
+  vin: z.string().length(17, "VIN must be exactly 17 characters"),
   listingSlug: z.string().optional(),
   draftId: z.string().optional(),
   licenseFrontPath: z.string().optional(),
@@ -41,7 +51,7 @@ export const financingSchema = z.object({
   consentPrivacy: z
     .boolean()
     .refine((v) => v, "You must accept the Privacy Policy"),
-  licenseConsent: z.boolean().optional(),
+  licenseConsent: z.boolean().refine((v) => v, "You must consent to the collection of your ID"),
 });
 
 export type FinancingFormData = z.infer<typeof financingSchema>;

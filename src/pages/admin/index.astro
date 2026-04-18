@@ -3,6 +3,7 @@
  * Admin login page — magic-link sign-in via Supabase Auth.
  * This page is intentionally PUBLIC (excluded from middleware guard).
  */
+export const prerender = false;
 const SUPABASE_URL = import.meta.env.SUPABASE_URL ?? "";
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 ---
@@ -19,9 +20,15 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       rel="stylesheet"
     />
     <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: "Inter", sans-serif;
         background: #f0f2f5;
         min-height: 100vh;
         display: flex;
@@ -36,20 +43,27 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         padding: 40px;
         width: 100%;
         max-width: 400px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
       }
       .brand {
         text-align: center;
         margin-bottom: 28px;
       }
-      .brand__logo { color: #B92111; font-size: 28px; }
+      .brand__logo {
+        color: #b92111;
+        font-size: 28px;
+      }
       .brand__name {
         font-size: 18px;
         font-weight: 700;
         color: #1a1d23;
         margin-top: 8px;
       }
-      .brand__sub { font-size: 13px; color: #99a1b2; margin-top: 4px; }
+      .brand__sub {
+        font-size: 13px;
+        color: #99a1b2;
+        margin-top: 4px;
+      }
       label {
         display: block;
         font-size: 13px;
@@ -68,13 +82,16 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         color: #1a1d23;
         outline: none;
       }
-      input[type="email"]:focus { border-color: #B92111; box-shadow: 0 0 0 3px rgba(185,33,17,0.1); }
+      input[type="email"]:focus {
+        border-color: #b92111;
+        box-shadow: 0 0 0 3px rgba(185, 33, 17, 0.1);
+      }
       button {
         display: block;
         width: 100%;
         margin-top: 16px;
         padding: 11px;
-        background: #B92111;
+        background: #b92111;
         color: #fff;
         border: none;
         border-radius: 6px;
@@ -84,7 +101,10 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         cursor: pointer;
         transition: opacity 0.15s;
       }
-      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
       #message {
         margin-top: 16px;
         font-size: 14px;
@@ -92,8 +112,12 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         min-height: 20px;
         line-height: 1.5;
       }
-      .msg-success { color: #1a7f4b; }
-      .msg-error { color: #B92111; }
+      .msg-success {
+        color: #1a7f4b;
+      }
+      .msg-error {
+        color: #b92111;
+      }
       .footer-note {
         margin-top: 24px;
         font-size: 12px;
@@ -123,29 +147,57 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       </form>
 
       <p id="message"></p>
-      <p class="footer-note">Authorized personnel only. A sign-in link will be emailed to you.</p>
+      <p class="footer-note">
+        Authorized personnel only. A sign-in link will be emailed to you.
+      </p>
     </div>
 
-    <script
-      define:vars={{ SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY }}
+    {
+      /* Config passed via data attributes so the bundled script can read it without PUBLIC_ prefix */
+    }
+    <div
+      id="supabase-config"
+      data-url={SUPABASE_URL}
+      data-key={SUPABASE_PUBLISHABLE_KEY}
+      hidden
     >
-      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    </div>
 
-      const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-      const form = document.getElementById("signin-form");
-      const btn = document.getElementById("submit-btn");
-      const msg = document.getElementById("message");
+    <script>
+      import { createClient } from "@supabase/supabase-js";
 
-      // If user arrives here with a session already, redirect to dashboard
-      supabase.auth.getSession().then(({ data }) => {
-        if (data?.session) {
-          window.location.replace("/admin/dashboard/");
+      const config = document.getElementById("supabase-config") as HTMLElement;
+      const supabase = createClient(config.dataset.url!, config.dataset.key!);
+
+      const form = document.getElementById("signin-form") as HTMLFormElement;
+      const btn = document.getElementById("submit-btn") as HTMLButtonElement;
+      const msg = document.getElementById("message") as HTMLElement;
+
+      // If middleware bounced us back with an error, clear the stale session
+      // so we don't loop: /admin/ → dashboard → middleware rejects → /admin/ → ...
+      const urlError = new URLSearchParams(window.location.search).get("error");
+      if (urlError) {
+        await supabase.auth.signOut();
+        document.cookie = "sb-access-token=; path=/; max-age=0; SameSite=Lax";
+        if (urlError === "unauthorized") {
+          msg.textContent = "Your account is not authorised to access the admin dashboard.";
+          msg.className = "msg-error";
+        } else if (urlError === "invalid_token") {
+          msg.textContent = "Your session expired. Please sign in again.";
+          msg.className = "msg-error";
         }
-      });
+      } else {
+        // No error — if there's already a valid session, go straight to dashboard
+        supabase.auth.getSession().then(({ data }) => {
+          if (data?.session) window.location.replace("/admin/dashboard/");
+        });
+      }
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const email = document.getElementById("email").value.trim();
+        const email = (
+          document.getElementById("email") as HTMLInputElement
+        ).value.trim();
         if (!email) return;
 
         btn.disabled = true;
@@ -153,15 +205,16 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         msg.textContent = "";
         msg.className = "";
 
-        const redirectTo = window.location.origin + "/admin/callback/";
-
-        const { error } = await supabase.auth.signInWithOtp({
+        const { error, data } = await supabase.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: redirectTo },
+          options: {
+            emailRedirectTo: window.location.origin + "/admin/callback/",
+          },
         });
-
+        console.log("Sign-in response:", { error, data });
         if (error) {
-          msg.textContent = error.message || "Something went wrong. Please try again.";
+          msg.textContent =
+            error.message || "Something went wrong. Please try again.";
           msg.className = "msg-error";
           btn.disabled = false;
           btn.textContent = "Send Magic Link";

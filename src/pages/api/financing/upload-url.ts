@@ -74,8 +74,11 @@ export const POST: APIRoute = async ({ request }) => {
       .createSignedUploadUrl(storagePath);
 
     if (error || !data) {
-      console.error("[upload-url] Supabase storage error:", error);
-      return json({ error: "Failed to create upload URL" }, 500);
+      console.error("[upload-url] Supabase storage error:", JSON.stringify(error));
+      return json(
+        { error: error?.message ?? "Failed to create upload URL. Check that the 'license-documents' bucket exists in Supabase Storage." },
+        500
+      );
     }
 
     return json({ uploadUrl: data.signedUrl, storagePath }, 200);

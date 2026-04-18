@@ -18,8 +18,12 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   // Only gate /admin/* routes (not /admin/ itself — that's the login page)
   const isAdminRoute = url.pathname.startsWith("/admin/");
   const isLoginPage = url.pathname === "/admin/" || url.pathname === "/admin";
+  const isPublicAdminPage =
+    isLoginPage ||
+    url.pathname.startsWith("/admin/callback") ||
+    url.pathname.startsWith("/admin/signout");
 
-  if (!isAdminRoute || isLoginPage) {
+  if (!isAdminRoute || isPublicAdminPage) {
     return next();
   }
 
@@ -46,7 +50,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   }
 
   if (!accessToken) {
-    return redirect("/admin/");
+    return redirect("/admin/?error=no_token");
   }
 
   // Verify the token and get the user's email
@@ -57,7 +61,8 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   const { data: { user }, error: userError } = await anonClient.auth.getUser(accessToken);
 
   if (userError || !user?.email) {
-    return redirect("/admin/");
+    console.error("[middleware] getUser failed", userError);
+    return redirect("/admin/?error=invalid_token");
   }
 
   // Look up the email in the admin_users allowlist
@@ -72,7 +77,8 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     .single();
 
   if (adminError || !adminUser || !adminUser.is_active) {
-    return redirect("/admin/");
+    console.error("[middleware] admin_users check failed", { email: user.email, adminError, adminUser });
+    return redirect("/admin/?error=unauthorized");
   }
 
   // Attach to locals for use in admin pages

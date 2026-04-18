@@ -2,8 +2,8 @@
 /**
  * OAuth callback handler. Supabase redirects here after magic-link click.
  * Exchanges the URL fragment token for a session cookie, then redirects to dashboard.
- * This page is static (JS does all the work client-side).
  */
+export const prerender = false;
 const SUPABASE_URL = import.meta.env.SUPABASE_URL ?? "";
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 ---
@@ -41,24 +41,35 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
   <body>
     <p class="message" id="msg"><strong>Verifying…</strong>Please wait while we sign you in.</p>
 
-    <script define:vars={{ SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY }}>
-      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    <div id="supabase-config" data-url={SUPABASE_URL} data-key={SUPABASE_PUBLISHABLE_KEY} hidden></div>
 
-      const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-      const msg = document.getElementById("msg");
+    <script>
+      import { createClient } from "@supabase/supabase-js";
 
-      // Supabase puts the tokens in the URL hash after magic-link click.
-      // getSession() will pick them up automatically.
-      const { data, error } = await supabase.auth.getSession();
+      const config = document.getElementById("supabase-config") as HTMLElement;
+      const supabase = createClient(config.dataset.url!, config.dataset.key!);
+      const msg = document.getElementById("msg") as HTMLElement;
 
-      if (error || !data?.session) {
+      // If there's no token hash at all, bail out immediately.
+      if (!window.location.hash.includes("access_token")) {
         msg.innerHTML = '<strong style="color:#B92111">Sign-in failed.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
       } else {
-        // Persist the access token as a cookie so the Astro middleware can read it.
-        const token = data.session.access_token;
-        const maxAge = data.session.expires_in ?? 3600;
-        document.cookie = `sb-access-token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
-        window.location.replace("/admin/dashboard/");
+        // Supabase auto-processes the hash and fires SIGNED_IN when done.
+        // Using onAuthStateChange avoids the race condition with getSession().
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === "SIGNED_IN" && session) {
+            subscription.unsubscribe();
+            const token = session.access_token;
+            const maxAge = session.expires_in ?? 3600;
+            document.cookie = `sb-access-token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+            window.location.replace("/admin/dashboard/");
+          }
+        });
+
+        // Safety timeout in case the event never fires.
+        setTimeout(() => {
+          msg.innerHTML = '<strong style="color:#B92111">Sign-in timed out.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
+        }, 10_000);
       }
     </script>
   </body>

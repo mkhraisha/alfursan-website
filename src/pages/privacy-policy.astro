@@ -1,0 +1,183 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const DEALER_EMAIL = "info@alfursanauto.ca";
+const EFFECTIVE_DATE = "April 18, 2025";
+---
+
+<Layout
+  title="Privacy Policy — Alfursan Auto"
+  description="How Alfursan Auto collects, uses, and protects your personal information when you apply for vehicle financing."
+>
+  <main class="pp-wrap">
+    <article class="pp-body">
+      <h1>Privacy Policy</h1>
+      <p class="pp-meta">Effective date: {EFFECTIVE_DATE}</p>
+
+      <p>
+        Alfursan Auto ("<strong>we</strong>", "<strong>us</strong>", or
+        "<strong>our</strong>") is committed to protecting your personal
+        information in accordance with Canada's <em>Personal Information
+        Protection and Electronic Documents Act</em> (PIPEDA) and applicable
+        provincial privacy legislation.
+      </p>
+
+      <h2>1. Information We Collect</h2>
+      <p>
+        When you submit a financing application through our website, we collect
+        the following categories of personal information:
+      </p>
+      <ul>
+        <li><strong>Identity:</strong> Full name, date of birth, marital status</li>
+        <li><strong>Contact:</strong> Phone number, email address</li>
+        <li><strong>Residence:</strong> Current and previous addresses, postal codes, duration of residence</li>
+        <li><strong>Employment:</strong> Employer name, job title, annual income, employment history</li>
+        <li><strong>Vehicle &amp; Loan:</strong> VIN of the vehicle of interest, down payment, preferred loan term</li>
+        <li>
+          <strong>Government ID (optional):</strong> Photographs of the front and
+          back of your driver's licence, uploaded voluntarily to speed up processing
+        </li>
+        <li>
+          <strong>Technical:</strong> A one-way SHA-256 hash of your IP address
+          (raw IP is never stored)
+        </li>
+      </ul>
+
+      <h2>2. Purpose of Collection</h2>
+      <p>We collect this information solely to:</p>
+      <ul>
+        <li>Evaluate your eligibility for vehicle financing</li>
+        <li>Submit your application to lending partners (with your explicit consent)</li>
+        <li>Contact you regarding the status of your application</li>
+        <li>Comply with applicable legal and regulatory obligations</li>
+      </ul>
+
+      <h2>3. How We Use Your Information</h2>
+      <p>
+        Your information is used only for the purposes described above. We do
+        not sell, rent, or trade your personal information to any third party.
+        Information is shared with lending institutions <strong>only after you
+        have given explicit consent</strong> (Dealertrack consent checkbox in
+        your application).
+      </p>
+
+      <h2>4. Storage &amp; Security</h2>
+      <p>
+        All application data is stored in an encrypted database hosted on
+        Supabase (servers located in Canada or the United States). Driver's
+        licence images are stored in a private, encrypted storage bucket with
+        no public access — they are accessible only to authorised dealership
+        staff via time-limited signed URLs. We apply reasonable technical and
+        organizational safeguards to protect your data against unauthorized
+        access, disclosure, or loss.
+      </p>
+
+      <h2>5. Retention</h2>
+      <p>
+        We retain financing application records for <strong>seven (7) years</strong>
+        from the date of submission, in compliance with PIPEDA and applicable
+        financial record-keeping requirements. After this period, records are
+        permanently deleted. Driver's licence images are deleted when the
+        associated application is removed.
+      </p>
+
+      <h2>6. Your Rights</h2>
+      <p>You have the right to:</p>
+      <ul>
+        <li>Request access to the personal information we hold about you</li>
+        <li>Request correction of inaccurate or incomplete information</li>
+        <li>Request deletion of your information (subject to legal retention obligations)</li>
+        <li>Withdraw consent for the use of your information for financing purposes</li>
+      </ul>
+      <p>
+        To exercise any of these rights, please contact us at{" "}
+        <a href={`mailto:${DEALER_EMAIL}`}>{DEALER_EMAIL}</a>. We will respond
+        within 30 days.
+      </p>
+
+      <h2>7. Changes to This Policy</h2>
+      <p>
+        We may update this policy from time to time. The effective date at the
+        top of this page will reflect the most recent revision. Continued use
+        of our website following a material change constitutes acceptance of
+        the updated policy.
+      </p>
+
+      <h2>8. Contact</h2>
+      <p>
+        Questions or concerns about this policy or our privacy practices may
+        be directed to:
+      </p>
+      <address>
+        <strong>Alfursan Auto</strong><br />
+        Toronto, Ontario, Canada<br />
+        <a href={`mailto:${DEALER_EMAIL}`}>{DEALER_EMAIL}</a>
+      </address>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .pp-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  .pp-body h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #222732;
+  }
+
+  .pp-meta {
+    color: #99a1b2;
+    font-size: 14px;
+    margin-bottom: 32px;
+  }
+
+  .pp-body h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 36px;
+    margin-bottom: 8px;
+    color: #222732;
+  }
+
+  .pp-body p,
+  .pp-body li {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #3a3f4a;
+  }
+
+  .pp-body ul {
+    padding-left: 20px;
+    margin: 8px 0 12px;
+  }
+
+  .pp-body li {
+    margin-bottom: 4px;
+  }
+
+  .pp-body a {
+    color: #B92111;
+    text-decoration: underline;
+  }
+
+  address {
+    font-style: normal;
+    line-height: 1.8;
+    font-size: 15px;
+    color: #3a3f4a;
+  }
+
+  code {
+    font-size: 13px;
+    background: #f4f5f7;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #222732;
+  }
+</style>
