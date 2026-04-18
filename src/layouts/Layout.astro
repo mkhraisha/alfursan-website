@@ -212,6 +212,20 @@ const isActive = (href: string): boolean => {
         window.addEventListener("scroll", update, { passive: true });
       }
     </script>
+
+    <!-- If Supabase redirects a magic-link to the site root (dashboard test links
+         always do this), forward the full hash to /admin/callback/ so the token
+         can be exchanged there. -->
+    <script is:inline>
+      (function () {
+        if (
+          window.location.hash.includes("access_token") &&
+          !window.location.pathname.startsWith("/admin/callback")
+        ) {
+          window.location.replace("/admin/callback/" + window.location.hash);
+        }
+      })();
+    </script>
   </body>
 </html>
 
