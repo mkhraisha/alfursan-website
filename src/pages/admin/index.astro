@@ -211,7 +211,6 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
             emailRedirectTo: window.location.origin + "/admin/callback/",
           },
         });
-        console.log("Sign-in response:", { error, data });
         if (error) {
           msg.textContent =
             error.message || "Something went wrong. Please try again.";
