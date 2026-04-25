@@ -88,6 +88,8 @@ export const POST: APIRoute = async ({ request }) => {
       marital_status: d.maritalStatus || null,
       employment_status: d.employmentStatus || null,
       employer: d.employer || null,
+      employer_address: d.employerAddress || null,
+      employer_phone: d.employerPhone || null,
       job_title: d.jobTitle || null,
   annual_income: d.annualIncome ? parseFloat(d.annualIncome.replace(/,/g, "")) : null,
       time_at_employer: d.employerSinceYear && d.employerSinceMonth

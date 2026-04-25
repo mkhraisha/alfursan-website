@@ -25,4 +25,5 @@ dev-server.log
 # jetbrains setting folder
 .idea/
 
-docs/migration/visual-evidence/
+
+coverage/

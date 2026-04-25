@@ -691,7 +691,7 @@ export default function InventoryFilters({ cars }: Props) {
             <div className="car-price-col">
               <p className="car-price">{formatPrice(car.price)}</p>
               <a
-                href={`/financing/?slug=${car.slug}${car.year ? `&year=${car.year}` : ""}${car.make ? `&make=${encodeURIComponent(car.make)}` : ""}${car.model ? `&model=${encodeURIComponent(car.model)}` : ""}${car.price ? `&price=${car.price}` : ""}`}
+                href={`/finance/?slug=${car.slug}${car.year ? `&year=${car.year}` : ""}${car.make ? `&make=${encodeURIComponent(car.make)}` : ""}${car.model ? `&model=${encodeURIComponent(car.model)}` : ""}${car.price ? `&price=${car.price}` : ""}`}
                 className="financing-link"
               >
                 Calculate financing

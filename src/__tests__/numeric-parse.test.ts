@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-// ── Helpers mirroring the logic in src/pages/api/financing.ts ────────────────
+// ── Helpers mirroring the logic in src/pages/api/finance.ts ─────────────────
 
 function parseNumeric(raw: string | undefined | null): number | null {
   if (!raw) return null;

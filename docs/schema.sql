@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS applications (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   status          TEXT NOT NULL DEFAULT 'new'
-                    CHECK (status IN ('new', 'reviewing', 'approved', 'declined')),
+                    CHECK (status IN ('new', 'reviewing', 'approved', 'declined',
+                                      'document_incomplete', 'documents_submitted')),
 
   -- Personal
   full_name       TEXT NOT NULL,
@@ -52,6 +53,8 @@ CREATE TABLE IF NOT EXISTS applications (
   -- Employment
   employment_status    TEXT,
   employer             TEXT,
+  employer_address     TEXT,
+  employer_phone       TEXT,
   job_title            TEXT,
   annual_income        NUMERIC,
   time_at_employer     TEXT,
@@ -75,7 +78,16 @@ CREATE TABLE IF NOT EXISTS applications (
 
   -- Compliance
   consent_timestamp TIMESTAMPTZ NOT NULL,
-  ip_hash           TEXT          -- SHA-256 of submitter IP; raw IP never stored
+  ip_hash           TEXT,          -- SHA-256 of submitter IP; raw IP never stored
+
+  -- Phase 2 — Documents & References
+  phase2_token          TEXT UNIQUE,   -- UUID token emailed to applicant
+  void_cheque_path      TEXT,
+  proof_insurance_path  TEXT,
+  payslip_path          TEXT,
+  dealertrack_consent   BOOLEAN NOT NULL DEFAULT false,
+  references            JSONB,         -- [{name, phone, relationship}, ...]
+  phase2_submitted_at   TIMESTAMPTZ
 );
 
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
@@ -96,7 +108,10 @@ CREATE TABLE IF NOT EXISTS application_audit (
                       'viewed_license',
                       'status_changed',
                       'deleted',
-                      'exported'
+                      'exported',
+                      'phase2_requested',
+                      'phase2_submitted',
+                      'application_updated'
                     )),
   admin_email     TEXT NOT NULL,
   ip_hash         TEXT,
@@ -149,3 +164,37 @@ CREATE INDEX IF NOT EXISTS audit_application_ref_idx  ON application_audit (appl
 -- SELECT id, email, 'owner'
 -- FROM auth.users
 -- WHERE email = 'your-email@alfursanauto.ca';
+
+
+-- ── Phase 2 migration (run on existing databases) ─────────────────────────────
+-- Safe to run multiple times (all use IF NOT EXISTS / DO $$ patterns).
+
+ALTER TABLE applications
+  ADD COLUMN IF NOT EXISTS phase2_token         TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS void_cheque_path     TEXT,
+  ADD COLUMN IF NOT EXISTS proof_insurance_path TEXT,
+  ADD COLUMN IF NOT EXISTS payslip_path         TEXT,
+  ADD COLUMN IF NOT EXISTS dealertrack_consent  BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "references"         JSONB,
+  ADD COLUMN IF NOT EXISTS phase2_submitted_at  TIMESTAMPTZ;
+
+-- Widen the status CHECK constraint to include Phase 2 statuses.
+ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_status_check;
+ALTER TABLE applications
+  ADD CONSTRAINT applications_status_check
+  CHECK (status IN ('new', 'reviewing', 'approved', 'declined',
+                    'document_incomplete', 'documents_submitted'));
+
+-- Widen the audit action CHECK constraint.
+ALTER TABLE application_audit DROP CONSTRAINT IF EXISTS application_audit_action_check;
+ALTER TABLE application_audit
+  ADD CONSTRAINT application_audit_action_check
+  CHECK (action IN (
+    'viewed_license',
+    'status_changed',
+    'deleted',
+    'exported',
+    'phase2_requested',
+    'phase2_submitted',
+    'application_updated'
+  ));

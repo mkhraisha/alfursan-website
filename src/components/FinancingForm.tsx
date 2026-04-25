@@ -1,64 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-type PrevAddress = {
-  address: string;
-  postalCode: string;
-  sinceYear: string;
-  sinceMonth: string;
-};
-
-type PrevEmployer = {
-  employer: string;
-  sinceYear: string;
-  sinceMonth: string;
-};
-
-type FormData = {
-  // Step 1
-  fullName: string;
-  dob: string;
-  address: string;
-  postalCode: string;
-  addressSinceYear: string;
-  addressSinceMonth: string;
-  prevAddresses: PrevAddress[];
-  phone: string;
-  email: string;
-  maritalStatus: string;
-  // Step 2
-  employmentStatus: string;
-  employer: string;
-  jobTitle: string;
-  annualIncome: string;
-  employerSinceYear: string;
-  employerSinceMonth: string;
-  prevEmployers: PrevEmployer[];
-  // Step 3
-  vehicleYear: string;
-  vehicleMake: string;
-  vehicleModel: string;
-  vehiclePrice: string;
-  downPayment: string;
-  loanTermMonths: string;
-  vin: string;
-  listingSlug: string;
-  draftId: string;
-  licenseFrontPath: string;
-  licenseBackPath: string;
-  // Step 4
-  consentAccurate: boolean;
-  consentPrivacy: boolean;
-  licenseConsent: boolean;
-};
+import {
+  type PrevAddress,
+  type PrevEmployer,
+  type FormData,
+  type Errors,
+  stripCommas,
+  monthsSince,
+  validateStep,
+} from "../lib/form-utils";
 
 type UploadState = {
   uploading: boolean;
   error: string | null;
   filename: string | null;
 };
-
-type Errors = Record<string, string>;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DRAFT_KEY = "alfursan:financing:draft";
@@ -93,16 +48,6 @@ const MONTHS = [
   "July","August","September","October","November","December",
 ];
 
-const stripCommas = (v: string) => v.replace(/,/g, "");
-
-function monthsSince(year: string, month: string): number {
-  const y = parseInt(year);
-  const m = parseInt(month); // 1-based
-  if (!y || !m) return Infinity;
-  const now = new Date();
-  return (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
-}
-
 
 const DEFAULT_DATA: FormData = {
   fullName: "",
@@ -117,6 +62,8 @@ const DEFAULT_DATA: FormData = {
   maritalStatus: "",
   employmentStatus: "",
   employer: "",
+  employerAddress: "",
+  employerPhone: "",
   jobTitle: "",
   annualIncome: "",
   employerSinceYear: "",
@@ -696,6 +643,25 @@ function Step2Employment({
                 value={data.jobTitle}
                 onChange={(e) => set("jobTitle", e.target.value)}
                 placeholder="Your role"
+              />
+            </FormField>
+          </Row>
+
+          <Row>
+            <FormField label="Employer Address">
+              <TextInput
+                type="text"
+                value={data.employerAddress}
+                onChange={(e) => set("employerAddress", e.target.value)}
+                placeholder="123 Business Ave, City"
+              />
+            </FormField>
+            <FormField label="Employer Phone">
+              <TextInput
+                type="tel"
+                value={data.employerPhone}
+                onChange={(e) => set("employerPhone", e.target.value)}
+                placeholder="e.g. 4165550100"
               />
             </FormField>
           </Row>
@@ -1291,83 +1257,6 @@ function SuccessView({ applicationId }: { applicationId: string }) {
   );
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
-function validateStep(step: number, data: FormData): Errors {
-  const e: Errors = {};
-  if (step === 1) {
-    if (!data.fullName.trim()) e.fullName = "Full name is required";
-    if (!data.dob) e.dob = "Date of birth is required";
-    if (!data.address.trim()) e.address = "Address is required";
-    if (!data.postalCode.trim()) e.postalCode = "Postal code is required";
-    else if (!/^[A-Za-z]\d[A-Za-z][ ]?\d[A-Za-z]\d$/.test(data.postalCode))
-      e.postalCode = "Enter a valid Canadian postal code (e.g. M5V 3A8)";
-    if (!data.addressSinceMonth || !data.addressSinceYear) e.addressSinceYear = "Required";
-    else if (monthsSince(data.addressSinceYear, data.addressSinceMonth) < 0) e.addressSinceYear = "Date cannot be in the future";
-    else if (monthsSince(data.addressSinceYear, data.addressSinceMonth) < 24) {
-      // Validate each prev address entry
-      data.prevAddresses.forEach((entry, i) => {
-        if (!entry.address.trim()) e[`prevAddresses_${i}_address`] = "Address is required";
-        if (!entry.postalCode.trim()) e[`prevAddresses_${i}_postalCode`] = "Postal code is required";
-        else if (!/^[A-Za-z]\d[A-Za-z][ ]?\d[A-Za-z]\d$/.test(entry.postalCode))
-          e[`prevAddresses_${i}_postalCode`] = "Enter a valid Canadian postal code";
-        if (!entry.sinceYear || !entry.sinceMonth) e[`prevAddresses_${i}_since`] = "Required";
-        else if (monthsSince(entry.sinceYear, entry.sinceMonth) < 0) e[`prevAddresses_${i}_since`] = "Date cannot be in the future";
-      });
-      // Check cumulative coverage (oldest entry must be >= 24 months ago)
-      if (data.prevAddresses.length === 0) {
-        e.prevAddresses = "Please add at least one previous address";
-      } else {
-        const last = data.prevAddresses[data.prevAddresses.length - 1];
-        if (last.sinceYear && last.sinceMonth && monthsSince(last.sinceYear, last.sinceMonth) < 24) {
-          e.prevAddresses = "Please add more address history to cover at least 2 years total";
-        }
-      }
-    }
-    if (!data.maritalStatus) e.maritalStatus = "Marital status is required";
-    if (!data.phone.trim()) e.phone = "Phone number is required";
-    if (!data.email.trim()) e.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email))
-      e.email = "Enter a valid email address";
-  }
-  if (step === 2) {
-    if (!data.employmentStatus) e.employmentStatus = "Required";
-    const isEmployed = ["full-time","part-time","self-employed"].includes(data.employmentStatus);
-    if (isEmployed && data.employerSinceYear && data.employerSinceMonth) {
-      const currentMonths = monthsSince(data.employerSinceYear, data.employerSinceMonth);
-      if (currentMonths < 24) {
-        // Validate each prev employer entry
-        data.prevEmployers.forEach((entry, i) => {
-          if (!entry.employer.trim()) e[`prevEmployers_${i}_employer`] = "Employer name is required";
-          if (!entry.sinceYear || !entry.sinceMonth) e[`prevEmployers_${i}_since`] = "Required";
-          else if (monthsSince(entry.sinceYear, entry.sinceMonth) < 0) e[`prevEmployers_${i}_since`] = "Date cannot be in the future";
-        });
-        // Check cumulative coverage
-        if (data.prevEmployers.length === 0) {
-          e.prevEmployers = "Please add at least one previous employer";
-        } else {
-          const last = data.prevEmployers[data.prevEmployers.length - 1];
-          if (last.sinceYear && last.sinceMonth && monthsSince(last.sinceYear, last.sinceMonth) < 24) {
-            e.prevEmployers = "Please add more employment history to cover at least 2 years total";
-          }
-        }
-      }
-    }
-  }
-  if (step === 3) {
-    if (!data.vin.trim()) e.vin = "VIN is required";
-    else if (data.vin.trim().length !== 17) e.vin = "VIN must be exactly 17 characters";
-  }
-  if (step === 4) {
-    if (!data.consentAccurate)
-      e.consentAccurate = "You must confirm the information is accurate";
-    if (!data.consentPrivacy)
-      e.consentPrivacy = "You must accept the Privacy Policy";
-    if (!data.licenseConsent)
-      e.licenseConsent = "You must consent to the collection of your ID";
-  }
-  return e;
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 export default function FinancingForm() {
   const [formData, setFormData] = useState<FormData>(DEFAULT_DATA);
@@ -1454,7 +1343,7 @@ export default function FinancingForm() {
     setUpload({ uploading: true, error: null, filename: file.name });
 
     try {
-      const res = await fetch("/api/financing/upload-url", {
+      const res = await fetch("/api/finance/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1518,7 +1407,7 @@ export default function FinancingForm() {
     setSubmitError("");
 
     try {
-      const res = await fetch("/api/financing", {
+      const res = await fetch("/api/finance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

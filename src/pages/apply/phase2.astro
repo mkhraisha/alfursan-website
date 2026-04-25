@@ -1,0 +1,69 @@
+---
+export const prerender = false;
+
+import Layout from "../../layouts/Layout.astro";
+import Phase2Form from "../../components/Phase2Form.tsx";
+import { getAdminClient } from "../../lib/supabase-admin";
+
+const token  = Astro.url.searchParams.get("token") ?? "";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+let app: { id: string; full_name: string; status: string } | null = null;
+let invalid = false;
+
+if (!token || !UUID_RE.test(token)) {
+  invalid = true;
+} else {
+  const supabase = getAdminClient();
+  const { data } = await supabase
+    .from("applications")
+    .select("id, full_name, status")
+    .eq("phase2_token", token)
+    .single();
+
+  if (!data) {
+    invalid = true;
+  } else {
+    app = data;
+  }
+}
+
+const alreadySubmitted = app?.status === "documents_submitted";
+---
+
+<Layout
+  title="Complete Your Application — Alfursan Auto"
+  description="Upload your required documents to complete your financing application."
+>
+  <main style="min-height:70vh; padding: 48px 20px;">
+    {invalid ? (
+      <div style="max-width:500px; margin:60px auto; text-align:center;">
+        <div style="font-size:48px; margin-bottom:16px;">🔒</div>
+        <h1 style="font-size:22px; font-weight:800; color:#1a1d23; margin-bottom:8px;">
+          Invalid or Expired Link
+        </h1>
+        <p style="color:#99a1b2; line-height:1.6;">
+          This link is invalid or has already been used. If you believe this is a mistake, please contact us at{" "}
+          <a href="mailto:info@alfursanauto.ca" style="color:#B92111;">info@alfursanauto.ca</a>.
+        </p>
+      </div>
+    ) : alreadySubmitted ? (
+      <div style="max-width:500px; margin:60px auto; text-align:center;">
+        <div style="font-size:48px; margin-bottom:16px;">✅</div>
+        <h1 style="font-size:22px; font-weight:800; color:#1a1d23; margin-bottom:8px;">
+          Already Submitted
+        </h1>
+        <p style="color:#99a1b2; line-height:1.6;">
+          Your documents have already been submitted. We'll be in touch shortly.
+        </p>
+      </div>
+    ) : (
+      <Phase2Form
+        client:load
+        phase2Token={token}
+        appId={app!.id}
+        applicantName={app!.full_name}
+      />
+    )}
+  </main>
+</Layout>
