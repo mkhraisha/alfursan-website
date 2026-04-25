@@ -14,6 +14,14 @@ import type { Role } from "./lib/permissions";
  *
  * Public and API routes are passed through unchanged.
  */
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+};
+
 export const onRequest = defineMiddleware(async ({ locals, request, url, redirect }, next) => {
   // Only gate /admin/* routes (not /admin/ itself — that's the login page)
   const isAdminRoute = url.pathname.startsWith("/admin/");
@@ -24,7 +32,11 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     url.pathname.startsWith("/admin/signout");
 
   if (!isAdminRoute || isPublicAdminPage) {
-    return next();
+    const res = await next();
+    for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
+      res.headers.set(header, value);
+    }
+    return res;
   }
 
   const supabaseUrl = import.meta.env.SUPABASE_URL ?? "";
@@ -85,5 +97,9 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   locals.adminEmail = user.email;
   locals.adminRole = adminUser.role as Role;
 
-  return next();
+  const res = await next();
+  for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
+    res.headers.set(header, value);
+  }
+  return res;
 });
