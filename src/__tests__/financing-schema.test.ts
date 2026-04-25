@@ -66,6 +66,18 @@ describe("financingSchema — valid payload", () => {
     );
     expect(result.success).toBe(true);
   });
+
+  it("accepts employerAddress and employerPhone optional fields", () => {
+    const result = financingSchema.safeParse(
+      valid({ employerAddress: "200 Bay St, Toronto ON", employerPhone: "4165550001" })
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts submission without employerAddress or employerPhone", () => {
+    const result = financingSchema.safeParse(valid());
+    expect(result.success).toBe(true);
+  });
 });
 
 // ── Required fields ──────────────────────────────────────────────────────────

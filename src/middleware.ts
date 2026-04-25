@@ -20,6 +20,16 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  // Permissive baseline CSP — tighten once nonce-based inline scripts are in place
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' https:",
+    "frame-ancestors 'none'",
+  ].join("; "),
 };
 
 export const onRequest = defineMiddleware(async ({ locals, request, url, redirect }, next) => {
@@ -45,7 +55,9 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
     console.error("[middleware] Missing Supabase env vars");
-    return redirect("/admin/");
+    const r = redirect("/admin/");
+    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    return r;
   }
 
   // Use anon client to validate the user's session token
@@ -62,7 +74,9 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   }
 
   if (!accessToken) {
-    return redirect("/admin/?error=no_token");
+    const r = redirect("/admin/?error=no_token");
+    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    return r;
   }
 
   // Verify the token and get the user's email
@@ -74,7 +88,9 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (userError || !user?.email) {
     console.error("[middleware] getUser failed", userError);
-    return redirect("/admin/?error=invalid_token");
+    const r = redirect("/admin/?error=invalid_token");
+    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    return r;
   }
 
   // Look up the email in the admin_users allowlist
@@ -89,8 +105,10 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     .single();
 
   if (adminError || !adminUser || !adminUser.is_active) {
-    console.error("[middleware] admin_users check failed", { email: user.email, adminError, adminUser });
-    return redirect("/admin/?error=unauthorized");
+    console.error("[middleware] admin_users check failed", { adminError });
+    const r = redirect("/admin/?error=unauthorized");
+    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    return r;
   }
 
   // Attach to locals for use in admin pages

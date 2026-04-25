@@ -1,15 +1,8 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Alfursan Auto — Schema Reference (READ-ONLY)
--- ─────────────────────────────────────────────────────────────────────────────
--- This file is a human-readable reference only.
--- The authoritative schema is managed via Supabase CLI migrations:
---   supabase/migrations/20260101000000_baseline.sql
---
--- To provision a new database, use the Supabase CLI:
---   supabase start     (local Docker)
---   npm run db:reset   (applies all migrations)
---
--- Do NOT run this file directly against the database.
+-- Baseline schema — represents the full current state of the database.
+-- This migration was marked as applied immediately after creation because
+-- the database already had this schema in place before Supabase CLI was
+-- introduced.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ── admin_users ───────────────────────────────────────────────────────────────
@@ -31,10 +24,6 @@ ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 -- Service role only — all reads/writes go through the server-side admin client.
 CREATE POLICY "service role only" ON admin_users
   USING (auth.role() = 'service_role');
-
--- Seed: pull UUID from your existing auth.users row by email.
--- INSERT INTO admin_users (id, email, role)
--- SELECT id, email, 'owner' FROM auth.users WHERE email = 'owner@example.com';
 
 
 -- ── applications ─────────────────────────────────────────────────────────────
@@ -90,14 +79,14 @@ CREATE TABLE IF NOT EXISTS applications (
   ip_hash           TEXT,          -- SHA-256 of submitter IP; raw IP never stored
 
   -- Phase 2 — Documents & References
-  phase2_token          TEXT UNIQUE,   -- UUID token emailed to applicant
-  phase2_token_expires_at TIMESTAMPTZ, -- Token expiry (30 days from issue)
-  void_cheque_path      TEXT,
-  proof_insurance_path  TEXT,
-  payslip_path          TEXT,
-  dealertrack_consent   BOOLEAN NOT NULL DEFAULT false,
-  references            JSONB,         -- [{name, phone, relationship}, ...]
-  phase2_submitted_at   TIMESTAMPTZ
+  phase2_token            TEXT UNIQUE,     -- UUID token emailed to applicant
+  phase2_token_expires_at TIMESTAMPTZ,     -- Token expiry (30 days from issue)
+  void_cheque_path        TEXT,
+  proof_insurance_path    TEXT,
+  payslip_path            TEXT,
+  dealertrack_consent     BOOLEAN NOT NULL DEFAULT false,
+  "references"            JSONB,           -- [{name, phone, relationship}, ...]
+  phase2_submitted_at     TIMESTAMPTZ
 );
 
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
@@ -133,9 +122,9 @@ ALTER TABLE application_audit ENABLE ROW LEVEL SECURITY;
 
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS applications_status_idx    ON applications (status);
+CREATE INDEX IF NOT EXISTS applications_status_idx     ON applications (status);
 CREATE INDEX IF NOT EXISTS applications_created_at_idx ON applications (created_at DESC);
-CREATE INDEX IF NOT EXISTS audit_application_ref_idx  ON application_audit (application_ref);
+CREATE INDEX IF NOT EXISTS audit_application_ref_idx   ON application_audit (application_ref);
 
 
 -- ── Retention (pg_cron) ───────────────────────────────────────────────────────
@@ -170,42 +159,9 @@ CREATE INDEX IF NOT EXISTS audit_application_ref_idx  ON application_audit (appl
 --   $$
 -- );
 
+-- ── Seed helpers ─────────────────────────────────────────────────────────────
+-- Run manually to add the first admin user after creating the Supabase auth user.
 -- INSERT INTO admin_users (id, email, role)
 -- SELECT id, email, 'owner'
 -- FROM auth.users
 -- WHERE email = 'your-email@alfursanauto.ca';
-
-
--- ── Phase 2 migration (run on existing databases) ─────────────────────────────
--- Safe to run multiple times (all use IF NOT EXISTS / DO $$ patterns).
-
-ALTER TABLE applications
-  ADD COLUMN IF NOT EXISTS phase2_token         TEXT UNIQUE,
-  ADD COLUMN IF NOT EXISTS phase2_token_expires_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS void_cheque_path     TEXT,
-  ADD COLUMN IF NOT EXISTS proof_insurance_path TEXT,
-  ADD COLUMN IF NOT EXISTS payslip_path         TEXT,
-  ADD COLUMN IF NOT EXISTS dealertrack_consent  BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS "references"         JSONB,
-  ADD COLUMN IF NOT EXISTS phase2_submitted_at  TIMESTAMPTZ;
-
--- Widen the status CHECK constraint to include Phase 2 statuses.
-ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_status_check;
-ALTER TABLE applications
-  ADD CONSTRAINT applications_status_check
-  CHECK (status IN ('new', 'reviewing', 'approved', 'declined',
-                    'document_incomplete', 'documents_submitted'));
-
--- Widen the audit action CHECK constraint.
-ALTER TABLE application_audit DROP CONSTRAINT IF EXISTS application_audit_action_check;
-ALTER TABLE application_audit
-  ADD CONSTRAINT application_audit_action_check
-  CHECK (action IN (
-    'viewed_license',
-    'status_changed',
-    'deleted',
-    'exported',
-    'phase2_requested',
-    'phase2_submitted',
-    'application_updated'
-  ));

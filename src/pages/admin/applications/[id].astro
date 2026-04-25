@@ -4,7 +4,8 @@ export const prerender = false;
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
 import { can } from "../../../lib/permissions";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { Resend } from "resend";
 
 const { adminEmail, adminRole } = Astro.locals;
 const { id } = Astro.params;
@@ -22,9 +23,71 @@ if (Astro.request.method === "POST") {
 
   if (action === "status_change" && can(adminRole!, "financing:write")) {
     const newStatus = form.get("status") as string;
-    const valid = ["new", "reviewing", "approved", "declined"];
+    const valid = ["new", "reviewing", "approved", "declined", "document_incomplete", "documents_submitted"];
     if (valid.includes(newStatus)) {
-      await supabase.from("applications").update({ status: newStatus }).eq("id", id);
+      const updatePayload: Record<string, unknown> = { status: newStatus };
+
+      // When moving to document_incomplete: generate a phase2 token and email the applicant
+      if (newStatus === "document_incomplete") {
+        const { data: current } = await supabase
+          .from("applications")
+          .select("email, full_name, phase2_token")
+          .eq("id", id)
+          .single();
+
+        // Reuse existing token if present (idempotent resend) but always refresh expiry.
+        const token = current?.phase2_token ?? randomUUID();
+        updatePayload.phase2_token = token;
+        updatePayload.phase2_token_expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        const siteUrl = import.meta.env.SITE_URL ?? "https://alfursanauto.ca";
+        const phase2Link = `${siteUrl}/apply/phase2?token=${token}`;
+
+        const resendKey   = import.meta.env.RESEND_API_KEY;
+        const fromAddress = import.meta.env.RESEND_FROM_ADDRESS;
+
+        if (resendKey && fromAddress && current?.email) {
+          try {
+            const resend = new Resend(resendKey);
+            await resend.emails.send({
+              from: fromAddress,
+              to: current.email,
+              subject: "Action Required — Complete Your Financing Application",
+              text: [
+                `Hi ${current.full_name ?? "Applicant"},`,
+                "",
+                "Thank you for applying with Alfursan Auto. To continue processing your financing application, we need a few additional documents from you.",
+                "",
+                "Please click the link below to upload your documents (valid for 30 days):",
+                "",
+                phase2Link,
+                "",
+                "You will need to provide:",
+                "  • A void cheque",
+                "  • Proof of insurance",
+                "  • Your most recent payslip",
+                "  • Two personal references",
+                "",
+                "If you have any questions, reply to this email or call us directly.",
+                "",
+                "— Alfursan Auto",
+              ].join("\n"),
+            });
+          } catch (emailErr) {
+            console.error("[admin] Phase 2 email error (non-fatal):", emailErr);
+          }
+        }
+
+        await supabase.from("application_audit").insert({
+          application_id: id,
+          application_ref: id,
+          action: "phase2_requested",
+          admin_email: adminEmail,
+          ip_hash: ipHash,
+        });
+      }
+
+      await supabase.from("applications").update(updatePayload).eq("id", id);
       await supabase.from("application_audit").insert({
         application_id: id,
         application_ref: id,
@@ -36,10 +99,10 @@ if (Astro.request.method === "POST") {
   }
 
   if (action === "delete" && can(adminRole!, "financing:delete")) {
-    // Fetch storage paths before deleting the row
+    // Fetch all storage paths before deleting the row
     const { data: toDelete } = await supabase
       .from("applications")
-      .select("license_front_path, license_back_path")
+      .select("license_front_path, license_back_path, void_cheque_path, proof_insurance_path, payslip_path")
       .eq("id", id)
       .single();
 
@@ -52,8 +115,14 @@ if (Astro.request.method === "POST") {
     });
     await supabase.from("applications").delete().eq("id", id);
 
-    // Delete storage files (best-effort; don't block redirect on failure)
-    const paths = [toDelete?.license_front_path, toDelete?.license_back_path].filter(Boolean) as string[];
+    // Delete all storage files (best-effort; don't block redirect on failure)
+    const paths = [
+      toDelete?.license_front_path,
+      toDelete?.license_back_path,
+      toDelete?.void_cheque_path,
+      toDelete?.proof_insurance_path,
+      toDelete?.payslip_path,
+    ].filter(Boolean) as string[];
     if (paths.length > 0) {
       await supabase.storage.from("license-documents").remove(paths);
     }
@@ -125,6 +194,37 @@ if (app.license_back_path && can(adminRole!, "financing:read")) {
   if (data) licenseBackUrl = data.signedUrl;
 }
 
+// ── Generate signed URLs for Phase 2 documents ────────────────────────────────
+function docFilename(storagePath: string, label: string): string {
+  const ext = storagePath.match(/\.[^.]+$/)?.[0] ?? ".pdf";
+  return `${filePrefix}_${label}${ext}`;
+}
+
+let voidChequeUrl:     string | null = null;
+let proofInsuranceUrl: string | null = null;
+let payslipUrl:        string | null = null;
+
+if (can(adminRole!, "financing:read")) {
+  if (app.void_cheque_path) {
+    const { data } = await supabase.storage
+      .from("license-documents")
+      .createSignedUrl(app.void_cheque_path, 300, { download: docFilename(app.void_cheque_path, "void-cheque") });
+    if (data) voidChequeUrl = data.signedUrl;
+  }
+  if (app.proof_insurance_path) {
+    const { data } = await supabase.storage
+      .from("license-documents")
+      .createSignedUrl(app.proof_insurance_path, 300, { download: docFilename(app.proof_insurance_path, "proof-insurance") });
+    if (data) proofInsuranceUrl = data.signedUrl;
+  }
+  if (app.payslip_path) {
+    const { data } = await supabase.storage
+      .from("license-documents")
+      .createSignedUrl(app.payslip_path, 300, { download: docFilename(app.payslip_path, "payslip") });
+    if (data) payslipUrl = data.signedUrl;
+  }
+}
+
 function fmt(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-CA", {
@@ -144,9 +244,11 @@ const statusColor: Record<string, string> = {
   reviewing: "#f59e0b",
   approved: "#1a7f4b",
   declined: "#B92111",
+  document_incomplete: "#7c3aed",
+  documents_submitted: "#0891b2",
 };
 
-const STATUSES = ["new", "reviewing", "approved", "declined"];
+const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitted", "approved", "declined"];
 ---
 
 <AdminLayout title={`Application — ${app.full_name}`} activeNav="applications">
@@ -203,6 +305,8 @@ const STATUSES = ["new", "reviewing", "approved", "declined"];
         <dl class="dl">
           <dt>Status</dt><dd>{app.employment_status ?? "—"}</dd>
           <dt>Employer</dt><dd>{app.employer ?? "—"}</dd>
+          <dt>Employer Address</dt><dd>{app.employer_address ?? "—"}</dd>
+          <dt>Employer Phone</dt><dd>{app.employer_phone ?? "—"}</dd>
           <dt>Job Title</dt><dd>{app.job_title ?? "—"}</dd>
           <dt>Annual Income</dt><dd>{money(app.annual_income)}</dd>
           <dt>Time at Employer</dt><dd>{app.time_at_employer ?? "—"}</dd>
@@ -261,6 +365,48 @@ const STATUSES = ["new", "reviewing", "approved", "declined"];
         </div>
       )}
 
+      <!-- Phase 2 — Documents & References -->
+      {(voidChequeUrl || proofInsuranceUrl || payslipUrl || app.references) && (
+        <div class="card">
+          <h2 class="card__title">Phase 2 — Documents</h2>
+          {(voidChequeUrl || proofInsuranceUrl || payslipUrl) && (
+            <>
+              <p class="license-note">Links expire in 5 minutes.</p>
+              <div class="license-imgs" style="flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+                {voidChequeUrl && (
+                  <a href={voidChequeUrl} target="_blank" rel="noopener" class="license-link">Void Cheque →</a>
+                )}
+                {proofInsuranceUrl && (
+                  <a href={proofInsuranceUrl} target="_blank" rel="noopener" class="license-link">Proof of Insurance →</a>
+                )}
+                {payslipUrl && (
+                  <a href={payslipUrl} target="_blank" rel="noopener" class="license-link">Payslip →</a>
+                )}
+              </div>
+            </>
+          )}
+          <dl class="dl">
+            <dt>DealerTrack Consent</dt>
+            <dd>{app.dealertrack_consent ? "Yes" : "No"}</dd>
+            <dt>Submitted</dt>
+            <dd>{fmt(app.phase2_submitted_at ?? null)}</dd>
+          </dl>
+          {app.references && Array.isArray(app.references) && (app.references as any[]).length > 0 && (
+            <>
+              <p style="font-size:12px; font-weight:700; color:#99a1b2; text-transform:uppercase; letter-spacing:0.05em; margin:14px 0 8px;">References</p>
+              {(app.references as any[]).map((r: any, i: number) => (
+                <div style="margin-bottom:10px; padding:10px; background:#f7f9fd; border-radius:6px; font-size:13px; color:#1a1d23;">
+                  <strong>{i + 1}. {r.name}</strong>
+                  <span style="color:#99a1b2; margin-left:8px;">{r.relationship}</span>
+                  <br />
+                  <a href={`tel:${r.phone}`} style="color:#B92111;">{r.phone}</a>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
       <!-- Submission metadata -->
       <div class="card">
         <h2 class="card__title">Submission</h2>
@@ -279,16 +425,24 @@ const STATUSES = ["new", "reviewing", "approved", "declined"];
       {can(adminRole!, "financing:write") && (
         <div class="card">
           <h2 class="card__title">Change Status</h2>
+          {app.status === "document_incomplete" && app.phase2_token && (
+            <div style="margin-bottom:12px; padding:10px 12px; background:#f5f0ff; border:1px solid #ddd6fe; border-radius:6px; font-size:12px; color:#7c3aed; word-break:break-all;">
+              Phase 2 link sent. Token: <code style="font-family:monospace;">{(app.phase2_token as string).slice(0, 8)}…</code>
+            </div>
+          )}
           <form method="POST">
             <input type="hidden" name="action" value="status_change" />
             <select name="status" class="select">
               {STATUSES.map((s) => (
                 <option value={s} selected={s === app.status}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s.replace(/_/g, " ").charAt(0).toUpperCase() + s.replace(/_/g, " ").slice(1)}
                 </option>
               ))}
             </select>
-            <button type="submit" class="btn btn--primary">Update Status</button>
+            <button type="submit" class="btn btn--primary">
+              {app.status !== "document_incomplete" && "Update Status"}
+              {app.status === "document_incomplete" && "Resend Phase 2 Email"}
+            </button>
           </form>
         </div>
       )}

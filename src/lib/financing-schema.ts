@@ -21,6 +21,8 @@ export const financingSchema = z.object({
   // ── Step 2 — Employment ────────────────────────────────────────────────────
   employmentStatus: z.string().min(1, "Employment status is required"),
   employer: z.string().optional(),
+  employerAddress: z.string().optional(),
+  employerPhone: z.string().optional(),
   jobTitle: z.string().optional(),
   annualIncome: z.string().optional(),
   employerSinceYear: z.string().optional(),

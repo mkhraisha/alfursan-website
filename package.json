@@ -9,7 +9,11 @@
     "astro": "astro",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:new": "supabase migration new",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "db:status": "supabase migration list"
   },
   "dependencies": {
     "@astrojs/check": "0.9.8",

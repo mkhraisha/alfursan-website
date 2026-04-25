@@ -323,3 +323,186 @@ describe("POST /api/finance/upload-url", () => {
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 upload-url path
+// ─────────────────────────────────────────────────────────────────────────────
+
+const P2_TOKEN  = "770e8400-e29b-41d4-a716-446655440002";
+const P2_APP_ID = "880e8400-e29b-41d4-a716-446655440003";
+
+const VALID_P2_BODY = {
+  phase2Token: P2_TOKEN,
+  appId:       P2_APP_ID,
+  docType:     "void_cheque",
+  contentType: "application/pdf",
+  fileSize:    512 * 1024,
+};
+
+function makeP2Request(body: unknown, opts: { origin?: string } = {}): Request {
+  return new Request("https://alfursanauto.ca/api/finance/upload-url", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: opts.origin ?? "https://alfursanauto.ca",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function makeP2SupabaseMock({
+  appRow = { id: P2_APP_ID, status: "document_incomplete", phase2_token_expires_at: null } as { id: string; status: string; phase2_token_expires_at: string | null } | null,
+  tokenLookupError = false,
+  signedUrl = "https://supabase.co/storage/v1/upload/sign/license-documents/phase2/...",
+  storageError = null as unknown,
+} = {}) {
+  const createSignedUploadUrl = vi.fn().mockResolvedValue({
+    data: storageError ? null : { signedUrl },
+    error: storageError,
+  });
+  const storageMock = { from: vi.fn().mockReturnValue({ createSignedUploadUrl }) };
+
+  const single = vi.fn().mockResolvedValue({
+    data:  tokenLookupError ? null : appRow,
+    error: tokenLookupError ? { message: "not found" } : null,
+  });
+  const eq2  = vi.fn().mockReturnValue({ single });
+  const eq1  = vi.fn().mockReturnValue({ eq: eq2 });
+  const select = vi.fn().mockReturnValue({ eq: eq1 });
+  const from   = vi.fn().mockReturnValue({ select });
+
+  const client = { from, storage: storageMock.from };
+  // Combine into one object the handler expects: supabase.from() and supabase.storage.from()
+  const fullClient = {
+    from,
+    storage: { from: storageMock.from },
+  };
+
+  return { client: fullClient, createSignedUploadUrl, single };
+}
+
+describe("POST /api/finance/upload-url — Phase 2 path", () => {
+  beforeEach(() => {
+    (getFinancingRateLimit as Mock).mockReturnValue(makePassingRateLimiter());
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // ── Missing / invalid fields ────────────────────────────────────────────────
+
+  it("returns 400 when phase2Token is present but appId is missing", async () => {
+    const { docType, appId: _, ...body } = VALID_P2_BODY;
+    const res = await POST({ request: makeP2Request({ ...body, docType }) } as never);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toMatch(/missing phase2token/i);
+  });
+
+  it("returns 400 when docType is missing", async () => {
+    const { docType: _, ...body } = VALID_P2_BODY;
+    const res = await POST({ request: makeP2Request(body) } as never);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/missing/i);
+  });
+
+  it("returns 400 when phase2Token is not a valid UUID", async () => {
+    const res = await POST({
+      request: makeP2Request({ ...VALID_P2_BODY, phase2Token: "not-uuid" }),
+    } as never);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/invalid phase2token/i);
+  });
+
+  it("returns 400 when appId is not a valid UUID", async () => {
+    const res = await POST({
+      request: makeP2Request({ ...VALID_P2_BODY, appId: "bad-id" }),
+    } as never);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/invalid appid/i);
+  });
+
+  it("returns 400 for invalid docType", async () => {
+    const res = await POST({
+      request: makeP2Request({ ...VALID_P2_BODY, docType: "selfie" }),
+    } as never);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/invalid doctype/i);
+  });
+
+  // ── Token validation ────────────────────────────────────────────────────────
+
+  it("returns 403 when token not found in DB", async () => {
+    const { client } = makeP2SupabaseMock({ tokenLookupError: true });
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/invalid or expired/i);
+  });
+
+  it("returns 403 when DB returns no app row", async () => {
+    const { client } = makeP2SupabaseMock({ appRow: null });
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 409 when status is already documents_submitted", async () => {
+    const { client } = makeP2SupabaseMock({
+      appRow: { id: P2_APP_ID, status: "documents_submitted" },
+    });
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/already been submitted/i);
+  });
+
+  // ── Happy path ──────────────────────────────────────────────────────────────
+
+  it("returns 200 with uploadUrl and correct storagePath on success", async () => {
+    const signedUrl = "https://supabase.co/storage/v1/upload/sign/license-documents/phase2/abc/void_cheque.pdf?tok=x";
+    const { client } = makeP2SupabaseMock({ signedUrl });
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.uploadUrl).toBe(signedUrl);
+    expect(body.storagePath).toBe(`phase2/${P2_APP_ID}/void_cheque.pdf`);
+  });
+
+  it("calls createSignedUploadUrl with phase2 path", async () => {
+    const { client, createSignedUploadUrl } = makeP2SupabaseMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+    await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
+    expect(createSignedUploadUrl).toHaveBeenCalledWith(`phase2/${P2_APP_ID}/void_cheque.pdf`);
+  });
+
+  it("accepts proof_insurance docType", async () => {
+    const { client } = makeP2SupabaseMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({
+      request: makeP2Request({ ...VALID_P2_BODY, docType: "proof_insurance" }),
+    } as never);
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts payslip docType", async () => {
+    const { client } = makeP2SupabaseMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({
+      request: makeP2Request({ ...VALID_P2_BODY, docType: "payslip" }),
+    } as never);
+    expect(res.status).toBe(200);
+  });
+
+  // ── Storage error ───────────────────────────────────────────────────────────
+
+  it("returns 500 when Supabase storage fails for Phase 2", async () => {
+    const { client } = makeP2SupabaseMock({ storageError: { message: "Bucket not found" } });
+    (getAdminClient as Mock).mockReturnValue(client);
+    const res = await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toContain("Bucket not found");
+  });
+});
