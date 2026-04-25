@@ -90,14 +90,7 @@ cp .env.example .env
 
 ### 3. Provision the database
 
-Run `docs/schema.sql` in the Supabase SQL editor, then seed your admin user:
-
-```sql
-INSERT INTO admin_users (id, email, role)
-SELECT id, email, 'owner'
-FROM auth.users
-WHERE email = 'you@example.com';
-```
+All schema is managed via Supabase CLI migrations. See [Database Migrations](#database-migrations) below.
 
 ### 4. Configure Supabase Auth
 
@@ -123,6 +116,59 @@ npm run dev
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build locally |
 | `npx astro check` | TypeScript type-check all .astro files |
+| `npm run db:new -- <name>` | Create a new migration file |
+| `npm run db:reset` | Re-apply all migrations to local DB |
+| `npm run db:status` | Show applied vs pending migrations |
+| `npm run db:push` | Push pending migrations to production (**run yourself**) |
+
+## Database Migrations
+
+Schema is managed with the [Supabase CLI](https://supabase.com/docs/guides/cli). All migration files live in `supabase/migrations/`.
+
+### Add a new migration
+
+```bash
+npm run db:new -- add_my_feature
+# → creates supabase/migrations/TIMESTAMP_add_my_feature.sql
+# Edit the file, then test locally:
+npm run db:reset
+```
+
+### First-time setup (new environment)
+
+```bash
+# Install Supabase CLI
+brew install supabase/tap/supabase
+
+# Start local Supabase stack (requires Docker Desktop)
+supabase start
+
+# Apply all migrations to local DB
+npm run db:reset
+
+# Seed first admin user (after creating the Supabase auth user)
+# Run this SQL in the Supabase local studio: http://localhost:54323
+# INSERT INTO admin_users (id, email, role)
+# SELECT id, email, 'owner' FROM auth.users WHERE email = 'you@example.com';
+```
+
+### Deploy to production
+
+Production migrations are applied **by a human**, not automated:
+
+```bash
+# 1. Link CLI to your Supabase project (one-time)
+supabase link --project-ref <YOUR_PROJECT_REF>
+# Project ref is in your Supabase dashboard URL
+
+# 2. Review what will be applied
+npm run db:status
+
+# 3. Push to production
+npm run db:push
+```
+
+Alternatively, copy the SQL from `supabase/migrations/` and run it directly in the Supabase SQL Editor.
 
 ## Deployment
 
