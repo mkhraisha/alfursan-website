@@ -1,31 +1,18 @@
 ---
 /**
- * Sign-out page. Clears the session cookie then redirects to login.
+ * Sign-out handler. Clears the HttpOnly session cookie server-side then
+ * redirects to the login page.
+ *
+ * The cookie is HttpOnly so it cannot be cleared from JavaScript; only the
+ * server can expire it via a Set-Cookie header.
  */
 export const prerender = false;
-const SUPABASE_URL = import.meta.env.SUPABASE_URL ?? "";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
+
+return new Response(null, {
+  status: 302,
+  headers: {
+    Location: "/admin/",
+    "Set-Cookie": "sb-access-token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+  },
+});
 ---
-
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>Signing out…</title>
-  </head>
-  <body>
-    <div id="supabase-config" data-url={SUPABASE_URL} data-key={SUPABASE_PUBLISHABLE_KEY} hidden></div>
-
-    <script>
-      import { createClient } from "@supabase/supabase-js";
-
-      const config = document.getElementById("supabase-config") as HTMLElement;
-      const supabase = createClient(config.dataset.url!, config.dataset.key!);
-
-      await supabase.auth.signOut();
-      document.cookie = "sb-access-token=; path=/; max-age=0; SameSite=Lax";
-      window.location.replace("/admin/");
-    </script>
-  </body>
-</html>

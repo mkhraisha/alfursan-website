@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS applications (
 
   -- Phase 2 — Documents & References
   phase2_token          TEXT UNIQUE,   -- UUID token emailed to applicant
+  phase2_token_expires_at TIMESTAMPTZ, -- Token expiry (30 days from issue)
   void_cheque_path      TEXT,
   proof_insurance_path  TEXT,
   payslip_path          TEXT,
@@ -171,6 +172,7 @@ CREATE INDEX IF NOT EXISTS audit_application_ref_idx  ON application_audit (appl
 
 ALTER TABLE applications
   ADD COLUMN IF NOT EXISTS phase2_token         TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS phase2_token_expires_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS void_cheque_path     TEXT,
   ADD COLUMN IF NOT EXISTS proof_insurance_path TEXT,
   ADD COLUMN IF NOT EXISTS payslip_path         TEXT,

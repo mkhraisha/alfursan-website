@@ -14,6 +14,9 @@ if (!can(adminRole!, "users:manage")) {
 
 const supabase = getAdminClient();
 
+const VALID_ROLES = ["staff", "manager", "owner"] as const;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 let msg = "";
 
 // ── Handle POST ───────────────────────────────────────────────────────────────
@@ -23,10 +26,12 @@ if (Astro.request.method === "POST") {
 
   if (action === "add_user") {
     const email = String(form.get("email") ?? "").toLowerCase().trim();
-    const role = String(form.get("role") ?? "staff");
+    const role  = String(form.get("role") ?? "staff");
 
     if (!email.includes("@")) {
       msg = "Invalid email address.";
+    } else if (!(VALID_ROLES as readonly string[]).includes(role)) {
+      msg = "Invalid role.";
     } else {
       const { error } = await supabase.from("admin_users").insert({
         email,
@@ -45,18 +50,26 @@ if (Astro.request.method === "POST") {
 
   if (action === "toggle_active") {
     const userId = form.get("user_id") as string;
-    const currentlyActive = form.get("currently_active") === "true";
-    await supabase
-      .from("admin_users")
-      .update({ is_active: !currentlyActive })
-      .eq("id", userId);
-    msg = `User ${currentlyActive ? "deactivated" : "reactivated"}.`;
+    if (!UUID_RE.test(userId ?? "")) {
+      msg = "Invalid user ID.";
+    } else {
+      const currentlyActive = form.get("currently_active") === "true";
+      await supabase
+        .from("admin_users")
+        .update({ is_active: !currentlyActive })
+        .eq("id", userId);
+      msg = `User ${currentlyActive ? "deactivated" : "reactivated"}.`;
+    }
   }
 
   if (action === "delete_user") {
     const userId = form.get("user_id") as string;
-    await supabase.from("admin_users").delete().eq("id", userId);
-    msg = "User deleted.";
+    if (!UUID_RE.test(userId ?? "")) {
+      msg = "Invalid user ID.";
+    } else {
+      await supabase.from("admin_users").delete().eq("id", userId);
+      msg = "User deleted.";
+    }
   }
 
   return Astro.redirect("/admin/users/?msg=" + encodeURIComponent(msg));

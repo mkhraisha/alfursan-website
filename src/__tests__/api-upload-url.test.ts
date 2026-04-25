@@ -351,7 +351,7 @@ function makeP2Request(body: unknown, opts: { origin?: string } = {}): Request {
 }
 
 function makeP2SupabaseMock({
-  appRow = { id: P2_APP_ID, status: "document_incomplete" } as { id: string; status: string } | null,
+  appRow = { id: P2_APP_ID, status: "document_incomplete", phase2_token_expires_at: null } as { id: string; status: string; phase2_token_expires_at: string | null } | null,
   tokenLookupError = false,
   signedUrl = "https://supabase.co/storage/v1/upload/sign/license-documents/phase2/...",
   storageError = null as unknown,

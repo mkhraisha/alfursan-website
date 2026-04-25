@@ -35,9 +35,10 @@ if (Astro.request.method === "POST") {
           .eq("id", id)
           .single();
 
-        // Reuse existing token if present (idempotent resend)
+        // Reuse existing token if present (idempotent resend) but always refresh expiry.
         const token = current?.phase2_token ?? randomUUID();
-        if (!current?.phase2_token) updatePayload.phase2_token = token;
+        updatePayload.phase2_token = token;
+        updatePayload.phase2_token_expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
         const siteUrl = import.meta.env.SITE_URL ?? "https://alfursanauto.ca";
         const phase2Link = `${siteUrl}/apply/phase2?token=${token}`;
@@ -98,10 +99,10 @@ if (Astro.request.method === "POST") {
   }
 
   if (action === "delete" && can(adminRole!, "financing:delete")) {
-    // Fetch storage paths before deleting the row
+    // Fetch all storage paths before deleting the row
     const { data: toDelete } = await supabase
       .from("applications")
-      .select("license_front_path, license_back_path")
+      .select("license_front_path, license_back_path, void_cheque_path, proof_insurance_path, payslip_path")
       .eq("id", id)
       .single();
 
@@ -114,8 +115,14 @@ if (Astro.request.method === "POST") {
     });
     await supabase.from("applications").delete().eq("id", id);
 
-    // Delete storage files (best-effort; don't block redirect on failure)
-    const paths = [toDelete?.license_front_path, toDelete?.license_back_path].filter(Boolean) as string[];
+    // Delete all storage files (best-effort; don't block redirect on failure)
+    const paths = [
+      toDelete?.license_front_path,
+      toDelete?.license_back_path,
+      toDelete?.void_cheque_path,
+      toDelete?.proof_insurance_path,
+      toDelete?.payslip_path,
+    ].filter(Boolean) as string[];
     if (paths.length > 0) {
       await supabase.storage.from("license-documents").remove(paths);
     }

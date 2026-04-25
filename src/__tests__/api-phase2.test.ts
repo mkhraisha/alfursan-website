@@ -49,13 +49,13 @@ function makeBadJsonRequest(): Request {
 }
 
 interface SupabaseMockOpts {
-  appRow?: { id: string; status: string; email: string; full_name: string } | null;
+  appRow?: { id: string; status: string; email: string; full_name: string; phase2_token_expires_at?: string | null } | null;
   tokenLookupError?: boolean;
   updateError?: boolean;
 }
 
 function makeSupabaseMock({
-  appRow = { id: APP_ID, status: "document_incomplete", email: "jane@example.com", full_name: "Jane Smith" },
+  appRow = { id: APP_ID, status: "document_incomplete", email: "jane@example.com", full_name: "Jane Smith", phase2_token_expires_at: null },
   tokenLookupError = false,
   updateError = false,
 }: SupabaseMockOpts = {}) {

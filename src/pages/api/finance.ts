@@ -34,7 +34,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   // ── Rate limit ────────────────────────────────────────────────────────────
   const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    // Fallback: unique per-request key so anonymous traffic never shares a bucket.
+    // In production (Vercel), x-forwarded-for is always present.
+    crypto.randomUUID();
   try {
     const limiter = getFinancingRateLimit();
     const { success } = await limiter.limit(ip);
@@ -121,10 +125,24 @@ export const POST: APIRoute = async ({ request }) => {
 
   const applicationId: string = row.id;
 
-  // ── Store license paths (files stay in tmp/ — signed URLs work from any path) ─
+  // ── Store license paths (validated to prevent path confusion attacks) ────────
+  // Paths must match the tmp/<draftId>/<side>.<ext> pattern the upload endpoint creates.
+  const LICENSE_PATH_RE = /^tmp\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(front|back)\.[a-z]+$/i;
   const licenseUpdates: Record<string, string> = {};
-  if (d.draftId && d.licenseFrontPath) licenseUpdates.license_front_path = d.licenseFrontPath;
-  if (d.draftId && d.licenseBackPath)  licenseUpdates.license_back_path  = d.licenseBackPath;
+  if (d.draftId && d.licenseFrontPath) {
+    if (LICENSE_PATH_RE.test(d.licenseFrontPath) && d.licenseFrontPath.includes(d.draftId)) {
+      licenseUpdates.license_front_path = d.licenseFrontPath;
+    } else {
+      console.warn("[financing] Rejected suspicious licenseFrontPath");
+    }
+  }
+  if (d.draftId && d.licenseBackPath) {
+    if (LICENSE_PATH_RE.test(d.licenseBackPath) && d.licenseBackPath.includes(d.draftId)) {
+      licenseUpdates.license_back_path = d.licenseBackPath;
+    } else {
+      console.warn("[financing] Rejected suspicious licenseBackPath");
+    }
+  }
 
   if (Object.keys(licenseUpdates).length > 0) {
     const { error: pathErr } = await supabase

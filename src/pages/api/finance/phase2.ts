@@ -31,7 +31,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   // ── Rate limit ─────────────────────────────────────────────────────────────
   const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    crypto.randomUUID();
   try {
     const limiter = getFinancingRateLimit();
     const { success } = await limiter.limit(`phase2:${ip}`);
@@ -67,12 +69,15 @@ export const POST: APIRoute = async ({ request }) => {
   // ── Validate token — find matching app ─────────────────────────────────────
   const { data: app, error: lookupErr } = await supabase
     .from("applications")
-    .select("id, status, email, full_name")
+    .select("id, status, email, full_name, phase2_token_expires_at")
     .eq("id", d.appId)
     .eq("phase2_token", d.phase2Token)
     .single();
 
   if (lookupErr || !app) {
+    return json({ success: false, error: "Invalid or expired token" }, 403);
+  }
+  if (app.phase2_token_expires_at && new Date(app.phase2_token_expires_at) < new Date()) {
     return json({ success: false, error: "Invalid or expired token" }, 403);
   }
   if (app.status === "documents_submitted") {

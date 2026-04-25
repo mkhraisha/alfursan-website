@@ -56,12 +56,19 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       } else {
         // Supabase auto-processes the hash and fires SIGNED_IN when done.
         // Using onAuthStateChange avoids the race condition with getSession().
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === "SIGNED_IN" && session) {
             subscription.unsubscribe();
-            const token = session.access_token;
-            const maxAge = session.expires_in ?? 3600;
-            document.cookie = `sb-access-token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+            // Store the token via a server-side endpoint so it can be HttpOnly.
+            const res = await fetch("/api/admin/set-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: session.access_token, expiresIn: session.expires_in ?? 3600 }),
+            });
+            if (!res.ok) {
+              msg.innerHTML = '<strong style="color:#B92111">Sign-in error.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
+              return;
+            }
             window.location.replace("/admin/dashboard/");
           }
         });

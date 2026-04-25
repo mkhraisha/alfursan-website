@@ -17,11 +17,13 @@ if (!token || !UUID_RE.test(token)) {
   const supabase = getAdminClient();
   const { data } = await supabase
     .from("applications")
-    .select("id, full_name, status")
+    .select("id, full_name, status, phase2_token_expires_at")
     .eq("phase2_token", token)
     .single();
 
   if (!data) {
+    invalid = true;
+  } else if (data.phase2_token_expires_at && new Date(data.phase2_token_expires_at) < new Date()) {
     invalid = true;
   } else {
     app = data;
