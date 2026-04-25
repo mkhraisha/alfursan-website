@@ -20,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: withastro/action@56781b97402ce0487b7e61ce2cb960c0e2cc5289 # v3
+        with:
+          node-version: 22
 
   deploy:
     needs: build
