@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 
 const DEALER_EMAIL = "info@alfursanauto.ca";
-const EFFECTIVE_DATE = "April 18, 2025";
+const EFFECTIVE_DATE = "April 25, 2026";
 ---
 
 <Layout
@@ -36,6 +36,14 @@ const EFFECTIVE_DATE = "April 18, 2025";
         <li>
           <strong>Government ID (optional):</strong> Photographs of the front and
           back of your driver's licence, uploaded voluntarily to speed up processing
+        </li>
+        <li>
+          <strong>Supporting financial documents (Phase 2, if requested):</strong>
+          void cheque, proof of insurance, and a recent pay stub
+        </li>
+        <li>
+          <strong>Personal references (Phase 2, if requested):</strong>
+          names, phone numbers, and relationships of up to two personal references
         </li>
         <li>
           <strong>Technical:</strong> A one-way SHA-256 hash of your IP address
@@ -113,7 +121,17 @@ const EFFECTIVE_DATE = "April 18, 2025";
         Toronto, Ontario, Canada<br />
         <a href={`mailto:${DEALER_EMAIL}`}>{DEALER_EMAIL}</a>
       </address>
+      <p>
+        If you are not satisfied with our response, you may file a complaint with
+        the <a href="https://www.priv.gc.ca/en/report-a-concern/" target="_blank" rel="noopener noreferrer">
+          Office of the Privacy Commissioner of Canada
+        </a>.
+      </p>
     </article>
+
+    <p class="pp-back">
+      <a href="/finance/">&larr; Back to Financing Application</a>
+    </p>
   </main>
 </Layout>
 
@@ -171,6 +189,22 @@ const EFFECTIVE_DATE = "April 18, 2025";
     line-height: 1.8;
     font-size: 15px;
     color: #3a3f4a;
+  }
+
+  .pp-back {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #e4e7ec;
+  }
+
+  .pp-back a {
+    color: #B92111;
+    font-size: 15px;
+    text-decoration: none;
+  }
+
+  .pp-back a:hover {
+    text-decoration: underline;
   }
 
   code {
