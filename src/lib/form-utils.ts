@@ -9,6 +9,8 @@ export type PrevAddress = {
 
 export type PrevEmployer = {
   employer: string;
+  address: string;
+  postalCode: string;
   sinceYear: string;
   sinceMonth: string;
 };
@@ -74,6 +76,7 @@ export function monthsSince(year: string, month: string): number {
 
 const POSTAL_CODE_RE = /^[A-Za-z]\d[A-Za-z][ ]?\d[A-Za-z]\d$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^[\d\s\-\+\(\)\.]+$/;
 
 // ── Step validator ────────────────────────────────────────────────────────────
 
@@ -120,6 +123,10 @@ export function validateStep(step: number, data: FormData): Errors {
     }
     if (!data.maritalStatus) e.maritalStatus = "Marital status is required";
     if (!data.phone.trim()) e.phone = "Phone number is required";
+    else if (data.phone.trim().replace(/\D/g, "").length < 10)
+      e.phone = "Phone number must be at least 10 digits";
+    else if (!PHONE_RE.test(data.phone))
+      e.phone = "Phone number format invalid";
     if (!data.email.trim()) e.email = "Email is required";
     else if (!EMAIL_RE.test(data.email))
       e.email = "Enter a valid email address";
@@ -130,19 +137,30 @@ export function validateStep(step: number, data: FormData): Errors {
     const isEmployed = ["full-time", "part-time", "self-employed"].includes(
       data.employmentStatus
     );
-    if (
-      isEmployed &&
-      data.employerSinceYear &&
-      data.employerSinceMonth
-    ) {
-      const currentMonths = monthsSince(
-        data.employerSinceYear,
-        data.employerSinceMonth
-      );
-      if (currentMonths < 24) {
+    if (isEmployed) {
+      if (!data.employer.trim()) e.employer = "Employer name is required";
+      if (!data.employerAddress.trim()) e.employerAddress = "Employer address is required";
+      if (!data.employerPhone.trim()) e.employerPhone = "Employer phone is required";
+      else if (data.employerPhone.trim().replace(/\D/g, "").length < 10)
+        e.employerPhone = "Phone must be at least 10 digits";
+      else if (!PHONE_RE.test(data.employerPhone))
+        e.employerPhone = "Phone format invalid";
+      if (!data.jobTitle.trim()) e.jobTitle = "Job title is required";
+      if (!data.annualIncome.trim()) e.annualIncome = "Annual income is required";
+      if (!data.employerSinceYear || !data.employerSinceMonth)
+        e.employerSinceYear = "Required";
+      else if (monthsSince(data.employerSinceYear, data.employerSinceMonth) < 0)
+        e.employerSinceYear = "Date cannot be in the future";
+      else if (
+        monthsSince(data.employerSinceYear, data.employerSinceMonth) < 24
+      ) {
         data.prevEmployers.forEach((entry, i) => {
           if (!entry.employer.trim())
             e[`prevEmployers_${i}_employer`] = "Employer name is required";
+          if (!entry.address.trim())
+            e[`prevEmployers_${i}_address`] = "Address is required";
+          if (!entry.postalCode.trim())
+            e[`prevEmployers_${i}_postalCode`] = "Postal code is required";
           if (!entry.sinceYear || !entry.sinceMonth)
             e[`prevEmployers_${i}_since`] = "Required";
           else if (monthsSince(entry.sinceYear, entry.sinceMonth) < 0)
@@ -169,6 +187,8 @@ export function validateStep(step: number, data: FormData): Errors {
     if (!data.vin.trim()) e.vin = "VIN is required";
     else if (data.vin.trim().length !== 17)
       e.vin = "VIN must be exactly 17 characters";
+    if (!data.licenseFrontPath) e.licenseFrontPath = "Front license upload is required";
+    if (!data.licenseBackPath) e.licenseBackPath = "Back license upload is required";
   }
 
   if (step === 4) {

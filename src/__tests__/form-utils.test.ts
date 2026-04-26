@@ -324,7 +324,7 @@ describe("validateStep(2) — employer history", () => {
         employerSinceYear: recentJob.year,
         employerSinceMonth: recentJob.month,
         prevEmployers: [
-          { employer: "Old Corp", sinceYear: insufficient.year, sinceMonth: insufficient.month },
+          { employer: "Old Corp", address: "123 Main St", postalCode: "M5V 3A8", sinceYear: insufficient.year, sinceMonth: insufficient.month },
         ],
       })
     );
@@ -339,7 +339,7 @@ describe("validateStep(2) — employer history", () => {
         employerSinceYear: recentJob.year,
         employerSinceMonth: recentJob.month,
         prevEmployers: [
-          { employer: "Old Corp", sinceYear: old.year, sinceMonth: old.month },
+          { employer: "Old Corp", address: "123 Main St", postalCode: "M5V 3A8", sinceYear: old.year, sinceMonth: old.month },
         ],
       })
     );
@@ -354,7 +354,7 @@ describe("validateStep(2) — employer history", () => {
         employerSinceYear: recentJob.year,
         employerSinceMonth: recentJob.month,
         prevEmployers: [
-          { employer: "", sinceYear: old.year, sinceMonth: old.month },
+          { employer: "", address: "123 Main St", postalCode: "M5V 3A8", sinceYear: old.year, sinceMonth: old.month },
         ],
       })
     );

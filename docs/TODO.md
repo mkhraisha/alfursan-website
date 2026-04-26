@@ -2,6 +2,7 @@
 
 ## Bug fixes and small improvements ( do these first)
 
+[ ] - there is a 500 error when we submit the financing application form
 [ ] - previous employment history in application form is missing address fields, address fields for employment and should include postal code.
 [ ] - form should validate that phone number field is actually a phone number.
 [ ] - Do not allow users to submit financing form without a license front and back, it is not optional.
