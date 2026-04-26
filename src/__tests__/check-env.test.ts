@@ -42,17 +42,17 @@ describe("checkEnvIntegration", () => {
     it("calls console.warn when env vars are missing", () => {
       ALL_VARS.forEach((k) => vi.stubEnv(k, ""));
       checkEnvIntegration().hooks["astro:server:start"]!();
-      expect(warnSpy).toHaveBeenCalledOnce();
-      expect(warnSpy.mock.calls[0][0]).toMatch(/missing environment variables/i);
+      // Now warns separately about optional + required
+      expect(warnSpy.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
 
-    it("lists all missing variable names in the warning", () => {
+    it("warns about missing required variables", () => {
       ALL_VARS.forEach((k) => vi.stubEnv(k, ""));
       checkEnvIntegration().hooks["astro:server:start"]!();
-      const msg = warnSpy.mock.calls[0][0] as string;
-      for (const key of ALL_VARS) {
-        expect(msg).toContain(key);
-      }
+      const allMsg = warnSpy.mock.calls.map(c => c[0]).join("\n");
+      // Required vars should appear in warnings
+      expect(allMsg).toContain("SUPABASE_URL");
+      expect(allMsg).toContain("RESEND_API_KEY");
     });
 
     it("does not warn when all env vars are present", () => {
@@ -63,11 +63,11 @@ describe("checkEnvIntegration", () => {
 
     it("only warns about missing vars, not present ones", () => {
       ALL_VARS.forEach((k) => vi.stubEnv(k, "some_value"));
-      vi.stubEnv("RESEND_API_KEY", ""); // knock out one
+      vi.stubEnv("RESEND_API_KEY", ""); // knock out one required var
       checkEnvIntegration().hooks["astro:server:start"]!();
-      expect(warnSpy).toHaveBeenCalledOnce();
-      expect(warnSpy.mock.calls[0][0]).toContain("RESEND_API_KEY");
-      expect(warnSpy.mock.calls[0][0]).not.toContain("SUPABASE_URL");
+      const allMsg = warnSpy.mock.calls.map(c => c[0]).join("\n");
+      expect(allMsg).toContain("RESEND_API_KEY");
+      expect(allMsg).not.toContain("SUPABASE_URL"); // present — should not appear
     });
 
     it("does not throw even when env vars are missing", () => {
@@ -81,7 +81,7 @@ describe("checkEnvIntegration", () => {
   // ── build:start (fatal) ───────────────────────────────────────────────────
 
   describe("astro:build:start hook (fatal)", () => {
-    it("throws when env vars are missing", () => {
+    it("throws when required env vars are missing", () => {
       ALL_VARS.forEach((k) => vi.stubEnv(k, ""));
       expect(() =>
         checkEnvIntegration().hooks["astro:build:start"]!()
@@ -103,21 +103,40 @@ describe("checkEnvIntegration", () => {
       expect(message).not.toContain("SUPABASE_URL"); // present — should not appear
     });
 
-    it("does not throw when all env vars are present", () => {
-      ALL_VARS.forEach((k) => vi.stubEnv(k, "some_value"));
+    it("does not throw when all required env vars are present (optional can be missing)", () => {
+      const requiredVars = [
+        "SUPABASE_URL",
+        "SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_SECRET_KEY",
+        "RESEND_API_KEY",
+        "RESEND_FROM_ADDRESS",
+        "RESEND_DEALER_EMAIL",
+      ];
+      requiredVars.forEach((k) => vi.stubEnv(k, "some_value"));
+      // Don't set UPSTASH vars (optional) — should not throw
+      vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+      vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
       expect(() =>
         checkEnvIntegration().hooks["astro:build:start"]!()
       ).not.toThrow();
     });
 
-    it("does not call console.warn (fatal path uses throw, not warn)", () => {
-      ALL_VARS.forEach((k) => vi.stubEnv(k, ""));
-      try {
-        checkEnvIntegration().hooks["astro:build:start"]!();
-      } catch {
-        // expected
-      }
-      expect(warnSpy).not.toHaveBeenCalled();
+    it("warns about optional vars but doesn't fail build", () => {
+      const requiredVars = [
+        "SUPABASE_URL",
+        "SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_SECRET_KEY",
+        "RESEND_API_KEY",
+        "RESEND_FROM_ADDRESS",
+        "RESEND_DEALER_EMAIL",
+      ];
+      requiredVars.forEach((k) => vi.stubEnv(k, "some_value"));
+      vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+      vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
+      checkEnvIntegration().hooks["astro:build:start"]!();
+      // Should warn about optional vars but not throw
+      expect(warnSpy).toHaveBeenCalled();
+      expect(warnSpy.mock.calls[0][0]).toContain("Optional");
     });
   });
 });

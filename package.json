@@ -42,7 +42,7 @@
   },
   "overrides": {
     "path-to-regexp": "6.3.0",
-    "uuid": "14.0.0",
+    "uuid": "9.0.1",
     "yaml": "2.8.3"
   }
 }

@@ -578,7 +578,7 @@ function Step2Employment({
   const addEmployer = () =>
     setData((prev) => ({
       ...prev,
-      prevEmployers: [...prev.prevEmployers, { employer: "", sinceYear: "", sinceMonth: "" }],
+      prevEmployers: [...prev.prevEmployers, { employer: "", address: "", postalCode: "", sinceYear: "", sinceMonth: "" }],
     }));
 
   const removeEmployer = (i: number) =>
@@ -737,6 +737,26 @@ function Step2Employment({
                         onChange={(e) => updateEmployer(i, "employer", e.target.value)}
                         placeholder="Previous company name"
                         error={errors[`prevEmployers_${i}_employer`]}
+                      />
+                    </FormField>
+                    <FormField label="Address" required error={errors[`prevEmployers_${i}_address`]}>
+                      <TextInput
+                        type="text"
+                        value={entry.address}
+                        onChange={(e) => updateEmployer(i, "address", e.target.value)}
+                        placeholder="Company address"
+                        error={errors[`prevEmployers_${i}_address`]}
+                      />
+                    </FormField>
+                  </Row>
+                  <Row>
+                    <FormField label="Postal Code" required error={errors[`prevEmployers_${i}_postalCode`]}>
+                      <TextInput
+                        type="text"
+                        value={entry.postalCode}
+                        onChange={(e) => updateEmployer(i, "postalCode", e.target.value)}
+                        placeholder="e.g. M5V 3A8"
+                        error={errors[`prevEmployers_${i}_postalCode`]}
                       />
                     </FormField>
                     <FormField label="Employed here since" required error={errors[`prevEmployers_${i}_since`]}>

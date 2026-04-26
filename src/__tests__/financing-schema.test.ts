@@ -12,8 +12,17 @@ const BASE: Record<string, unknown> = {
   phone: "4165551234",
   email: "john@example.com",
   maritalStatus: "single",
-  employmentStatus: "employed",
+  employmentStatus: "full-time",
+  employer: "Acme Corp",
+  employerAddress: "200 Bay St",
+  employerPhone: "4165550001",
+  jobTitle: "Software Engineer",
+  annualIncome: "75000",
+  employerSinceYear: "2020",
+  employerSinceMonth: "3",
   vin: "1HGCM82633A004352",
+  licenseFrontPath: "tmp/draft-abc/front.jpg",
+  licenseBackPath: "tmp/draft-abc/back.jpg",
   consentAccurate: true,
   consentPrivacy: true,
   licenseConsent: true,
@@ -60,23 +69,28 @@ describe("financingSchema — valid payload", () => {
     const result = financingSchema.safeParse(
       valid({
         prevEmployers: [
-          { employer: "Acme Corp", sinceYear: "2017", sinceMonth: "6" },
+          { employer: "Acme Corp", address: "100 King St", postalCode: "M5X 1A9", sinceYear: "2017", sinceMonth: "6" },
         ],
       })
     );
     expect(result.success).toBe(true);
   });
 
-  it("accepts employerAddress and employerPhone optional fields", () => {
+  it("accepts employerAddress and employerPhone fields", () => {
     const result = financingSchema.safeParse(
       valid({ employerAddress: "200 Bay St, Toronto ON", employerPhone: "4165550001" })
     );
     expect(result.success).toBe(true);
   });
 
-  it("accepts submission without employerAddress or employerPhone", () => {
-    const result = financingSchema.safeParse(valid());
-    expect(result.success).toBe(true);
+  it("rejects submission without employerAddress", () => {
+    const result = financingSchema.safeParse(valid({ employerAddress: "" }));
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects submission without employerPhone", () => {
+    const result = financingSchema.safeParse(valid({ employerPhone: "" }));
+    expect(result.success).toBe(false);
   });
 });
 
@@ -130,6 +144,27 @@ describe("financingSchema — VIN", () => {
   it("rejects empty VIN", () => {
     const result = financingSchema.safeParse(valid({ vin: "" }));
     expect(result.success).toBe(false);
+  });
+});
+
+// ── License uploads ──────────────────────────────────────────────────────────
+
+describe("financingSchema — license uploads", () => {
+  it("rejects missing licenseFrontPath", () => {
+    const result = financingSchema.safeParse(valid({ licenseFrontPath: "" }));
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing licenseBackPath", () => {
+    const result = financingSchema.safeParse(valid({ licenseBackPath: "" }));
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts both license paths present", () => {
+    const result = financingSchema.safeParse(
+      valid({ licenseFrontPath: "tmp/draft-abc/front.jpg", licenseBackPath: "tmp/draft-abc/back.jpg" })
+    );
+    expect(result.success).toBe(true);
   });
 });
 
