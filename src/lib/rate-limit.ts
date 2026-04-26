@@ -15,14 +15,16 @@ export function getFinancingRateLimit() {
   const token = import.meta.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
-    throw new Error("Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars");
+    throw new Error(
+      "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars",
+    );
   }
 
   const redis = new Redis({ url, token });
 
   return new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(5, "1 h"),
+    limiter: Ratelimit.slidingWindow(50, "1 h"),
     analytics: false,
     prefix: "alfursan:financing",
   });

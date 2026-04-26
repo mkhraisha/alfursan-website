@@ -1,24 +1,31 @@
 import { z } from "zod";
 
 const PHONE_RE = /^[\d\s\-\+\(\)\.]+$|^$/;
+const POSTAL_RE = /^[A-Za-z]\d[A-Za-z][ ]?\d[A-Za-z]\d$/;
 
 export const financingSchema = z.object({
   // ── Step 1 — Personal ──────────────────────────────────────────────────────
   fullName: z.string().min(2, "Full name is required"),
   dob: z.string().min(1, "Date of birth is required"),
   address: z.string().min(3, "Address is required"),
-  postalCode: z.string().min(1, "Postal code is required"),
+  postalCode: z.string()
+    .min(1, "Postal code is required")
+    .refine((v) => POSTAL_RE.test(v), "Enter a valid Canadian postal code (e.g. M5V 3A8)"),
   addressSinceYear: z.string().min(1, "Required"),
   addressSinceMonth: z.string().min(1, "Required"),
   prevAddresses: z.array(z.object({
     address: z.string().min(3, "Address required"),
-    postalCode: z.string().min(1, "Postal code required"),
+    postalCode: z.string()
+      .min(1, "Postal code required")
+      .refine((v) => POSTAL_RE.test(v), "Enter a valid Canadian postal code"),
     sinceYear: z.string(),
     sinceMonth: z.string(),
+    untilYear: z.string().optional(),
+    untilMonth: z.string().optional(),
   })).optional(),
   phone: z.string()
     .min(10, "Phone number must be at least 10 digits")
-    .refine((v) => PHONE_RE.test(v), "Phone number format invalid"),
+    .refine((v) => PHONE_RE.test(v), "Phone must contain only digits, spaces, hyphens, parentheses, and plus signs"),
   email: z.string().email({ message: "Enter a valid email address" }),
   maritalStatus: z.string().min(1, "Marital status is required"),
 
@@ -28,7 +35,7 @@ export const financingSchema = z.object({
   employerAddress: z.string().min(3, "Employer address is required"),
   employerPhone: z.string()
     .min(10, "Employer phone must be at least 10 digits")
-    .refine((v) => PHONE_RE.test(v), "Phone number format invalid"),
+    .refine((v) => PHONE_RE.test(v), "Phone must contain only digits, spaces, hyphens, parentheses, and plus signs"),
   jobTitle: z.string().min(1, "Job title is required"),
   annualIncome: z.string().min(1, "Annual income is required"),
   employerSinceYear: z.string().min(1, "Required"),
@@ -36,9 +43,13 @@ export const financingSchema = z.object({
   prevEmployers: z.array(z.object({
     employer: z.string().min(1, "Employer name required"),
     address: z.string().min(3, "Employer address required"),
-    postalCode: z.string().min(1, "Postal code required"),
+    postalCode: z.string()
+      .min(1, "Postal code required")
+      .refine((v) => POSTAL_RE.test(v), "Enter a valid Canadian postal code"),
     sinceYear: z.string(),
     sinceMonth: z.string(),
+    untilYear: z.string().optional(),
+    untilMonth: z.string().optional(),
   })).optional(),
 
   // ── Step 3 — Vehicle & Loan ────────────────────────────────────────────────

@@ -337,9 +337,13 @@ describe("POST /api/finance", () => {
 
       const res = await POST({ request: makeRequest(VALID_BODY) } as never);
       expect(res.status).toBe(200);
-      expect(mockSend).toHaveBeenCalledOnce();
-      const call = mockSend.mock.calls[0][0];
-      expect(call.subject).toContain("app-777");
+      expect(mockSend).toHaveBeenCalledTimes(2);
+      // First call: confirmation email to applicant
+      const confirmCall = mockSend.mock.calls[0][0];
+      expect(confirmCall.subject).toBe("Application Received — Alfursan Auto");
+      // Second call: notification to dealer
+      const dealerCall = mockSend.mock.calls[1][0];
+      expect(dealerCall.subject).toContain("app-777");
     });
 
     it("still returns 200 when Resend throws", async () => {

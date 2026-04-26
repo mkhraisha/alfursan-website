@@ -125,6 +125,36 @@ export const POST: APIRoute = async ({ request }) => {
 
   const applicationId: string = row.id;
 
+  // ── Email configuration ────────────────────────────────────────────────────
+  const resendKey = import.meta.env.RESEND_API_KEY;
+  const fromAddress = import.meta.env.RESEND_FROM_ADDRESS;
+  const dealerEmail = import.meta.env.RESEND_DEALER_EMAIL;
+
+  // ── Send confirmation email to applicant (non-fatal) ─────────────────────────
+  if (resendKey && fromAddress && d.email) {
+    try {
+      const resend = new Resend(resendKey);
+      await resend.emails.send({
+        from: fromAddress,
+        to: d.email,
+        subject: "Application Received — Alfursan Auto",
+        text: [
+          `Hi ${d.fullName},`,
+          "",
+          "Thank you for submitting your financing application with Alfursan Auto.",
+          "",
+          "We have received your application and will review it shortly. You can expect to hear from us within 1-2 business days.",
+          "",
+          "If you have any questions in the meantime, please don't hesitate to reach out.",
+          "",
+          "— Alfursan Auto",
+        ].join("\n"),
+      });
+    } catch (emailErr) {
+      console.error("[financing] Confirmation email error (non-fatal):", emailErr);
+    }
+  }
+
   // ── Store license paths (validated to prevent path confusion attacks) ────────
   // Paths must match the tmp/<draftId>/<side>.<ext> pattern the upload endpoint creates.
   const LICENSE_PATH_RE = /^tmp\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(front|back)\.[a-z]+$/i;
@@ -153,10 +183,6 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // ── Notify dealer (non-fatal) ─────────────────────────────────────────────
-  const resendKey = import.meta.env.RESEND_API_KEY;
-  const dealerEmail = import.meta.env.RESEND_DEALER_EMAIL;
-  const fromAddress = import.meta.env.RESEND_FROM_ADDRESS;
-
   if (resendKey && dealerEmail && fromAddress) {
     try {
       const resend = new Resend(resendKey);

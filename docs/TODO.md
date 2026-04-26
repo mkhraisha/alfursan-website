@@ -2,13 +2,14 @@
 
 ## Bug fixes and small improvements ( do these first)
 
-[ ] - there is a 500 error when we submit the financing application form
-[ ] - previous employment history in application form is missing address fields, address fields for employment and should include postal code.
-[ ] - form should validate that phone number field is actually a phone number.
-[ ] - Do not allow users to submit financing form without a license front and back, it is not optional.
-[ ] - Employer information should be required.
-[ ] - remove the export and download json from the application details view.
-[ ] - unable to add user from the admin panel got a 302 msg=Failed to add user. Please try again.
+[ ] - Do not allow users to submit financing form without a license front and back, it is not optional, mark as required on the form and show an error message if they try to continue without it.
+[ ] - Employer information should be required, and marked required on the form, and should include postal code.
+[ ] - unable to add user from the admin panel got a 302 msg=Failed to add user. Please try again. this is not fixed.
+[ ] - validation on postal code and phone number format should show that the format is incorrect, not just that the field is required.
+[ ] - addresses and employment history date should be exact date range, not living at place since or working at place since
+[ ] - send confirmation email to user when application is submitted, do not include PII
+[ ] - updating status to document incomplete doesn't work, it just refreshes and stays at the previous status, updating to other statuses works fine.
+[ ] - loosen up rate limit on file uploads and form submissions.
 
 ## Long Term Features ( do not do yet)
 

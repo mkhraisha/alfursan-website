@@ -87,7 +87,12 @@ if (Astro.request.method === "POST") {
         });
       }
 
-      await supabase.from("applications").update(updatePayload).eq("id", id);
+      const { error: updateErr } = await supabase.from("applications").update(updatePayload).eq("id", id);
+      if (updateErr) {
+        console.error("[admin] Status update error:", updateErr);
+        return Astro.redirect(`/admin/applications/${id}/?error=Failed to update status`);
+      }
+
       await supabase.from("application_audit").insert({
         application_id: id,
         application_ref: id,
@@ -259,6 +264,12 @@ const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitte
     <span>{app.full_name}</span>
   </div>
 
+  {Astro.url.searchParams.get("error") && (
+    <div style="background:#fee2e2; color:#7f1d1d; padding:10px 16px; border-radius:6px; border:1px solid #fca5a5; margin-bottom:16px; font-size:14px;">
+      {Astro.url.searchParams.get("error")}
+    </div>
+  )}
+
   <div class="page-header">
     <div>
       <h1>{app.full_name}</h1>
@@ -289,12 +300,17 @@ const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitte
           <dt>Address</dt><dd>{app.address ?? "—"}</dd>
           <dt>Postal Code</dt><dd>{app.postal_code ?? "—"}</dd>
           <dt>Time at Address</dt><dd>{app.time_at_address ?? "—"}</dd>
-          {app.prev_addresses && Array.isArray(app.prev_addresses) && (app.prev_addresses as any[]).map((p: any, i: number) => (
-            <>
-              <dt>Previous Address {i + 1}</dt>
-              <dd>{p.address}{p.postalCode ? `, ${p.postalCode}` : ""} <span style="color:#99a1b2;font-size:12px">(since {p.sinceMonth}/{p.sinceYear})</span></dd>
-            </>
-          ))}
+          {app.prev_addresses && Array.isArray(app.prev_addresses) && (app.prev_addresses as any[]).map((p: any, i: number) => {
+            const dateRange = p.untilMonth && p.untilYear
+              ? `${p.sinceMonth}/${p.sinceYear} – ${p.untilMonth}/${p.untilYear}`
+              : `since ${p.sinceMonth}/${p.sinceYear}`;
+            return (
+              <>
+                <dt>Previous Address {i + 1}</dt>
+                <dd>{p.address}{p.postalCode ? `, ${p.postalCode}` : ""} <span style="color:#99a1b2;font-size:12px">({dateRange})</span></dd>
+              </>
+            );
+          })}
           <dt>Marital Status</dt><dd>{app.marital_status ?? "—"}</dd>
         </dl>
       </div>
@@ -310,12 +326,17 @@ const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitte
           <dt>Job Title</dt><dd>{app.job_title ?? "—"}</dd>
           <dt>Annual Income</dt><dd>{money(app.annual_income)}</dd>
           <dt>Time at Employer</dt><dd>{app.time_at_employer ?? "—"}</dd>
-          {app.prev_employers && Array.isArray(app.prev_employers) && (app.prev_employers as any[]).map((p: any, i: number) => (
-            <>
-              <dt>Previous Employer {i + 1}</dt>
-              <dd>{p.employer} <span style="color:#99a1b2;font-size:12px">(since {p.sinceMonth}/{p.sinceYear})</span></dd>
-            </>
-          ))}
+          {app.prev_employers && Array.isArray(app.prev_employers) && (app.prev_employers as any[]).map((p: any, i: number) => {
+            const dateRange = p.untilMonth && p.untilYear
+              ? `${p.sinceMonth}/${p.sinceYear} – ${p.untilMonth}/${p.untilYear}`
+              : `since ${p.sinceMonth}/${p.sinceYear}`;
+            return (
+              <>
+                <dt>Previous Employer {i + 1}</dt>
+                <dd>{p.employer}{p.address ? `, ${p.address}` : ""}{p.postalCode ? `, ${p.postalCode}` : ""} <span style="color:#99a1b2;font-size:12px">({dateRange})</span></dd>
+              </>
+            );
+          })}
         </dl>
       </div>
 

@@ -5,6 +5,8 @@ export type PrevAddress = {
   postalCode: string;
   sinceYear: string;
   sinceMonth: string;
+  untilYear?: string;
+  untilMonth?: string;
 };
 
 export type PrevEmployer = {
@@ -13,6 +15,8 @@ export type PrevEmployer = {
   postalCode: string;
   sinceYear: string;
   sinceMonth: string;
+  untilYear?: string;
+  untilMonth?: string;
 };
 
 export type FormData = {
@@ -126,7 +130,7 @@ export function validateStep(step: number, data: FormData): Errors {
     else if (data.phone.trim().replace(/\D/g, "").length < 10)
       e.phone = "Phone number must be at least 10 digits";
     else if (!PHONE_RE.test(data.phone))
-      e.phone = "Phone number format invalid";
+      e.phone = "Phone must contain only digits, spaces, hyphens, parentheses, and plus signs";
     if (!data.email.trim()) e.email = "Email is required";
     else if (!EMAIL_RE.test(data.email))
       e.email = "Enter a valid email address";
@@ -144,7 +148,7 @@ export function validateStep(step: number, data: FormData): Errors {
       else if (data.employerPhone.trim().replace(/\D/g, "").length < 10)
         e.employerPhone = "Phone must be at least 10 digits";
       else if (!PHONE_RE.test(data.employerPhone))
-        e.employerPhone = "Phone format invalid";
+        e.employerPhone = "Phone must contain only digits, spaces, hyphens, parentheses, and plus signs";
       if (!data.jobTitle.trim()) e.jobTitle = "Job title is required";
       if (!data.annualIncome.trim()) e.annualIncome = "Annual income is required";
       if (!data.employerSinceYear || !data.employerSinceMonth)
@@ -161,6 +165,8 @@ export function validateStep(step: number, data: FormData): Errors {
             e[`prevEmployers_${i}_address`] = "Address is required";
           if (!entry.postalCode.trim())
             e[`prevEmployers_${i}_postalCode`] = "Postal code is required";
+          else if (!POSTAL_CODE_RE.test(entry.postalCode))
+            e[`prevEmployers_${i}_postalCode`] = "Enter a valid Canadian postal code";
           if (!entry.sinceYear || !entry.sinceMonth)
             e[`prevEmployers_${i}_since`] = "Required";
           else if (monthsSince(entry.sinceYear, entry.sinceMonth) < 0)

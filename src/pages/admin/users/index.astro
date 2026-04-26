@@ -33,17 +33,39 @@ if (Astro.request.method === "POST") {
     } else if (!(VALID_ROLES as readonly string[]).includes(role)) {
       msg = "Invalid role.";
     } else {
-      const { error } = await supabase.from("admin_users").insert({
-        email,
-        role,
-        is_active: true,
-      });
-      if (error?.code === "23505") {
-        msg = "That email is already an admin user.";
-      } else if (error) {
-        msg = "Failed to add user. Please try again.";
-      } else {
-        msg = `${email} added as ${role}.`;
+      try {
+        // Create auth user first using admin client
+        const { data: newAuthUser, error: authError } = await supabase.auth.admin.createUser({
+          email,
+          email_confirm: true, // Auto-confirm so they can sign in
+        });
+
+        if (authError || !newAuthUser?.user?.id) {
+          if (authError?.message?.includes("already")) {
+            msg = "That email is already registered.";
+          } else {
+            msg = "Failed to create user account. Please try again.";
+          }
+        } else {
+          // Now insert into admin_users with the created user ID
+          const { error: insertError } = await supabase.from("admin_users").insert({
+            id: newAuthUser.user.id,
+            email,
+            role,
+            is_active: true,
+          });
+
+          if (insertError?.code === "23505") {
+            msg = "That email is already an admin user.";
+          } else if (insertError) {
+            msg = "Failed to add user. Please try again.";
+          } else {
+            msg = `${email} added as ${role}.`;
+          }
+        }
+      } catch (err) {
+        console.error("[admin-users] Unexpected error:", err);
+        msg = "An unexpected error occurred. Please try again.";
       }
     }
   }
