@@ -126,7 +126,7 @@ function DocUploadField({
           onClick={() => inputRef.current?.click()}
           style={{ display: "block", width: "100%", padding: "10px 12px", border: `1px dashed ${(upload.error ?? error) ? C.red : C.line}`, borderRadius: "6px", background: C.bg, color: C.muted, fontSize: "13px", cursor: "pointer", textAlign: "center", fontFamily: "inherit" }}
         >
-          + Choose file (JPG, PNG, HEIC, PDF · max 8 MB)
+          + Choose file (JPG, PNG, HEIC, PDF · max 50 MB)
         </button>
       )}
     </FormField>

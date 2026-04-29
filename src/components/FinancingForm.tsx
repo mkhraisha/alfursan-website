@@ -925,7 +925,7 @@ function LicenseUploadField({
             fontFamily: "inherit",
           }}
         >
-          + Choose file (JPG, PNG, HEIC, PDF · max 8 MB)
+          + Choose file (JPG, PNG, HEIC, PDF · max 50 MB)
         </button>
       )}
       {upload.error && (

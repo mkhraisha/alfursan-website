@@ -262,20 +262,20 @@ describe("POST /api/finance/upload-url", () => {
   // ── File size validation ──────────────────────────────────────────────────────
 
   describe("file size validation", () => {
-    it("returns 400 when file exceeds 8 MB", async () => {
+    it("returns 400 when file exceeds 50 MB", async () => {
       const res = await POST({
-        request: makeRequest({ ...VALID_BODY, fileSize: 9 * 1024 * 1024 }),
+        request: makeRequest({ ...VALID_BODY, fileSize: 51 * 1024 * 1024 }),
       } as never);
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toMatch(/8 MB/i);
+      expect(body.error).toMatch(/50 MB/i);
     });
 
-    it("accepts exactly 8 MB", async () => {
+    it("accepts exactly 50 MB", async () => {
       const { client } = makeStorageMock();
       (getAdminClient as Mock).mockReturnValue(client);
       const res = await POST({
-        request: makeRequest({ ...VALID_BODY, fileSize: 8 * 1024 * 1024 }),
+        request: makeRequest({ ...VALID_BODY, fileSize: 50 * 1024 * 1024 }),
       } as never);
       expect(res.status).toBe(200);
     });

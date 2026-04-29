@@ -11,7 +11,7 @@ const ALLOWED_TYPES = [
   "image/webp",
   "application/pdf",
 ];
-const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const PHASE2_TYPES = ["void_cheque", "proof_insurance", "payslip"];
@@ -77,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
   if (fileSize > MAX_BYTES) {
-    return json({ error: "File exceeds the 8 MB limit" }, 400);
+    return json({ error: "File exceeds the 50 MB limit" }, 400);
   }
 
   const extMap: Record<string, string> = {
