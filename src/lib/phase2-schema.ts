@@ -1,8 +1,12 @@
 import { z } from "zod";
 
+const PHONE_RE = /^[\d\s\-\+\(\)\.]+$|^$/;
+
 export const referenceSchema = z.object({
-  name:         z.string().min(2, "Name is required"),
-  phone:        z.string().min(7, "Phone number is required"),
+  name:        z.string().min(2, "Name is required"),
+  phone:       z.string()
+    .min(10, "Phone number must be at least 10 digits")
+    .refine((v) => PHONE_RE.test(v), "Phone must contain only digits, spaces, hyphens, parentheses, and plus signs"),
   relationship: z.string().min(1, "Relationship is required"),
 });
 

@@ -23,6 +23,7 @@ This file provides instructions for AI coding agents (GitHub Copilot, Claude Cod
 - make sure to add tests whenever a new feature is added or a bug is fixed, and run all tests before merging to main
 - do not push to main without asking the user for confirmation in the same conversation turn, even for hotfixes or small changes. Always ask: _"Ready to merge to main and push?"_ and wait for confirmation before running any `git push origin main`, `git merge`, or `git cherry-pick` onto main.
 - This applies to hotfixes, CI tweaks, and any other "small" changes — no exceptions.
+- if you are working and referencing a document with a checklist, make sure to check off each item as you complete it.
 
 ## Branch Protection
 

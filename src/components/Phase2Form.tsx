@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import type { Phase2FormData, ReferenceData } from "../lib/phase2-schema";
 
+const PHONE_RE = /^[\d\s\-\+\(\)\.]+$/;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface UploadState {
   uploading: boolean;
@@ -214,7 +216,13 @@ export default function Phase2Form({ phase2Token, appId, applicantName }: Props)
     if (!dealertrackConsent) newErrors.dealertrackConsent = "You must consent to the credit bureau check";
     references.forEach((r, i) => {
       if (!r.name)         newErrors[`references.${i}.name`]         = "Name is required";
-      if (!r.phone)        newErrors[`references.${i}.phone`]        = "Phone is required";
+      if (!r.phone) {
+        newErrors[`references.${i}.phone`]        = "Phone is required";
+      } else if (r.phone.trim().replace(/\D/g, "").length < 10) {
+        newErrors[`references.${i}.phone`] = "Phone number must be at least 10 digits";
+      } else if (!PHONE_RE.test(r.phone)) {
+        newErrors[`references.${i}.phone`] = "Phone must contain only digits, spaces, hyphens, parentheses, and plus signs";
+      }
       if (!r.relationship) newErrors[`references.${i}.relationship`] = "Relationship is required";
     });
 
