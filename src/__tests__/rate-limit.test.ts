@@ -46,7 +46,7 @@ describe("getFinancingRateLimit", () => {
     });
   });
 
-  it("constructs Ratelimit with a sliding window of 5 per hour", () => {
+  it("constructs Ratelimit with a sliding window of 20 per hour", () => {
     vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.upstash.io");
     vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "tok_secret");
     getFinancingRateLimit();
