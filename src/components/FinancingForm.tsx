@@ -56,8 +56,6 @@ const DEFAULT_DATA: FormData = {
   postalCode: "",
   addressSinceYear: "",
   addressSinceMonth: "",
-  addressUntilYear: "",
-  addressUntilMonth: "",
   prevAddresses: [],
   phone: "",
   email: "",
@@ -70,8 +68,6 @@ const DEFAULT_DATA: FormData = {
   annualIncome: "",
   employerSinceYear: "",
   employerSinceMonth: "",
-  employerUntilYear: "",
-  employerUntilMonth: "",
   prevEmployers: [],
   vehicleYear: "",
   vehicleMake: "",
@@ -412,29 +408,6 @@ function Step1Personal({
             />
           </Row>
         </FormField>
-        <FormField label="Until (if moved)" error={errors.addressUntilYear || errors.addressUntilMonth}>
-          <Row>
-            <SelectInput
-              value={data.addressUntilMonth}
-              onChange={(e) => set("addressUntilMonth", e.target.value)}
-              error={errors.addressUntilMonth}
-            >
-              <option value="">Month</option>
-              {MONTHS.map((m, i) => (
-                <option key={i} value={String(i + 1)}>{m}</option>
-              ))}
-            </SelectInput>
-            <TextInput
-              type="number"
-              value={data.addressUntilYear}
-              onChange={(e) => set("addressUntilYear", e.target.value)}
-              placeholder="Year (e.g. 2024)"
-              min="1950"
-              max={String(new Date().getFullYear())}
-              error={errors.addressUntilYear}
-            />
-          </Row>
-        </FormField>
       </Row>
 
       {needPrev && (
@@ -486,7 +459,7 @@ function Step1Personal({
                     error={errors[`prevAddresses_${i}_postalCode`]}
                   />
                 </FormField>
-                <FormField label="Lived here since" required error={errors[`prevAddresses_${i}_since`]}>
+                <FormField label="From" required error={errors[`prevAddresses_${i}_since`]}>
                   <Row>
                     <SelectInput
                       value={entry.sinceMonth}
@@ -506,6 +479,29 @@ function Step1Personal({
                       min="1950"
                       max={String(new Date().getFullYear())}
                       error={errors[`prevAddresses_${i}_since`]}
+                    />
+                  </Row>
+                </FormField>
+                <FormField label="Until" error={errors[`prevAddresses_${i}_until`]}>
+                  <Row>
+                    <SelectInput
+                      value={entry.untilMonth ?? ""}
+                      onChange={(e) => updateAddress(i, "untilMonth", e.target.value)}
+                      error={errors[`prevAddresses_${i}_until`]}
+                    >
+                      <option value="">Month</option>
+                      {MONTHS.map((m, mi) => (
+                        <option key={mi} value={String(mi + 1)}>{m}</option>
+                      ))}
+                    </SelectInput>
+                    <TextInput
+                      type="number"
+                      value={entry.untilYear ?? ""}
+                      onChange={(e) => updateAddress(i, "untilYear", e.target.value)}
+                      placeholder="Year"
+                      min="1950"
+                      max={String(new Date().getFullYear())}
+                      error={errors[`prevAddresses_${i}_until`]}
                     />
                   </Row>
                 </FormField>
@@ -725,27 +721,6 @@ function Step2Employment({
                 />
               </Row>
             </FormField>
-            <FormField label="Until (if left)">
-              <Row>
-                <SelectInput
-                  value={data.employerUntilMonth}
-                  onChange={(e) => set("employerUntilMonth", e.target.value)}
-                >
-                  <option value="">Month</option>
-                  {MONTHS.map((m, i) => (
-                    <option key={i} value={String(i + 1)}>{m}</option>
-                  ))}
-                </SelectInput>
-                <TextInput
-                  type="number"
-                  value={data.employerUntilYear}
-                  onChange={(e) => set("employerUntilYear", e.target.value)}
-                  placeholder="Year (e.g. 2024)"
-                  min="1950"
-                  max={String(new Date().getFullYear())}
-                />
-              </Row>
-            </FormField>
           </Row>
 
           {needPrev && (
@@ -807,7 +782,7 @@ function Step2Employment({
                         error={errors[`prevEmployers_${i}_postalCode`]}
                       />
                     </FormField>
-                    <FormField label="Employed here since" required error={errors[`prevEmployers_${i}_since`]}>
+                    <FormField label="From" required error={errors[`prevEmployers_${i}_since`]}>
                       <Row>
                         <SelectInput
                           value={entry.sinceMonth}
@@ -827,6 +802,29 @@ function Step2Employment({
                           min="1950"
                           max={String(new Date().getFullYear())}
                           error={errors[`prevEmployers_${i}_since`]}
+                        />
+                      </Row>
+                    </FormField>
+                    <FormField label="Until" error={errors[`prevEmployers_${i}_until`]}>
+                      <Row>
+                        <SelectInput
+                          value={entry.untilMonth ?? ""}
+                          onChange={(e) => updateEmployer(i, "untilMonth", e.target.value)}
+                          error={errors[`prevEmployers_${i}_until`]}
+                        >
+                          <option value="">Month</option>
+                          {MONTHS.map((m, mi) => (
+                            <option key={mi} value={String(mi + 1)}>{m}</option>
+                          ))}
+                        </SelectInput>
+                        <TextInput
+                          type="number"
+                          value={entry.untilYear ?? ""}
+                          onChange={(e) => updateEmployer(i, "untilYear", e.target.value)}
+                          placeholder="Year"
+                          min="1950"
+                          max={String(new Date().getFullYear())}
+                          error={errors[`prevEmployers_${i}_until`]}
                         />
                       </Row>
                     </FormField>
