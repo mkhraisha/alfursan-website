@@ -56,6 +56,8 @@ const DEFAULT_DATA: FormData = {
   postalCode: "",
   addressSinceYear: "",
   addressSinceMonth: "",
+  addressUntilYear: "",
+  addressUntilMonth: "",
   prevAddresses: [],
   phone: "",
   email: "",
@@ -68,6 +70,8 @@ const DEFAULT_DATA: FormData = {
   annualIncome: "",
   employerSinceYear: "",
   employerSinceMonth: "",
+  employerUntilYear: "",
+  employerUntilMonth: "",
   prevEmployers: [],
   vehicleYear: "",
   vehicleMake: "",
@@ -408,6 +412,29 @@ function Step1Personal({
             />
           </Row>
         </FormField>
+        <FormField label="Until (if moved)" error={errors.addressUntilYear || errors.addressUntilMonth}>
+          <Row>
+            <SelectInput
+              value={data.addressUntilMonth}
+              onChange={(e) => set("addressUntilMonth", e.target.value)}
+              error={errors.addressUntilMonth}
+            >
+              <option value="">Month</option>
+              {MONTHS.map((m, i) => (
+                <option key={i} value={String(i + 1)}>{m}</option>
+              ))}
+            </SelectInput>
+            <TextInput
+              type="number"
+              value={data.addressUntilYear}
+              onChange={(e) => set("addressUntilYear", e.target.value)}
+              placeholder="Year (e.g. 2024)"
+              min="1950"
+              max={String(new Date().getFullYear())}
+              error={errors.addressUntilYear}
+            />
+          </Row>
+        </FormField>
       </Row>
 
       {needPrev && (
@@ -693,6 +720,27 @@ function Step2Employment({
                   value={data.employerSinceYear}
                   onChange={(e) => set("employerSinceYear", e.target.value)}
                   placeholder="Year (e.g. 2019)"
+                  min="1950"
+                  max={String(new Date().getFullYear())}
+                />
+              </Row>
+            </FormField>
+            <FormField label="Until (if left)">
+              <Row>
+                <SelectInput
+                  value={data.employerUntilMonth}
+                  onChange={(e) => set("employerUntilMonth", e.target.value)}
+                >
+                  <option value="">Month</option>
+                  {MONTHS.map((m, i) => (
+                    <option key={i} value={String(i + 1)}>{m}</option>
+                  ))}
+                </SelectInput>
+                <TextInput
+                  type="number"
+                  value={data.employerUntilYear}
+                  onChange={(e) => set("employerUntilYear", e.target.value)}
+                  placeholder="Year (e.g. 2024)"
                   min="1950"
                   max={String(new Date().getFullYear())}
                 />

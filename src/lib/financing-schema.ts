@@ -13,6 +13,8 @@ export const financingSchema = z.object({
     .refine((v) => POSTAL_RE.test(v), "Enter a valid Canadian postal code (e.g. M5V 3A8)"),
   addressSinceYear: z.string().min(1, "Required"),
   addressSinceMonth: z.string().min(1, "Required"),
+  addressUntilYear: z.string().optional(),
+  addressUntilMonth: z.string().optional(),
   prevAddresses: z.array(z.object({
     address: z.string().min(3, "Address required"),
     postalCode: z.string()
@@ -40,6 +42,8 @@ export const financingSchema = z.object({
   annualIncome: z.string().min(1, "Annual income is required"),
   employerSinceYear: z.string().min(1, "Required"),
   employerSinceMonth: z.string().min(1, "Required"),
+  employerUntilYear: z.string().optional(),
+  employerUntilMonth: z.string().optional(),
   prevEmployers: z.array(z.object({
     employer: z.string().min(1, "Employer name required"),
     address: z.string().min(3, "Employer address required"),

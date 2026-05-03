@@ -86,7 +86,11 @@ export const POST: APIRoute = async ({ request }) => {
       address: d.address || null,
       postal_code: d.postalCode || null,
       time_at_address: d.addressSinceYear && d.addressSinceMonth
-        ? `${d.addressSinceYear}-${String(d.addressSinceMonth).padStart(2, "0")}`
+        ? `${d.addressSinceYear}-${String(d.addressSinceMonth).padStart(2, "0")}${
+            d.addressUntilYear && d.addressUntilMonth
+              ? ` – ${d.addressUntilYear}-${String(d.addressUntilMonth).padStart(2, "0")}`
+              : ""
+          }`
         : null,
       prev_addresses: d.prevAddresses && d.prevAddresses.length > 0 ? d.prevAddresses : null,
       phone: d.phone || null,
@@ -99,7 +103,11 @@ export const POST: APIRoute = async ({ request }) => {
       job_title: d.jobTitle || null,
   annual_income: d.annualIncome ? parseFloat(d.annualIncome.replace(/,/g, "")) : null,
       time_at_employer: d.employerSinceYear && d.employerSinceMonth
-        ? `${d.employerSinceYear}-${String(d.employerSinceMonth).padStart(2, "0")}`
+        ? `${d.employerSinceYear}-${String(d.employerSinceMonth).padStart(2, "0")}${
+            d.employerUntilYear && d.employerUntilMonth
+              ? ` – ${d.employerUntilYear}-${String(d.employerUntilMonth).padStart(2, "0")}`
+              : ""
+          }`
         : null,
       prev_employers: d.prevEmployers && d.prevEmployers.length > 0 ? d.prevEmployers : null,
       vehicle_year: d.vehicleYear || null,

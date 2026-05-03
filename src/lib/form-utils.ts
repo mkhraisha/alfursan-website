@@ -27,6 +27,8 @@ export type FormData = {
   postalCode: string;
   addressSinceYear: string;
   addressSinceMonth: string;
+  addressUntilYear?: string;
+  addressUntilMonth?: string;
   prevAddresses: PrevAddress[];
   phone: string;
   email: string;
@@ -40,6 +42,8 @@ export type FormData = {
   annualIncome: string;
   employerSinceYear: string;
   employerSinceMonth: string;
+  employerUntilYear?: string;
+  employerUntilMonth?: string;
   prevEmployers: PrevEmployer[];
   // Step 3
   vehicleYear: string;
@@ -125,6 +129,19 @@ export function validateStep(step: number, data: FormData): Errors {
         }
       }
     }
+    if (data.addressUntilMonth || data.addressUntilYear) {
+      if (!data.addressUntilMonth || !data.addressUntilYear)
+        e.addressUntilYear = "Both month and year are required";
+      else if (monthsSince(data.addressUntilYear, data.addressUntilMonth) < 0)
+        e.addressUntilYear = "Date cannot be in the future";
+      else if (
+        data.addressSinceYear &&
+        data.addressSinceMonth &&
+        monthsSince(data.addressUntilYear, data.addressUntilMonth) <=
+          monthsSince(data.addressSinceYear, data.addressSinceMonth)
+      )
+        e.addressUntilYear = "End date must be after start date";
+    }
     if (!data.maritalStatus) e.maritalStatus = "Marital status is required";
     if (!data.phone.trim()) e.phone = "Phone number is required";
     else if (data.phone.trim().replace(/\D/g, "").length < 10)
@@ -185,6 +202,19 @@ export function validateStep(step: number, data: FormData): Errors {
               "Please add more employment history to cover at least 2 years total";
           }
         }
+      }
+      if (data.employerUntilMonth || data.employerUntilYear) {
+        if (!data.employerUntilMonth || !data.employerUntilYear)
+          e.employerUntilYear = "Both month and year are required";
+        else if (monthsSince(data.employerUntilYear, data.employerUntilMonth) < 0)
+          e.employerUntilYear = "Date cannot be in the future";
+        else if (
+          data.employerSinceYear &&
+          data.employerSinceMonth &&
+          monthsSince(data.employerUntilYear, data.employerUntilMonth) <=
+            monthsSince(data.employerSinceYear, data.employerSinceMonth)
+        )
+          e.employerUntilYear = "End date must be after start date";
       }
     }
   }
