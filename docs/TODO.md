@@ -9,8 +9,3 @@
 [ ] - send confirmation email to user when application is submitted, do not include PII just include the same information referene number and contact us information.
 [ ] - updating status to document incomplete doesn't work, it just refreshes and stays at the previous status, updating to other statuses works fine, this is because the phase2 token is not being populated when the application is submitted, so when we try to update to document incomplete it tries to send an email with a link that includes the phase2 token but since it's not populated it throws an error and doesn't update the status, we need to fix this by making sure the phase2 token is populated when the application is submitted.
 [ ] - loosen up rate limit on file uploads and form submissions.
-
-## Long Term Features ( do not do yet)
-
-[ ] - Migrate away from Wordpress as a CMS for static pages (About, Contact, FAQ, Blog) to reduce costs and maintenance overhead.
-[ ] - build a full Dealer Management System for us to use including inventory management, application review . This would replace a bunch of google sheets that we are using. The vehicles in the inventory would be automatically pulled, including vehicle images, and we would need to update vehicle status into the website and we could have a dashboard to manage applications, customers, and inventory all in one place.

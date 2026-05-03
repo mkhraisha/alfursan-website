@@ -4,6 +4,7 @@ export const prerender = false;
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
 import { can } from "../../../lib/permissions";
+import { formatStatusLabel } from "../../../lib/status-labels";
 import { createHash, randomUUID } from "node:crypto";
 import { Resend } from "resend";
 
@@ -280,7 +281,7 @@ const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitte
         class="badge"
         style={`background:${statusColor[app.status]}22; color:${statusColor[app.status]}`}
       >
-        {app.status}
+        {formatStatusLabel(app.status)}
       </span>
     </div>
   </div>
@@ -456,7 +457,7 @@ const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitte
             <select name="status" class="select">
               {STATUSES.map((s) => (
                 <option value={s} selected={s === app.status}>
-                  {s.replace(/_/g, " ").charAt(0).toUpperCase() + s.replace(/_/g, " ").slice(1)}
+                  {formatStatusLabel(s)}
                 </option>
               ))}
             </select>

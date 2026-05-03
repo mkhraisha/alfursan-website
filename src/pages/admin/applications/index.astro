@@ -3,6 +3,7 @@ export const prerender = false;
 
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
+import { formatStatusLabel } from "../../../lib/status-labels";
 
 const { adminRole } = Astro.locals;
 const supabase = getAdminClient();
@@ -131,7 +132,7 @@ const statusColor: Record<string, string> = {
                   class="badge"
                   style={`background:${statusColor[app.status]}22; color:${statusColor[app.status]}`}
                 >
-                  {app.status}
+                  {formatStatusLabel(app.status)}
                 </span>
               </td>
               <td style="white-space:nowrap">{fmt(app.created_at)}</td>

@@ -629,7 +629,7 @@ function Step2Employment({
       {isEmployed && (
         <>
           <Row>
-            <FormField label="Employer / Company Name">
+            <FormField label="Employer / Company Name" required error={errors.employer}>
               <TextInput
                 type="text"
                 value={data.employer}
@@ -637,7 +637,7 @@ function Step2Employment({
                 placeholder="Company name"
               />
             </FormField>
-            <FormField label="Job Title / Position">
+            <FormField label="Job Title / Position" required error={errors.jobTitle}>
               <TextInput
                 type="text"
                 value={data.jobTitle}
@@ -648,7 +648,7 @@ function Step2Employment({
           </Row>
 
           <Row>
-            <FormField label="Employer Address">
+            <FormField label="Employer Address" required error={errors.employerAddress}>
               <TextInput
                 type="text"
                 value={data.employerAddress}
@@ -656,7 +656,7 @@ function Step2Employment({
                 placeholder="123 Business Ave, City"
               />
             </FormField>
-            <FormField label="Employer Phone">
+            <FormField label="Employer Phone" required error={errors.employerPhone}>
               <TextInput
                 type="tel"
                 value={data.employerPhone}
@@ -667,7 +667,7 @@ function Step2Employment({
           </Row>
 
           <Row>
-            <FormField label="Gross Annual Income (CAD)">
+            <FormField label="Gross Annual Income (CAD)" required error={errors.annualIncome}>
               <TextInput
                 type="number"
                 value={data.annualIncome}
@@ -677,7 +677,7 @@ function Step2Employment({
                 step="1000"
               />
             </FormField>
-            <FormField label="At Current Employer Since">
+            <FormField label="At Current Employer Since" required>
               <Row>
                 <SelectInput
                   value={data.employerSinceMonth}
@@ -1019,9 +1019,9 @@ function Step3Vehicle({
             lineHeight: "1.5",
           }}
         >
-          <strong style={{ color: C.ink }}>Driver's License (optional)</strong>
+          <strong style={{ color: C.ink }}>Driver's License <span style={{ color: C.brandRed }}>*</span> (required)</strong>
           {" — "}
-          Uploading a copy speeds up processing. Files are stored in an
+          Both front and back copies are required. Files are stored in an
           encrypted private bucket and never shared with third parties.
         </p>
         <Row>

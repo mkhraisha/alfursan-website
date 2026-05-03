@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 
 /**
  * Server-only rate limiter using Upstash Redis.
- * Limits financing form submissions to 5 requests per IP per hour.
+ * Limits financing form submissions and file uploads to 20 requests per IP per hour.
  *
  * Usage in an API route:
  *   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
@@ -24,7 +24,7 @@ export function getFinancingRateLimit() {
 
   return new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(50, "1 h"),
+    limiter: Ratelimit.slidingWindow(20, "1 h"),
     analytics: false,
     prefix: "alfursan:financing",
   });
