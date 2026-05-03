@@ -399,5 +399,16 @@ describe("POST /api/finance", () => {
       expect(insertPayload.employer_address).toBe("456 Bay St");
       expect(insertPayload.employer_phone).toBe("4165559999");
     });
+
+    it("generates phase2_token and phase2_token_expires_at on submission", async () => {
+      const { client, insertFn } = makeSupabaseMock();
+      (getAdminClient as Mock).mockReturnValue(client);
+      await POST({ request: makeRequest(VALID_BODY) } as never);
+      const insertPayload = insertFn.mock.calls[0][0];
+      expect(insertPayload.phase2_token).toBeTruthy();
+      expect(typeof insertPayload.phase2_token).toBe("string");
+      expect(insertPayload.phase2_token_expires_at).toBeTruthy();
+      expect(new Date(insertPayload.phase2_token_expires_at).getTime()).toBeGreaterThan(Date.now());
+    });
   });
 });

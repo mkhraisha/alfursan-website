@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Resend } from "resend";
 import { getAdminClient } from "../../lib/supabase-admin";
 import { getFinancingRateLimit } from "../../lib/rate-limit";
@@ -74,6 +74,8 @@ export const POST: APIRoute = async ({ request }) => {
   // ── Insert application ────────────────────────────────────────────────────
   const ipHash = createHash("sha256").update(ip).digest("hex");
   const hasLicense = !!(d.licenseFrontPath || d.licenseBackPath);
+  const phase2Token = randomUUID();
+  const phase2TokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   const supabase = getAdminClient();
 
   const { data: row, error: insertError } = await supabase
@@ -114,6 +116,8 @@ export const POST: APIRoute = async ({ request }) => {
       license_consent: d.licenseConsent ?? false,
       consent_timestamp: new Date().toISOString(),
       ip_hash: ipHash,
+      phase2_token: phase2Token,
+      phase2_token_expires_at: phase2TokenExpiresAt,
     })
     .select("id")
     .single();
