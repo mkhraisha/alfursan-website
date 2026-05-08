@@ -276,6 +276,31 @@ describe("validateStep(1) — address history", () => {
     expect(e["prevAddresses_0_address"]).toBeTruthy();
     expect(e["prevAddresses_0_postalCode"]).toBeTruthy();
   });
+
+  it("rejects future since date inside prev address entry", () => {
+    const future = futureDate(2);
+    const e = validateStep(
+      1,
+      base({
+        addressSinceYear: recent.year,
+        addressSinceMonth: recent.month,
+        prevAddresses: [
+          {
+            address: "50 Old St",
+            postalCode: "M1B 1B1",
+            sinceYear: future.year,
+            sinceMonth: future.month,
+          },
+        ],
+      })
+    );
+    expect(e["prevAddresses_0_since"]).toMatch(/future/i);
+  });
+
+  it("rejects phone numbers with unsupported characters", () => {
+    const e = validateStep(1, base({ phone: "416-555-1234 ext 9" }));
+    expect(e.phone).toMatch(/only digits/i);
+  });
 });
 
 // ── Step 2: employment ────────────────────────────────────────────────────────
@@ -359,6 +384,74 @@ describe("validateStep(2) — employer history", () => {
       })
     );
     expect(e["prevEmployers_0_employer"]).toBeTruthy();
+  });
+
+  it("requires prev employer address", () => {
+    const old = pastDate(36);
+    const e = validateStep(
+      2,
+      base({
+        employerSinceYear: recentJob.year,
+        employerSinceMonth: recentJob.month,
+        prevEmployers: [
+          {
+            employer: "Old Corp",
+            address: "",
+            postalCode: "M5V 3A8",
+            sinceYear: old.year,
+            sinceMonth: old.month,
+          },
+        ],
+      })
+    );
+    expect(e["prevEmployers_0_address"]).toBeTruthy();
+  });
+
+  it("requires valid prev employer postal code", () => {
+    const old = pastDate(36);
+    const e = validateStep(
+      2,
+      base({
+        employerSinceYear: recentJob.year,
+        employerSinceMonth: recentJob.month,
+        prevEmployers: [
+          {
+            employer: "Old Corp",
+            address: "123 Main St",
+            postalCode: "bad",
+            sinceYear: old.year,
+            sinceMonth: old.month,
+          },
+        ],
+      })
+    );
+    expect(e["prevEmployers_0_postalCode"]).toBeTruthy();
+  });
+
+  it("rejects future since date inside prev employer entry", () => {
+    const future = futureDate(2);
+    const e = validateStep(
+      2,
+      base({
+        employerSinceYear: recentJob.year,
+        employerSinceMonth: recentJob.month,
+        prevEmployers: [
+          {
+            employer: "Old Corp",
+            address: "123 Main St",
+            postalCode: "M5V 3A8",
+            sinceYear: future.year,
+            sinceMonth: future.month,
+          },
+        ],
+      })
+    );
+    expect(e["prevEmployers_0_since"]).toMatch(/future/i);
+  });
+
+  it("rejects employer phone numbers with unsupported characters", () => {
+    const e = validateStep(2, base({ employerPhone: "416-555-0001 ext 5" }));
+    expect(e.employerPhone).toMatch(/only digits/i);
   });
 });
 

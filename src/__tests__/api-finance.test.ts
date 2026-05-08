@@ -298,6 +298,23 @@ describe("POST /api/finance", () => {
       );
     });
 
+    it("calls update with license_back_path when back path is valid", async () => {
+      const { client, updateFn } = makeSupabaseMock();
+      (getAdminClient as Mock).mockReturnValue(client);
+      await POST({
+        request: makeRequest({
+          ...VALID_BODY,
+          draftId: "550e8400-e29b-41d4-a716-446655440000",
+          licenseBackPath: "tmp/550e8400-e29b-41d4-a716-446655440000/back.jpg",
+        }),
+      } as never);
+      expect(updateFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          license_back_path: "tmp/550e8400-e29b-41d4-a716-446655440000/back.jpg",
+        })
+      );
+    });
+
     it("still returns 200 even if the license path update fails", async () => {
       const { client } = makeSupabaseMock({ updateError: { message: "path update failed" } });
       (getAdminClient as Mock).mockReturnValue(client);
