@@ -13,11 +13,11 @@ function isAllowedOrigin(request: Request): boolean {
   if (check.startsWith("http://localhost:")) return true;
   return (
     check.startsWith("https://alfursanauto.ca") ||
+    check.startsWith("https://media.alfursanauto.ca") ||
     check.startsWith("https://alfursan-website.vercel.app") ||
     (check.includes(".vercel.app") && !check.includes("://vercel.app"))
   );
 }
-
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -75,7 +75,9 @@ export const POST: APIRoute = async ({ request }) => {
   const ipHash = createHash("sha256").update(ip).digest("hex");
   const hasLicense = !!(d.licenseFrontPath || d.licenseBackPath);
   const phase2Token = randomUUID();
-  const phase2TokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const phase2TokenExpiresAt = new Date(
+    Date.now() + 30 * 24 * 60 * 60 * 1000,
+  ).toISOString();
   const supabase = getAdminClient();
 
   const { data: row, error: insertError } = await supabase
@@ -85,10 +87,12 @@ export const POST: APIRoute = async ({ request }) => {
       dob: d.dob,
       address: d.address || null,
       postal_code: d.postalCode || null,
-      time_at_address: d.addressSinceYear && d.addressSinceMonth
-        ? `${d.addressSinceYear}-${String(d.addressSinceMonth).padStart(2, "0")}`
-        : null,
-      prev_addresses: d.prevAddresses && d.prevAddresses.length > 0 ? d.prevAddresses : null,
+      time_at_address:
+        d.addressSinceYear && d.addressSinceMonth
+          ? `${d.addressSinceYear}-${String(d.addressSinceMonth).padStart(2, "0")}`
+          : null,
+      prev_addresses:
+        d.prevAddresses && d.prevAddresses.length > 0 ? d.prevAddresses : null,
       phone: d.phone || null,
       email: d.email,
       marital_status: d.maritalStatus || null,
@@ -97,17 +101,27 @@ export const POST: APIRoute = async ({ request }) => {
       employer_address: d.employerAddress || null,
       employer_phone: d.employerPhone || null,
       job_title: d.jobTitle || null,
-  annual_income: d.annualIncome ? parseFloat(d.annualIncome.replace(/,/g, "")) : null,
-      time_at_employer: d.employerSinceYear && d.employerSinceMonth
-        ? `${d.employerSinceYear}-${String(d.employerSinceMonth).padStart(2, "0")}`
+      annual_income: d.annualIncome
+        ? parseFloat(d.annualIncome.replace(/,/g, ""))
         : null,
-      prev_employers: d.prevEmployers && d.prevEmployers.length > 0 ? d.prevEmployers : null,
+      time_at_employer:
+        d.employerSinceYear && d.employerSinceMonth
+          ? `${d.employerSinceYear}-${String(d.employerSinceMonth).padStart(2, "0")}`
+          : null,
+      prev_employers:
+        d.prevEmployers && d.prevEmployers.length > 0 ? d.prevEmployers : null,
       vehicle_year: d.vehicleYear || null,
       vehicle_make: d.vehicleMake || null,
       vehicle_model: d.vehicleModel || null,
-      vehicle_price: d.vehiclePrice ? parseFloat(d.vehiclePrice.replace(/,/g, "")) : null,
-      down_payment: d.downPayment ? parseFloat(d.downPayment.replace(/,/g, "")) : null,
-      loan_term_months: d.loanTermMonths ? parseInt(d.loanTermMonths.replace(/,/g, "")) : null,
+      vehicle_price: d.vehiclePrice
+        ? parseFloat(d.vehiclePrice.replace(/,/g, ""))
+        : null,
+      down_payment: d.downPayment
+        ? parseFloat(d.downPayment.replace(/,/g, ""))
+        : null,
+      loan_term_months: d.loanTermMonths
+        ? parseInt(d.loanTermMonths.replace(/,/g, ""))
+        : null,
       vin: d.vin || null,
       listing_slug: d.listingSlug || null,
       license_front_path: null, // finalized below
@@ -160,23 +174,33 @@ export const POST: APIRoute = async ({ request }) => {
         ].join("\n"),
       });
     } catch (emailErr) {
-      console.error("[financing] Confirmation email error (non-fatal):", emailErr);
+      console.error(
+        "[financing] Confirmation email error (non-fatal):",
+        emailErr,
+      );
     }
   }
 
   // ── Store license paths (validated to prevent path confusion attacks) ────────
   // Paths must match the tmp/<draftId>/<side>.<ext> pattern the upload endpoint creates.
-  const LICENSE_PATH_RE = /^tmp\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(front|back)\.[a-z]+$/i;
+  const LICENSE_PATH_RE =
+    /^tmp\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(front|back)\.[a-z]+$/i;
   const licenseUpdates: Record<string, string> = {};
   if (d.draftId && d.licenseFrontPath) {
-    if (LICENSE_PATH_RE.test(d.licenseFrontPath) && d.licenseFrontPath.includes(d.draftId)) {
+    if (
+      LICENSE_PATH_RE.test(d.licenseFrontPath) &&
+      d.licenseFrontPath.includes(d.draftId)
+    ) {
       licenseUpdates.license_front_path = d.licenseFrontPath;
     } else {
       console.warn("[financing] Rejected suspicious licenseFrontPath");
     }
   }
   if (d.draftId && d.licenseBackPath) {
-    if (LICENSE_PATH_RE.test(d.licenseBackPath) && d.licenseBackPath.includes(d.draftId)) {
+    if (
+      LICENSE_PATH_RE.test(d.licenseBackPath) &&
+      d.licenseBackPath.includes(d.draftId)
+    ) {
       licenseUpdates.license_back_path = d.licenseBackPath;
     } else {
       console.warn("[financing] Rejected suspicious licenseBackPath");
@@ -188,7 +212,8 @@ export const POST: APIRoute = async ({ request }) => {
       .from("applications")
       .update(licenseUpdates)
       .eq("id", applicationId);
-    if (pathErr) console.error("[financing] Failed to store license paths:", pathErr);
+    if (pathErr)
+      console.error("[financing] Failed to store license paths:", pathErr);
   }
 
   // ── Notify dealer (non-fatal) ─────────────────────────────────────────────

@@ -162,7 +162,7 @@ const VEHICA_TAXONOMIES: Record<VehicaTermKey, string> = {
   features: "vehica_6670",
 };
 
-const DEFAULT_WP_API_BASE = "https://alfursanauto.ca/wp-json";
+const DEFAULT_WP_API_BASE = "https://media.alfursanauto.ca/wp-json";
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
 

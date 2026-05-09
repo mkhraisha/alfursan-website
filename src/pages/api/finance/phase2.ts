@@ -12,6 +12,7 @@ function isAllowedOrigin(request: Request): boolean {
   if (check.startsWith("http://localhost:")) return true;
   return (
     check.startsWith("https://alfursanauto.ca") ||
+    check.startsWith("https://media.alfursanauto.ca") ||
     check.startsWith("https://alfursan-website.vercel.app") ||
     (check.includes(".vercel.app") && !check.includes("://vercel.app"))
   );
@@ -77,14 +78,23 @@ export const POST: APIRoute = async ({ request }) => {
   if (lookupErr || !app) {
     return json({ success: false, error: "Invalid or expired token" }, 403);
   }
-  if (app.phase2_token_expires_at && new Date(app.phase2_token_expires_at) < new Date()) {
+  if (
+    app.phase2_token_expires_at &&
+    new Date(app.phase2_token_expires_at) < new Date()
+  ) {
     return json({ success: false, error: "Invalid or expired token" }, 403);
   }
   if (app.status === "documents_submitted") {
-    return json({ success: false, error: "Documents have already been submitted" }, 409);
+    return json(
+      { success: false, error: "Documents have already been submitted" },
+      409,
+    );
   }
   if (app.status !== "document_incomplete") {
-    return json({ success: false, error: "This application is not awaiting documents" }, 409);
+    return json(
+      { success: false, error: "This application is not awaiting documents" },
+      409,
+    );
   }
 
   // ── Upsert Phase 2 fields ──────────────────────────────────────────────────
@@ -93,13 +103,13 @@ export const POST: APIRoute = async ({ request }) => {
   const { error: updateErr } = await supabase
     .from("applications")
     .update({
-      void_cheque_path:     d.voidChequePath,
+      void_cheque_path: d.voidChequePath,
       proof_insurance_path: d.proofInsurancePath,
-      payslip_path:         d.payslipPath,
-      dealertrack_consent:  d.dealertrackConsent,
-      references:           d.references,
-      status:               "documents_submitted",
-      phase2_submitted_at:  new Date().toISOString(),
+      payslip_path: d.payslipPath,
+      dealertrack_consent: d.dealertrackConsent,
+      references: d.references,
+      status: "documents_submitted",
+      phase2_submitted_at: new Date().toISOString(),
     })
     .eq("id", d.appId);
 
@@ -110,11 +120,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   // ── Audit trail ────────────────────────────────────────────────────────────
   await supabase.from("application_audit").insert({
-    application_id:  d.appId,
+    application_id: d.appId,
     application_ref: d.appId,
-    action:          "phase2_submitted",
-    admin_email:     app.email ?? "applicant",
-    ip_hash:         ipHash,
+    action: "phase2_submitted",
+    admin_email: app.email ?? "applicant",
+    ip_hash: ipHash,
   });
 
   return json({ success: true }, 200);

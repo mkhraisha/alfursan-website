@@ -12,7 +12,8 @@ const ALLOWED_TYPES = [
   "application/pdf",
 ];
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const PHASE2_TYPES = ["void_cheque", "proof_insurance", "payslip"];
 
@@ -22,6 +23,7 @@ function isAllowedOrigin(request: Request): boolean {
   if (check.startsWith("http://localhost:")) return true;
   return (
     check.startsWith("https://alfursanauto.ca") ||
+    check.startsWith("https://media.alfursanauto.ca") ||
     check.startsWith("https://alfursan-website.vercel.app") ||
     (check.includes(".vercel.app") && !check.includes("://vercel.app"))
   );
@@ -73,7 +75,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!ALLOWED_TYPES.includes(contentType)) {
     return json(
       { error: `File type not allowed. Accepted: ${ALLOWED_TYPES.join(", ")}` },
-      400
+      400,
     );
   }
   if (fileSize > MAX_BYTES) {
@@ -96,10 +98,16 @@ export const POST: APIRoute = async ({ request }) => {
     if (!phase2Token || !appId || !docType) {
       return json({ error: "Missing phase2Token, appId, or docType" }, 400);
     }
-    if (!UUID_RE.test(phase2Token)) return json({ error: "Invalid phase2Token" }, 400);
-    if (!UUID_RE.test(appId))       return json({ error: "Invalid appId" }, 400);
+    if (!UUID_RE.test(phase2Token))
+      return json({ error: "Invalid phase2Token" }, 400);
+    if (!UUID_RE.test(appId)) return json({ error: "Invalid appId" }, 400);
     if (!PHASE2_TYPES.includes(docType)) {
-      return json({ error: `Invalid docType. Must be one of: ${PHASE2_TYPES.join(", ")}` }, 400);
+      return json(
+        {
+          error: `Invalid docType. Must be one of: ${PHASE2_TYPES.join(", ")}`,
+        },
+        400,
+      );
     }
 
     // Validate token against DB
@@ -114,7 +122,10 @@ export const POST: APIRoute = async ({ request }) => {
     if (tokenErr || !app) {
       return json({ error: "Invalid or expired token" }, 403);
     }
-    if (app.phase2_token_expires_at && new Date(app.phase2_token_expires_at) < new Date()) {
+    if (
+      app.phase2_token_expires_at &&
+      new Date(app.phase2_token_expires_at) < new Date()
+    ) {
       return json({ error: "Invalid or expired token" }, 403);
     }
     if (app.status === "documents_submitted") {
@@ -127,8 +138,14 @@ export const POST: APIRoute = async ({ request }) => {
       .createSignedUploadUrl(storagePath);
 
     if (error || !data) {
-      console.error("[upload-url] Phase 2 storage error:", JSON.stringify(error));
-      return json({ error: error?.message ?? "Failed to create upload URL" }, 500);
+      console.error(
+        "[upload-url] Phase 2 storage error:",
+        JSON.stringify(error),
+      );
+      return json(
+        { error: error?.message ?? "Failed to create upload URL" },
+        500,
+      );
     }
 
     return json({ uploadUrl: data.signedUrl, storagePath }, 200);
@@ -156,10 +173,17 @@ export const POST: APIRoute = async ({ request }) => {
       .createSignedUploadUrl(storagePath);
 
     if (error || !data) {
-      console.error("[upload-url] Supabase storage error:", JSON.stringify(error));
+      console.error(
+        "[upload-url] Supabase storage error:",
+        JSON.stringify(error),
+      );
       return json(
-        { error: error?.message ?? "Failed to create upload URL. Check that the 'license-documents' bucket exists in Supabase Storage." },
-        500
+        {
+          error:
+            error?.message ??
+            "Failed to create upload URL. Check that the 'license-documents' bucket exists in Supabase Storage.",
+        },
+        500,
       );
     }
 
