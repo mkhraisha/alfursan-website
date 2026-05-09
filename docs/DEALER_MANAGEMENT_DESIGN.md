@@ -17,10 +17,10 @@
 - Document management (upload required docs: bill of sale, inspection, ownership picture)
 - Expense tracking (add expenses per vehicle with optional receipt upload)
 - Application management (view financing applications from website)
-- Receipt generation (auto-generate legal bill of sale documents)
+- Bill of sale generation (generate wholesale, as-is, and retail bill of sale PDFs)
 - User management (admin can add/disable users, set commission percentages)
 - CSV import (bulk upload inventory from OpenLane)
-- Garage Register (track vehicle intake/completion dates)
+- Garage Register (track vehicle intake/outflow via `purchase_date` and `sale_date`)
 - Role-based access (admin: user management; sales: inventory, applications, commissions)
 - Audit logging (track all changes for compliance)
 
@@ -81,7 +81,6 @@ Two integrated features:
 
 - Real-time sync with external inventory systems (batch CSV import only)
 - Customer/Lead Management module (Phase 2+)
-- Bill of Sale/Invoice generation (Phase 2+)
 - Inventory duration/efficiency reports (Phase 2+)
 - Mobile-optimized UI (Phase 2+; desktop first)
 
@@ -93,7 +92,7 @@ Two integrated features:
 2. Website queries dealer dashboard via API with role-based filtering
 3. No WordPress REST API for cars anymore — entirely replaced by Supabase
 4. Public website shows only non-sensitive fields (images, advertised_price, specs)
-5. Profit/loss = advertised_price - (purchase_price + SUM(expenses))
+5. Profit/loss = (sale_price ?? advertised_price) - (purchase_price + SUM(expenses)); sale_price is used when available (vehicle is sold), otherwise falls back to advertised_price
 6. Commission = profit_loss × user.commission_percentage, OR $150 (floor for losses)
 7. Users are disabled (not deleted) to preserve audit trail and commission history
 8. OpenLane CSV import is batch, not real-time
@@ -110,7 +109,7 @@ Two integrated features:
 
 **Vehicle Details:**
 
-- `make`, `model`, `trim`, `series`,  'body_type', `year` (strings)
+- `make`, `model`, `trim`, `series`, `body_type`, `year` (strings)
 - `colour`, `odometer` (string, integer)
 
 **Purchase Information:**
@@ -122,7 +121,6 @@ Two integrated features:
 
 - `purchaser_name` (string, nullable — null until sold)
 - `purchaser_address` (string, nullable — null until sold)
-- `sale_date` (date, nullable — date vehicle was sold)
 
 **Pricing:**
 
@@ -138,7 +136,7 @@ Two integrated features:
 
 **Photography:**
 
-- `photography_status` (enum: `'pending'`, `'done'`, 'NA')
+- `photography_status` (enum: `'pending'`, `'done'`, `'na'`)
 
 **Garage Register (Ontario):**
 
@@ -149,12 +147,12 @@ Two integrated features:
 - `acquisition_bill_of_sale_path` (string, nullable)
 - `safety_inspection_document_path` (string, nullable)
 - `signed_bill_of_sale_path` (string, nullable)
-- `signed_ownership_picture_path` (string, nullable — picture of signed ownership when delivered) -- we need to track that we got ownership under DLR name and under customer when sold. We don't care about signature
-- `disclosures` (text, nullable) -- disclosures should be part of BOS
+- `signed_ownership_sale_picture_path` (string, nullable — picture of signed ownership when delivered)
+- `signed_ownership_acquisition_picture_path` (string, nullable — picture of signed ownership when acquired)
 
 **Commission:**
 
-- `commission_user_id` (uuid, nullable, foreign key to `auth.users`)
+- `commission_user_id` (uuid, nullable, foreign key to `user_profiles.id`)
 
 **Content:**
 
@@ -162,6 +160,7 @@ Two integrated features:
 - `videos_json` (array of file paths)
 - `carfax_link` (string, nullable)
 - `internal_notes` (text)
+- `disclosures` (text, nullable)
 
 **Metadata:**
 
@@ -192,17 +191,17 @@ Two integrated features:
 - `document_type` (string, e.g., `'warranty'`, `'service_record'`, `'other'`)
 - `file_path` (string)
 - `description` (text, optional)
-- `uploaded_by` (uuid, nullable, foreign key to `auth.users`)
+- `uploaded_by` (uuid, nullable, foreign key to `user_profiles.id`)
 - `created_at` (timestamp)
 
 ---
 
-### Table: `auth.users` (Extended)
+### Table: `user_profiles`
 
-**Existing table with dealership-specific fields**
+**Dealership-specific user data linked to Supabase auth — separate from the managed `auth.users` table**
 
-- `id` (uuid, primary key)
-- `email` (string, unique)
+- `id` (uuid, primary key, foreign key to `auth.users.id` on delete cascade)
+- `email` (string, unique — mirrors `auth.users.email` for convenience)
 - `role` (enum: `'admin'`, `'sales'`)
 - `commission_percentage` (decimal, e.g., 0.10 for 10%, nullable)
 - `is_active` (boolean, default: true)
@@ -237,7 +236,7 @@ Two integrated features:
 - **Admin/Sales roles:** Full access
 - **Public role:** No access
 
-**For `auth.users` table:**
+**For `user_profiles` table:**
 
 - **Admin role:** SELECT/INSERT/UPDATE/DELETE
 - **Sales role:** SELECT only (read-only view of team)
@@ -250,13 +249,15 @@ Two integrated features:
 **Purpose:** Generate a legal bill of sale document for vehicle sale.
 
 **Bill of Sale types:** Three variants (exact fields to be provided by user later)
+
 1. Wholesale Bill of Sale
 2. As-Is Bill of Sale
-3. Regular Bill of Sale -- this is called retail bill of sale. We have variants per province or export
+3. Retail Bill of Sale -- this is called retail bill of sale. We have variants per province and one for export
 
 **Information required for all types:**
+
 - Dealership information (name, address)
-- Vehicle details: VIN, make, model, year, odometer, body_type
+- Vehicle details: VIN, make, model, year, odometer, body type
 - Sale date
 - Sale price
 - Buyer information: name, address
@@ -264,6 +265,7 @@ Two integrated features:
 - Buyer signature field (for printing and manual signing)
 
 **Behavior:**
+
 - Sales role can generate bill of sale from vehicle detail page
 - Choose bill of sale type, then generate PDF
 - No automatic signing (manual process, printed and signed)
@@ -309,7 +311,7 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
 **Desktop table (sortable columns):**
 
 - VIN (link to detail page) — sortable
-- Make/Model/Year/Body_type — sortable
+- Make/Model/Year/Body Type — sortable
 - Status (color-coded badge) — sortable
 - Ownership Status — sortable
 - Photography Status — sortable
@@ -336,7 +338,7 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
 **Tabbed interface:**
 
 1. **Basics**
-   - VIN, Make, Model, Trim, Series, Year, Colour, Odometer, Body_type
+   - VIN, Make, Model, Trim, Series, Year, Colour, Odometer, Body Type
 
 2. **Purchase**
    - Purchase Date, Purchase Price, Purchaser Name, Purchaser Address
@@ -358,7 +360,8 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
    - Acquisition Bill of Sale (upload/view)
    - Safety Inspection Document (upload/view)
    - Signed Bill of Sale (upload/view)
-   - Signed Ownership Picture (upload/view)
+   - Signed Sale Ownership Picture (upload/view)
+   - Signed Acquisition Ownership Picture (upload/view)
    - Miscellaneous Documents (list with add/delete)
 
 7. **Expenses**
@@ -451,7 +454,7 @@ Response (authenticated admin/sales):
      wholesale_price, purchase_price, purchase_date, purchaser_name, purchaser_address,
      ownership_status, status, photography_status, garage_register_number,
      acquisition_bill_of_sale_path, safety_inspection_document_path,
-     signed_bill_of_sale_path, signed_ownership_picture_path, disclosures,
+     signed_bill_of_sale_path, signed_ownership_sale_picture_path, signed_ownership_acquisition_picture_path, disclosures,
      commission_user_id, internal_notes, images_json, videos_json, carfax_link,
      created_at, updated_at }, ...]
 ```

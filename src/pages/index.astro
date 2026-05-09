@@ -25,8 +25,12 @@ const PREFERRED_MAKES = ["Hyundai", "Honda", "Mazda", "Tesla", "Toyota"];
 
 const popularMakesData = Object.entries(makeCounts)
   .sort((a, b) => {
-    const ai = PREFERRED_MAKES.findIndex(m => m.toLowerCase() === a[0].toLowerCase());
-    const bi = PREFERRED_MAKES.findIndex(m => m.toLowerCase() === b[0].toLowerCase());
+    const ai = PREFERRED_MAKES.findIndex(
+      (m) => m.toLowerCase() === a[0].toLowerCase(),
+    );
+    const bi = PREFERRED_MAKES.findIndex(
+      (m) => m.toLowerCase() === b[0].toLowerCase(),
+    );
     if (ai !== -1 && bi !== -1) return ai - bi;
     if (ai !== -1) return -1;
     if (bi !== -1) return 1;
@@ -51,9 +55,9 @@ const localBusinessSchema = {
   "@type": "AutoDealer",
   name: "Alfursan Auto",
   url: "https://alfursanauto.ca",
-  logo: "https://alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent.png",
+  logo: "https://media.alfursanauto.ca/wp-content/uploads/2025/06/al-fursan-logo-transparent.png",
   image:
-    "https://alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png",
+    "https://media.alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png",
   description:
     "Trusted used car dealership in the Greater Toronto Area specializing in retail sales, wholesale deals, and international vehicle exports.",
   telephone: "+1-416-838-4007",
@@ -88,7 +92,7 @@ const localBusinessSchema = {
     <div class="hero-content">
       <div class="hero-left">
         <img
-          src="https://alfursanauto.ca/wp-content/uploads/2025/10/UCDA-Member-Logo-scaled-1-1536x907.gif"
+          src="https://media.alfursanauto.ca/wp-content/uploads/2025/10/UCDA-Member-Logo-scaled-1-1536x907.gif"
           alt="UCDA Member"
           class="ucda-badge"
         />
@@ -136,7 +140,7 @@ const localBusinessSchema = {
     </div>
 
     <img
-      src="https://alfursanauto.ca/wp-content/uploads/2025/06/full-body-alfursan-auto.png"
+      src="https://media.alfursanauto.ca/wp-content/uploads/2025/06/full-body-alfursan-auto.png"
       alt=""
       class="hero-mascot"
       aria-hidden="true"
@@ -184,9 +188,16 @@ const localBusinessSchema = {
                 </a>
                 <div class="card-specs-row">
                   <div class="card-specs">
-                    {featuredCars[0].year && <span>{featuredCars[0].year}</span>}
+                    {featuredCars[0].year && (
+                      <span>{featuredCars[0].year}</span>
+                    )}
                     {featuredCars[0].mileageKm && (
-                      <span>{Number(featuredCars[0].mileageKm).toLocaleString("en-CA")}KM</span>
+                      <span>
+                        {Number(featuredCars[0].mileageKm).toLocaleString(
+                          "en-CA",
+                        )}
+                        KM
+                      </span>
                     )}
                     {featuredCars[0].transmission && (
                       <span>{featuredCars[0].transmission}</span>
@@ -229,7 +240,11 @@ const localBusinessSchema = {
                   <p class="price">{formatPrice(car.price)}</p>
                   <div class="card-specs">
                     {car.year && <span>{car.year}</span>}
-                    {car.mileageKm && <span>{Number(car.mileageKm).toLocaleString("en-CA")}KM</span>}
+                    {car.mileageKm && (
+                      <span>
+                        {Number(car.mileageKm).toLocaleString("en-CA")}KM
+                      </span>
+                    )}
                     {car.transmission && <span>{car.transmission}</span>}
                   </div>
                 </div>
@@ -244,18 +259,62 @@ const localBusinessSchema = {
       <div class="social-bar-follow">
         <span class="social-bar-label">Follow us</span>
         <div class="social-bar-icons">
-          <a href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/" target="_blank" rel="noreferrer" aria-label="Facebook" class="social-bar-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" width="14" height="14"><path d="M80 299.3V512H196V299.3h86.5l18-97.8H196V166.9c0-51.7 20.3-71.5 72.7-71.5c16.3 0 29.4 .4 37 1.2V7.9C291.4 4 256.4 0 236.2 0C129.3 0 80 50.5 80 159.4v42.1H14v97.8H80z" fill="currentColor"/></svg>
+          <a
+            href="https://www.facebook.com/people/Alfursan-Auto-Exports/61576687765706/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Facebook"
+            class="social-bar-icon"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 320 512"
+              width="14"
+              height="14"
+              ><path
+                d="M80 299.3V512H196V299.3h86.5l18-97.8H196V166.9c0-51.7 20.3-71.5 72.7-71.5c16.3 0 29.4 .4 37 1.2V7.9C291.4 4 256.4 0 236.2 0C129.3 0 80 50.5 80 159.4v42.1H14v97.8H80z"
+                fill="currentColor"></path></svg
+            >
           </a>
-          <a href="#" target="_blank" rel="noreferrer" aria-label="X / Twitter" class="social-bar-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="14" height="14"><path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z" fill="currentColor"/></svg>
+          <a
+            href="#"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="X / Twitter"
+            class="social-bar-icon"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 512 512"
+              width="14"
+              height="14"
+              ><path
+                d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"
+                fill="currentColor"></path></svg
+            >
           </a>
-          <a href="https://www.instagram.com/alfursanauto/" target="_blank" rel="noreferrer" aria-label="Instagram" class="social-bar-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" width="14" height="14"><path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z" fill="currentColor"/></svg>
+          <a
+            href="https://www.instagram.com/alfursanauto/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Instagram"
+            class="social-bar-icon"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 448 512"
+              width="14"
+              height="14"
+              ><path
+                d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"
+                fill="currentColor"></path></svg
+            >
           </a>
         </div>
       </div>
-      <a href="/search/" class="btn btn-primary social-bar-cta">View {totalListings} Used</a>
+      <a href="/search/" class="btn btn-primary social-bar-cta"
+        >View {totalListings} Used</a
+      >
     </div>
 
     <PopularMakes makes={popularMakesData} client:load />
@@ -265,7 +324,7 @@ const localBusinessSchema = {
       <div class="why-grid">
         <article>
           <img
-            src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-transparent-deals.png"
+            src="https://media.alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-transparent-deals.png"
             alt="Honest Deals"
             class="why-icon"
           />
@@ -277,7 +336,7 @@ const localBusinessSchema = {
         </article>
         <article>
           <img
-            src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-inspected.png"
+            src="https://media.alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-inspected.png"
             alt="Inspected Inventory"
             class="why-icon"
           />
@@ -289,7 +348,7 @@ const localBusinessSchema = {
         </article>
         <article>
           <img
-            src="https://alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-location.png"
+            src="https://media.alfursanauto.ca/wp-content/uploads/2025/06/alfursan-auto-location.png"
             alt="Local & Global"
             class="why-icon"
           />
@@ -313,7 +372,7 @@ const localBusinessSchema = {
 
   .hero {
     background: var(--dark)
-      url("https://alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png")
+      url("https://media.alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png")
       center / cover;
     color: #fff;
     padding: 12rem 2.5rem 13rem;
@@ -370,7 +429,7 @@ const localBusinessSchema = {
 
   h1 {
     margin: 0 0 0.5rem;
-    line-height: 1.0;
+    line-height: 1;
     font-family: "Bebas Neue", cursive;
     font-size: clamp(2.8rem, 6.5vw, 87px);
     font-weight: 400;
@@ -854,7 +913,9 @@ const localBusinessSchema = {
     border: 1px solid var(--line);
     color: var(--ink);
     text-decoration: none;
-    transition: background 0.2s, border-color 0.2s;
+    transition:
+      background 0.2s,
+      border-color 0.2s;
   }
 
   .social-bar-icon:hover {
@@ -1017,7 +1078,9 @@ const localBusinessSchema = {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s, border-color 0.15s;
+    transition:
+      background 0.15s,
+      border-color 0.15s;
     padding: 0;
   }
 
@@ -1159,7 +1222,7 @@ const localBusinessSchema = {
 
   .pm-card-separator {
     height: 1px;
-    background: #343B4A;
+    background: #343b4a;
     margin-bottom: 0.6rem;
   }
 
