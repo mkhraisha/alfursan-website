@@ -110,7 +110,7 @@ Two integrated features:
 
 **Vehicle Details:**
 
-- `make`, `model`, `trim`, `series`, `year` (strings)
+- `make`, `model`, `trim`, `series`,  'body_type', `year` (strings)
 - `colour`, `odometer` (string, integer)
 
 **Purchase Information:**
@@ -134,11 +134,11 @@ Two integrated features:
 **Ownership & Status:**
 
 - `ownership_status` (enum: `'available'`, `'en_route'`, `'not_received'`)
-- `status` (enum: `'frontline_ready'`, `'in_deal'`, `'sold'`, `'on_lot_work_needed'`, `'pending_delivery'`, `'pending_pickup'`, `'bodyshop'`, `'mechanic_ssc'`, `'detailing_shop'`, `'mechanic_repairs'`, `'openlane_arbitration'`, `'sale_cancelled_by_arbitration'`, `'openlane_auction'`)
+- `status` (enum: `'frontline_ready'`, `'in_deal'`, `'sold'`, `'on_lot_work_needed'`, `'pending_delivery'`, `'pending_pickup'`, `'bodyshop'`, `'mechanic_ssc'`, `'detailing_shop'`, `'mechanic_repairs'`, `'openlane_arbitration'`, `'sale_cancelled_by_arbitration'`, `'openlane_auction'`) -- we should allow multiple statuses
 
 **Photography:**
 
-- `photography_status` (enum: `'pending'`, `'done'`)
+- `photography_status` (enum: `'pending'`, `'done'`, 'NA')
 
 **Garage Register (Ontario):**
 
@@ -149,8 +149,8 @@ Two integrated features:
 - `acquisition_bill_of_sale_path` (string, nullable)
 - `safety_inspection_document_path` (string, nullable)
 - `signed_bill_of_sale_path` (string, nullable)
-- `signed_ownership_picture_path` (string, nullable — picture of signed ownership when delivered)
-- `disclosures` (text, nullable)
+- `signed_ownership_picture_path` (string, nullable — picture of signed ownership when delivered) -- we need to track that we got ownership under DLR name and under customer when sold. We don't care about signature
+- `disclosures` (text, nullable) -- disclosures should be part of BOS
 
 **Commission:**
 
@@ -252,11 +252,11 @@ Two integrated features:
 **Bill of Sale types:** Three variants (exact fields to be provided by user later)
 1. Wholesale Bill of Sale
 2. As-Is Bill of Sale
-3. Regular Bill of Sale
+3. Regular Bill of Sale -- this is called retail bill of sale. We have variants per province or export
 
 **Information required for all types:**
 - Dealership information (name, address)
-- Vehicle details: VIN, make, model, year, odometer
+- Vehicle details: VIN, make, model, year, odometer, body_type
 - Sale date
 - Sale price
 - Buyer information: name, address
@@ -309,7 +309,7 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
 **Desktop table (sortable columns):**
 
 - VIN (link to detail page) — sortable
-- Make/Model/Year — sortable
+- Make/Model/Year/Body_type — sortable
 - Status (color-coded badge) — sortable
 - Ownership Status — sortable
 - Photography Status — sortable
@@ -336,7 +336,7 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
 **Tabbed interface:**
 
 1. **Basics**
-   - VIN, Make, Model, Trim, Series, Year, Colour, Odometer
+   - VIN, Make, Model, Trim, Series, Year, Colour, Odometer, Body_type
 
 2. **Purchase**
    - Purchase Date, Purchase Price, Purchaser Name, Purchaser Address
@@ -393,7 +393,7 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
 
 **Validation:**
 
-- Required fields: VIN (unique, 17 chars), make, model, year
+- Required fields: VIN (unique, 17 chars), make, model, year -- VIN decoder would be great
 - Dates must be valid and not in future
 - Prices must be non-negative decimals
 
