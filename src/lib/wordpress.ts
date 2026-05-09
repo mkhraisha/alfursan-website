@@ -163,7 +163,14 @@ const VEHICA_TAXONOMIES: Record<VehicaTermKey, string> = {
 };
 
 const DEFAULT_WP_API_BASE = "https://media.alfursanauto.ca/wp-json";
+const MEDIA_DOMAIN = "https://media.alfursanauto.ca";
 const MAX_RETRIES = 2;
+
+/** Rewrite any absolute image URL to use the media subdomain */
+const toMediaUrl = (url: string | undefined): string | undefined => {
+  if (!url) return url;
+  return url.replace(/^https?:\/\/alfursanauto\.ca(?=\/)/i, MEDIA_DOMAIN);
+};
 const RETRY_DELAY_MS = 1000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -289,8 +296,8 @@ const mapCar = (car: WpCar, termMaps: VehicaTermMaps): CarSummary => {
     mileageKm: car.vehica_6664,
     mileageValue: toNumber(car.vehica_6664),
     price: toPrice(car.vehica_6656),
-    image: car.vehica_6673?.[0],
-    images: car.vehica_6673 ?? [],
+    image: toMediaUrl(car.vehica_6673?.[0]),
+    images: (car.vehica_6673 ?? []).map((url) => toMediaUrl(url) ?? url),
     condition: getTermName(termMaps.condition, car.vehica_6654),
     vehicleType: getTermName(termMaps.vehicleType, car.vehica_6655),
     offerType: getTermName(termMaps.offerType, car.vehica_6657),
