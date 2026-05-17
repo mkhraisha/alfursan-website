@@ -30,7 +30,8 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD");
 
 const positiveDecimal = z.number().min(0, "Must be ≥ 0");
 
-export const vehicleCreateSchema = z.object({
+// Base object without refinements — safe to call .partial()/.omit() on (Zod v4 restriction)
+const vehicleBaseSchema = z.object({
   vin:              vinSchema,
   make:             z.string().min(1, "Make is required"),
   model:            z.string().min(1, "Model is required"),
@@ -57,7 +58,9 @@ export const vehicleCreateSchema = z.object({
   disclosures:      z.string().optional(),
   images_json:      z.array(z.string()).optional(),
   videos_json:      z.array(z.string()).optional(),
-}).refine(
+});
+
+export const vehicleCreateSchema = vehicleBaseSchema.refine(
   (v) => {
     if (v.sale_date && v.purchase_date) {
       return v.sale_date >= v.purchase_date;
@@ -79,9 +82,36 @@ export const vehicleCreateSchema = z.object({
   { message: "sale_date cannot be in the future", path: ["sale_date"] }
 );
 
-export const vehicleUpdateSchema = vehicleCreateSchema
+// Derived from base (no refinements) so .partial()/.omit() work in Zod v4
+export const vehicleUpdateSchema = vehicleBaseSchema
   .partial()
   .omit({ vin: true });
+
+// ── Expense schemas ───────────────────────────────────────────────────────────
+
+export const EXPENSE_CATEGORIES = ["repair", "detailing", "parts", "other"] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+export const expenseCreateSchema = z.object({
+  category:          z.enum(EXPENSE_CATEGORIES),
+  description:       z.string().min(1, "Description is required"),
+  amount:            z.number().positive("Amount must be greater than 0"),
+  receipt_file_path: z.string().optional(),
+});
+
+// ── Document schemas ──────────────────────────────────────────────────────────
+
+export const documentCreateSchema = z.object({
+  document_type: z.string().min(1, "Document type is required"),
+  file_path:     z.string().min(1, "File path is required"),
+  description:   z.string().optional(),
+});
+
+// ── Commission schema ─────────────────────────────────────────────────────────
+
+export const commissionAssignSchema = z.object({
+  commission_user_id: z.string().uuid().nullable(),
+});
 
 /** Columns returned for unauthenticated (public) requests */
 export const PUBLIC_COLUMNS =

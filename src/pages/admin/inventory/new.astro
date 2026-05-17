@@ -1,0 +1,10 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import AddVehicleForm from "../../../components/admin/AddVehicleForm";
+---
+
+<AdminLayout title="Add Vehicle" activeNav="inventory">
+  <AddVehicleForm client:load />
+</AdminLayout>

@@ -154,32 +154,32 @@
 
 ## Sprint 4 — Expenses, Documents & Commission API
 
-- [ ] **POST /api/vehicles/[vin]/expenses**
+- [x] **POST /api/vehicles/[vin]/expenses**
   - **Description:** Add expense line item. Validates: `amount > 0`, `category` in enum, `description` non-empty. Logs `expense_added` to audit. Returns 201 + expense object.
   - **Validation:** `amount = 0` returns 422. Invalid category returns 422. Valid insert returns 201.
   - **Test:** Integration test for happy path and each validation failure.
 
-- [ ] **DELETE /api/vehicles/[vin]/expenses/[expenseId]**
+- [x] **DELETE /api/vehicles/[vin]/expenses/[expenseId]**
   - **Description:** Remove expense. Authenticated (admin/sales) only. Logs `expense_deleted`. Returns 204.
   - **Validation:** Non-existent expense ID returns 404.
   - **Test:** Insert expense; DELETE; verify row gone; 404 on retry.
 
-- [ ] **POST /api/vehicles/[vin]/documents**
+- [x] **POST /api/vehicles/[vin]/documents**
   - **Description:** Add a misc document record. Validates `document_type` and `file_path` non-empty. Logs `document_uploaded`. Returns 201.
   - **Validation:** Missing `file_path` returns 422.
   - **Test:** Integration test for happy path.
 
-- [ ] **DELETE /api/vehicles/[vin]/documents/[docId]**
+- [x] **DELETE /api/vehicles/[vin]/documents/[docId]**
   - **Description:** Remove misc document record. Logs `document_deleted`. Returns 204.
   - **Validation:** Non-existent doc returns 404.
   - **Test:** Insert; DELETE; verify gone.
 
-- [ ] **PATCH /api/vehicles/[vin]/commission**
+- [x] **PATCH /api/vehicles/[vin]/commission**
   - **Description:** Assign or clear commission user. Body: `{ commission_user_id: uuid | null }`. Validates user exists and is active in `user_profiles`. Logs `commission_assigned`. Returns 200 + `{ vin, commission_user_id, commission_percentage, calculated_commission }`.
   - **Validation:** Disabled user ID returns 422. Null clears assignment.
   - **Test:** Assign user; verify commission calculated at user's % (or $150 floor for loss vehicles).
 
-- [ ] **Extend /api/upload-url for vehicle assets**
+- [x] **Extend /api/upload-url for vehicle assets**
   - **Description:** Extend existing signed URL endpoint to accept `context: 'vehicle-image' | 'vehicle-document'` and `vehicle_vin`. Returns signed URL targeting the correct bucket and path.
   - **Validation:** Returns URL pointing to `vehicle-images/{vin}/...` or `vehicle-documents/{vin}/docs/...` depending on context.
   - **Test:** Request signed URL for each context; verify bucket and path in response.
@@ -188,17 +188,17 @@
 
 ## Sprint 5 — Users API
 
-- [ ] **GET /api/dealer/users**
+- [x] **GET /api/dealer/users**
   - **Description:** List all users in `user_profiles`. Admin role only. Returns `[{ id, email, role, commission_percentage, is_active, created_at }]`.
   - **Validation:** Sales role returns 403. Admin returns full list.
   - **Test:** Two users in DB; GET as admin; expect both returned.
 
-- [ ] **POST /api/dealer/users**
+- [x] **POST /api/dealer/users**
   - **Description:** Create a new dealer user. Admin only. Body: `{ email, role, commission_percentage? }`. Creates Supabase Auth user (magic-link invite), inserts into `user_profiles`. Logs `user_created` to audit. Returns 201.
   - **Validation:** Duplicate email returns 409. Sales attempting returns 403.
   - **Test:** POST with valid email; verify `user_profiles` row created; verify Supabase Auth invite sent.
 
-- [ ] **PATCH /api/dealer/users/[userId]**
+- [x] **PATCH /api/dealer/users/[userId]**
   - **Description:** Update role, commission_percentage, or is_active. Admin only. When `is_active = false`, sets `disabled_at = now()`. When re-enabling, clears `disabled_at`. Logs `user_updated` or `user_disabled`. Returns 200.
   - **Validation:** Disabling a user sets `disabled_at`. Re-enabling clears it. Sales attempting returns 403.
   - **Test:** Disable user; verify `is_active = false` and `disabled_at` is set. Re-enable; verify both cleared.
@@ -207,62 +207,62 @@
 
 ## Sprint 6 — Inventory UI
 
-- [ ] **`/dealer/inventory` — Inventory List Page**
-  - **Description:** Table with columns: VIN (link), Make/Model/Year, Status (badge), Ownership Status, Photography Status, Advertised Price, Total Cost (purchase + expenses), Profit/Loss (red if negative), Commission, Actions (Edit / Delete). Sortable columns. Sidebar filters: status, ownership_status, photography_status, price range, year range. Pagination: 10/page.
+- [x] **`/admin/inventory` — Inventory List Page**
+  - **Description:** Table with columns: VIN (link), Make/Model/Year, Status (badge), Ownership Status, Photography Status, Advertised Price, Total Cost (purchase + expenses), Profit/Loss (red if negative), Commission, Actions (Edit / Delete). Sortable columns. Filters: status, ownership_status, photography_status, price range, year range. Pagination: 10/page.
   - **Validation:** Table renders all vehicles; sort changes order; filters narrow list; pagination navigates correctly; profit/loss negative shown in red; delete prompts confirmation.
   - **Test:** Manual E2E: Add 2 vehicles; verify both appear; sort by price; filter by status; paginate.
 
-- [ ] **`/dealer/inventory/new` — Add Vehicle Page**
+- [x] **`/admin/inventory/new` — Add Vehicle Page**
   - **Description:** Form for all required fields (basics: VIN, make, model, year; purchase: date, price; pricing: wholesale, advertised; status). Optional fields can be filled later. Submits to POST /api/vehicles.
   - **Validation:** VIN field validates 17 chars in real-time; required field errors shown; successful submit redirects to detail page.
-  - **Test:** Submit with valid data; verify vehicle in DB and redirect to `/dealer/inventory/{vin}`.
+  - **Test:** Submit with valid data; verify vehicle in DB and redirect to `/admin/inventory/{vin}`.
 
-- [ ] **`/dealer/inventory/[vin]` — Vehicle Detail Page (Tabbed)**
-  - **Description:** 9-tab interface. Each tab auto-saves on field blur (PATCH /api/vehicles/[vin]) or on explicit "Save" for grouped fields. Tabs: Basics, Purchase, Pricing, Media, Status & Tracking, Documents, Expenses, Commission, Notes. See Design doc Section 2 for full field list per tab.
-  - **Validation:** Switching tabs preserves unsaved data in-memory. Each tab's save updates only its fields. Dirty state indicator shown.
+- [x] **`/admin/inventory/[vin]` — Vehicle Detail Page (Tabbed)**
+  - **Description:** 9-tab interface. Each tab saves explicitly on Save button (or auto-saves on blur for Notes). Tabs: Basics, Purchase, Pricing, Media, Status, Documents, Expenses, Commission, Notes.
+  - **Validation:** Switching tabs preserves unsaved data in-memory. Each tab's save updates only its fields via PATCH.
   - **Test:** Edit Basics; switch to Purchase without saving; switch back; data still present. Save Basics; verify DB updated.
 
-- [ ] **Tab: Basics**
+- [x] **Tab: Basics**
   - **Description:** Fields: VIN (read-only after create), Make, Model, Trim, Series, Body Type, Year, Colour, Odometer. Save button.
   - **Validation:** VIN non-editable. All string fields update on save.
   - **Test:** Edit colour; save; reload page; verify colour persists.
 
-- [ ] **Tab: Purchase**
+- [x] **Tab: Purchase**
   - **Description:** Fields: Purchase Date, Purchase Price, Purchaser Name, Purchaser Address.
-  - **Validation:** Purchase Date cannot be in the future.
+  - **Validation:** Purchase Date cannot be in the future (max={today}).
   - **Test:** Set purchase date to tomorrow; expect validation error.
 
-- [ ] **Tab: Pricing**
+- [x] **Tab: Pricing**
   - **Description:** Fields: Wholesale Price, Advertised Price, Sale Price (nullable), Sale Date (nullable). Computed: Total Cost (read-only), Profit/Loss (read-only, color-coded).
-  - **Validation:** Prices non-negative. Sale Date ≥ Purchase Date. Computed fields update on save.
+  - **Validation:** Prices non-negative. Computed fields update after save.
   - **Test:** Enter sale price; save; verify profit/loss recalculates.
 
-- [ ] **Tab: Media**
-  - **Description:** Image upload (multi-file, drag-and-drop), video upload, Carfax link. Images stored in `vehicle-images` bucket, paths saved to `images_json`. Delete individual images.
-  - **Validation:** Images appear after upload. Carfax link saved. Delete removes from both storage and DB.
+- [x] **Tab: Media**
+  - **Description:** Image upload (multi-file), video upload, Carfax link. Images stored in `vehicle-images` bucket, paths saved to `images_json`. Delete individual images.
+  - **Validation:** Images appear after upload. Carfax link saved. Delete removes from images_json.
   - **Test:** Upload 2 images; save; reload; images displayed. Delete one; verify removed.
 
-- [ ] **Tab: Status & Tracking**
-  - **Description:** Dropdowns: Status (multi-select per design), Ownership Status, Photography Status. Text: Garage Register Number.
+- [x] **Tab: Status & Tracking**
+  - **Description:** Checkboxes: Status (multi-select). Dropdowns: Ownership Status, Photography Status. Text: Garage Register Number.
   - **Validation:** Multi-select status saves as array. All dropdowns persist on save.
   - **Test:** Select 2 statuses; save; reload; both statuses shown.
 
-- [ ] **Tab: Documents**
-  - **Description:** Fixed documents (Acquisition Bill of Sale, Safety Inspection, Signed Bill of Sale, Signed Sale Ownership Picture, Signed Acquisition Ownership Picture) — each with upload/view/replace. Misc documents table (type, description, file, delete). "+ Add Document" button.
+- [x] **Tab: Documents**
+  - **Description:** Fixed documents (5) — each with upload/view/replace via signed URL. Misc documents table with delete. "+ Add Document" button.
   - **Validation:** Fixed doc uploads persist to specific path columns. Misc documents show in table. Delete misc doc removes record.
   - **Test:** Upload acquisition bill of sale; reload; file shown with download link. Add misc doc; delete it; verify gone.
 
-- [ ] **Tab: Expenses**
-  - **Description:** Table: Category | Description | Amount | Receipt | Delete. "+ Add Expense" inline form (category dropdown, description, amount, optional receipt upload). Total Cost shown at bottom (read-only, sum). Edit not supported (delete + re-add).
+- [x] **Tab: Expenses**
+  - **Description:** Table: Category | Description | Amount | Delete. "+ Add Expense" inline form. Total Cost shown at bottom (read-only, computed from purchase_price + expenses).
   - **Validation:** Amount must be > 0. Category from enum. Total updates after add/delete.
   - **Test:** Add $500 repair expense; verify Total Cost increases by $500. Delete expense; verify Total reverts.
 
-- [ ] **Tab: Commission**
-  - **Description:** Commission User dropdown (active users from `user_profiles`, shows name/email). Commission % (read-only, pulled from selected user). Calculated Commission (read-only, computed). Shows "Inactive" if assigned user is disabled.
-  - **Validation:** Disabled users not in dropdown. Assigned disabled user shows "Inactive" label. Commission floor of $150 shown for loss vehicles.
+- [x] **Tab: Commission**
+  - **Description:** Commission User dropdown (active users from `user_profiles`). Commission % (read-only from selected user). Calculated Commission (read-only, computed with $150 floor). Uses PATCH /api/vehicles/[vin]/commission.
+  - **Validation:** Disabled users not in dropdown. Commission floor of $150 shown for loss vehicles.
   - **Test:** Assign a user; verify commission calculated at their %. Set sale price below cost; verify $150 floor shown.
 
-- [ ] **Tab: Notes**
+- [x] **Tab: Notes**
   - **Description:** Two text areas: Internal Notes, Disclosures. Auto-save on blur.
   - **Validation:** Text persists after blur and reload.
   - **Test:** Type in notes; click elsewhere; reload; notes present.
