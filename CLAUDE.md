@@ -20,7 +20,7 @@ This file provides instructions for AI coding agents (GitHub Copilot, Claude Cod
 - Create feature branches from `main`, do not commit straight to 'main', use githubs new stacked PR feature to break up large features into smaller PRs with clear dependencies
 - Always run `npm run build` before committing to verify no TypeScript errors
 - **Before merging or pushing to `main`: update `CHANGELOG.md`** under the `[Unreleased]` section with a summary of what changed (Added / Changed / Removed / Fixed)
-- make sure to add tests whenever a new feature is added or a bug is fixed, and run all tests before merging to main
+- **Tests are required for any functional change** — new features, bug fixes, and behavioural changes to existing logic (e.g. sorting, filtering, validation). If the changed code is inside a React component, extract the logic into an exported pure function so it can be tested without a DOM. Tests live in `src/__tests__/` and use Vitest. Run `npm test` before committing and ensure all tests pass.
 - do not push to main without asking the user for confirmation in the same conversation turn, even for hotfixes or small changes. Always ask: _"Ready to merge to main and push?"_ and wait for confirmation before running any `git push origin main`, `git merge`, or `git cherry-pick` onto main.
 - This applies to hotfixes, CI tweaks, and any other "small" changes — no exceptions.
 - if you are working and referencing a document with a checklist, make sure to check off each item as you complete it.

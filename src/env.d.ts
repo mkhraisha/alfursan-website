@@ -7,9 +7,15 @@ interface ImportMetaEnv {
 
 declare namespace App {
   interface Locals {
-    /** Authenticated admin user email, set by middleware. Undefined on public routes. */
+    /** Authenticated user email, set by middleware for /admin/** and /dealer/** routes. */
     adminEmail?: string;
-    /** RBAC role from admin_users table. Undefined on public routes. */
-    adminRole?: "owner" | "manager" | "staff";
+    /**
+     * RBAC role from user_profiles table.
+     * Legacy financing roles: 'owner' | 'manager' | 'staff'
+     * DMS roles: 'admin' | 'sales'
+     */
+    adminRole?: "owner" | "manager" | "staff" | "admin" | "sales";
+    /** user_profiles.id for the authenticated dealer user (set on /dealer/** routes). */
+    dealerUserId?: string;
   }
 }
