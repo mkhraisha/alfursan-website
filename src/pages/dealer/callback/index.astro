@@ -1,0 +1,75 @@
+---
+/**
+ * OAuth callback handler for the dealer portal.
+ * Supabase redirects here after a magic-link click.
+ * Exchanges the URL fragment token for a session cookie, then redirects to /dealer/inventory/.
+ */
+export const prerender = false;
+const SUPABASE_URL = import.meta.env.SUPABASE_URL ?? "";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Signing in… — Alfursan DMS</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', sans-serif;
+        background: #f0f2f5;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1a1d23;
+      }
+      .message { text-align: center; font-size: 16px; color: #99a1b2; }
+      .message strong { display: block; font-size: 20px; color: #1a1d23; margin-bottom: 8px; }
+    </style>
+  </head>
+  <body>
+    <p class="message" id="msg"><strong>Verifying…</strong>Please wait while we sign you in.</p>
+
+    <div id="supabase-config" data-url={SUPABASE_URL} data-key={SUPABASE_PUBLISHABLE_KEY} hidden></div>
+
+    <script>
+      import { createClient } from "@supabase/supabase-js";
+
+      const config  = document.getElementById("supabase-config") as HTMLElement;
+      const supabase = createClient(config.dataset.url!, config.dataset.key!);
+      const msg = document.getElementById("msg") as HTMLElement;
+
+      if (!window.location.hash.includes("access_token")) {
+        msg.innerHTML = '<strong style="color:#B92111">Sign-in failed.</strong><br><a href="/dealer/" style="color:#B92111">Try again</a>';
+      } else {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === "SIGNED_IN" && session) {
+            subscription.unsubscribe();
+            const res = await fetch("/api/admin/set-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: session.access_token, expiresIn: session.expires_in ?? 3600 }),
+            });
+            if (!res.ok) {
+              msg.innerHTML = '<strong style="color:#B92111">Sign-in error.</strong><br><a href="/dealer/" style="color:#B92111">Try again</a>';
+              return;
+            }
+            window.location.replace("/dealer/inventory/");
+          }
+        });
+
+        setTimeout(() => {
+          msg.innerHTML = '<strong style="color:#B92111">Sign-in timed out.</strong><br><a href="/dealer/" style="color:#B92111">Try again</a>';
+        }, 10_000);
+      }
+    </script>
+  </body>
+</html>
