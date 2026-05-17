@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import type { CarSummary } from "../lib/wordpress";
 import { formatPrice } from "../lib/wordpress";
+import { sortCars } from "./InventoryFilters";
 
 type MakeGroup = {
   make: string;
@@ -17,7 +18,7 @@ export default function PopularMakes({ makes }: Props) {
   const carouselRef = useRef<HTMLDivElement>(null);
 
   const activeGroup = makes.find((m) => m.make === activeMake);
-  const cars = activeGroup?.cars ?? [];
+  const cars = sortCars(activeGroup?.cars ?? [], "newest");
 
   function scroll(dir: "prev" | "next") {
     const el = carouselRef.current;
