@@ -46,6 +46,60 @@ const EXTRA_FILTER_KEYS: Array<keyof Filters> = [
 
 const PAGE_SIZE = 12;
 
+export function sortCars(cars: CarSummary[], sortKey: string): CarSummary[] {
+  const sorted = [...cars];
+
+  switch (sortKey) {
+    case "price-asc":
+      sorted.sort(
+        (a, b) =>
+          (a.price ?? Number.POSITIVE_INFINITY) -
+          (b.price ?? Number.POSITIVE_INFINITY),
+      );
+      break;
+    case "price-desc":
+      sorted.sort(
+        (a, b) =>
+          (b.price ?? Number.NEGATIVE_INFINITY) -
+          (a.price ?? Number.NEGATIVE_INFINITY),
+      );
+      break;
+    case "mileage-asc":
+      sorted.sort(
+        (a, b) =>
+          (a.mileageValue ?? Number.POSITIVE_INFINITY) -
+          (b.mileageValue ?? Number.POSITIVE_INFINITY),
+      );
+      break;
+    case "mileage-desc":
+      sorted.sort(
+        (a, b) =>
+          (b.mileageValue ?? Number.NEGATIVE_INFINITY) -
+          (a.mileageValue ?? Number.NEGATIVE_INFINITY),
+      );
+      break;
+    case "newest":
+    default:
+      sorted.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        if (dateA !== dateB) {
+          return dateB - dateA;
+        }
+        return b.id - a.id;
+      });
+      break;
+  }
+
+  sorted.sort((a, b) => {
+    const aIsSold = a.offerType?.toLowerCase() === "sold" ? 1 : 0;
+    const bIsSold = b.offerType?.toLowerCase() === "sold" ? 1 : 0;
+    return aIsSold - bIsSold;
+  });
+
+  return sorted;
+}
+
 const SORT_OPTIONS = [
   { value: "newest", label: "Date Listed: Newest" },
   { value: "price-asc", label: "Price: Low to High" },
@@ -329,54 +383,10 @@ export default function InventoryFilters({ cars }: Props) {
     return cars.filter((car) => matchesFilters(car, filters));
   }, [cars, filters]);
 
-  const sortedCars = useMemo(() => {
-    const sorted = [...filteredCars];
-
-    switch (filters.sort) {
-      case "price-asc":
-        sorted.sort(
-          (a, b) =>
-            (a.price ?? Number.POSITIVE_INFINITY) -
-            (b.price ?? Number.POSITIVE_INFINITY),
-        );
-        break;
-      case "price-desc":
-        sorted.sort(
-          (a, b) =>
-            (b.price ?? Number.NEGATIVE_INFINITY) -
-            (a.price ?? Number.NEGATIVE_INFINITY),
-        );
-        break;
-      case "mileage-asc":
-        sorted.sort(
-          (a, b) =>
-            (a.mileageValue ?? Number.POSITIVE_INFINITY) -
-            (b.mileageValue ?? Number.POSITIVE_INFINITY),
-        );
-        break;
-      case "mileage-desc":
-        sorted.sort(
-          (a, b) =>
-            (b.mileageValue ?? Number.NEGATIVE_INFINITY) -
-            (a.mileageValue ?? Number.NEGATIVE_INFINITY),
-        );
-        break;
-      case "newest":
-      default:
-        sorted.sort((a, b) => {
-          const dateA = a.date ? new Date(a.date).getTime() : 0;
-          const dateB = b.date ? new Date(b.date).getTime() : 0;
-          if (dateA !== dateB) {
-            return dateB - dateA;
-          }
-
-          return b.id - a.id;
-        });
-        break;
-    }
-
-    return sorted;
-  }, [filteredCars, filters.sort]);
+  const sortedCars = useMemo(
+    () => sortCars(filteredCars, filters.sort),
+    [filteredCars, filters.sort],
+  );
 
   const totalPages = Math.max(1, Math.ceil(sortedCars.length / PAGE_SIZE));
   const currentPage = Math.min(filters.page, totalPages);
