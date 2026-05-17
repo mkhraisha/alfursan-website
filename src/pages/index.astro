@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import Layout from "../layouts/Layout.astro";
 import PopularMakes from "../components/PopularMakes";
 import { formatPrice, getCars } from "../lib/wordpress";
@@ -605,27 +607,40 @@ const localBusinessSchema = {
 
   .card-sm .card-img-link img,
   .card-sm .card-img-link .placeholder {
-    height: 182px;
-    object-fit: cover;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .card-hero .card-img-link img {
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
   }
 
   .card-img-link {
     display: block;
     position: relative;
+    overflow: hidden;
   }
 
   .sold-badge {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    background: var(--brand-red);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    background: rgba(185, 33, 17, 0.92);
     color: #fff;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
+    font-size: 1.1rem;
+    font-weight: 900;
+    padding: 0.7rem 0;
+    width: 160%;
+    text-align: center;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.2em;
+    border-top: 2px solid rgba(255, 255, 255, 0.45);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.45);
+    z-index: 2;
+    pointer-events: none;
   }
 
   .img-count {
@@ -1133,7 +1148,7 @@ const localBusinessSchema = {
   .pm-card-img-link {
     display: block;
     position: relative;
-    padding-top: 55.52%;
+    padding-top: 56.25%;
     overflow: hidden;
   }
 
@@ -1144,7 +1159,7 @@ const localBusinessSchema = {
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     background: var(--bg-placeholder);
   }
 
@@ -1157,17 +1172,22 @@ const localBusinessSchema = {
 
   .pm-sold-badge {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    background: var(--brand-red);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    background: rgba(185, 33, 17, 0.92);
     color: #fff;
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 900;
+    padding: 0.6rem 0;
+    width: 160%;
+    text-align: center;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    z-index: 1;
+    letter-spacing: 0.2em;
+    border-top: 2px solid rgba(255, 255, 255, 0.45);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.45);
+    z-index: 2;
+    pointer-events: none;
   }
 
   .pm-img-count {

@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import InventoryFilters from "../../components/InventoryFilters";
 import Layout from "../../layouts/Layout.astro";
 import { getCars } from "../../lib/wordpress";
@@ -242,16 +244,16 @@ const cars = await getCars(100);
 
   :global(.car-thumb) {
     width: 155px;
-    height: 104px;
-    object-fit: cover;
+    height: 87px;
+    object-fit: contain;
     display: block;
     border-radius: 4px;
-    background: #eee;
+    background: #e8eaed;
   }
 
   :global(.car-thumb-placeholder) {
     width: 155px;
-    height: 104px;
+    height: 87px;
     display: grid;
     place-items: center;
     background: #f0f0f2;
@@ -339,16 +341,26 @@ const cars = await getCars(100);
   /* ── Badges (sold / img-count) ── */
   :global(.sold-badge) {
     position: absolute;
-    top: 6px;
-    left: 6px;
-    background: var(--brand-red);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    background: rgba(185, 33, 17, 0.92);
     color: #fff;
-    font-size: 0.66rem;
-    font-weight: 700;
-    padding: 0.12rem 0.38rem;
-    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 900;
+    padding: 0.45rem 0;
+    width: 160%;
+    text-align: center;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.2em;
+    border-top: 1px solid rgba(255, 255, 255, 0.45);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.45);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  :global(.car-thumb-link) {
+    overflow: hidden;
   }
 
   :global(.img-count) {
