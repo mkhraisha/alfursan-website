@@ -81,6 +81,86 @@ describe("can() — staff role", () => {
   });
 });
 
+// ── DMS: admin role ───────────────────────────────────────────────────────────
+
+describe("can() — admin role (DMS)", () => {
+  it("allows vehicles:read", () => {
+    expect(can("admin", "vehicles:read")).toBe(true);
+  });
+
+  it("allows vehicles:write", () => {
+    expect(can("admin", "vehicles:write")).toBe(true);
+  });
+
+  it("allows vehicles:delete", () => {
+    expect(can("admin", "vehicles:delete")).toBe(true);
+  });
+
+  it("allows dealer:users:manage", () => {
+    expect(can("admin", "dealer:users:manage")).toBe(true);
+  });
+
+  it("allows commission:assign", () => {
+    expect(can("admin", "commission:assign")).toBe(true);
+  });
+
+  it("allows garage:write", () => {
+    expect(can("admin", "garage:write")).toBe(true);
+  });
+
+  it("allows vehicles:import", () => {
+    expect(can("admin", "vehicles:import")).toBe(true);
+  });
+
+  it("allows financing:read (financing permissions extend to admin)", () => {
+    expect(can("admin", "financing:read")).toBe(true);
+  });
+
+  it("allows unknown permissions (admin has all access)", () => {
+    expect(can("admin", "nonexistent:action")).toBe(true);
+  });
+});
+
+// ── DMS: sales role ───────────────────────────────────────────────────────────
+
+describe("can() — sales role (DMS)", () => {
+  it("allows vehicles:read", () => {
+    expect(can("sales", "vehicles:read")).toBe(true);
+  });
+
+  it("allows vehicles:write", () => {
+    expect(can("sales", "vehicles:write")).toBe(true);
+  });
+
+  it("denies vehicles:delete", () => {
+    expect(can("sales", "vehicles:delete")).toBe(false);
+  });
+
+  it("denies dealer:users:manage", () => {
+    expect(can("sales", "dealer:users:manage")).toBe(false);
+  });
+
+  it("allows commission:assign", () => {
+    expect(can("sales", "commission:assign")).toBe(true);
+  });
+
+  it("allows garage:read", () => {
+    expect(can("sales", "garage:read")).toBe(true);
+  });
+
+  it("denies garage:write", () => {
+    expect(can("sales", "garage:write")).toBe(false);
+  });
+
+  it("allows vehicles:import", () => {
+    expect(can("sales", "vehicles:import")).toBe(true);
+  });
+
+  it("denies unknown permissions", () => {
+    expect(can("sales", "nonexistent:action")).toBe(false);
+  });
+});
+
 // ── Undefined / missing role ──────────────────────────────────────────────────
 
 describe("can() — undefined role", () => {
@@ -88,5 +168,7 @@ describe("can() — undefined role", () => {
     expect(can(undefined, "financing:read")).toBe(false);
     expect(can(undefined, "financing:write")).toBe(false);
     expect(can(undefined, "users:manage")).toBe(false);
+    expect(can(undefined, "vehicles:read")).toBe(false);
+    expect(can(undefined, "dealer:users:manage")).toBe(false);
   });
 });
