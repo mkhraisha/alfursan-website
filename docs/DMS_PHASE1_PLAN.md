@@ -106,12 +106,12 @@
   - **Validation:** A user in `user_profiles` can access `/dealer/**`; a user only in `admin_users` cannot (and vice versa).
   - **Test:** Manual test both route sets with valid session tokens.
 
-- [ ] **Create `DealerLayout.astro`**
+- [x] **Create `DealerLayout.astro`**
   - **Description:** Sidebar navigation layout for all `/dealer/**` pages. Navigation items: Inventory, Applications, Garage Register, Users (admin-only). Shows current user email + role. Reuses AdminLayout patterns.
   - **Validation:** Layout renders with sidebar; Users nav item hidden for sales role.
   - **Test:** Visual inspection on `/dealer/inventory`.
 
-- [ ] **Create `/dealer/` entry point**
+- [x] **Create `/dealer/` entry point**
   - **Description:** `/dealer/index.astro` — redirects authenticated users to `/dealer/inventory`; unauthenticated users to `/dealer/login`. Reuse existing magic-link sign-in flow but scoped to `user_profiles`.
   - **Validation:** Unauthenticated visit redirects to login; authenticated redirects to inventory.
   - **Test:** Visit `/dealer/` without session; expect redirect to login.
@@ -120,32 +120,32 @@
 
 ## Sprint 3 — Vehicles API
 
-- [ ] **GET /api/vehicles**
+- [x] **GET /api/vehicles**
   - **Description:** Returns paginated vehicle list. Unauthenticated: public fields only (Supabase RLS enforces). Authenticated dealer: all fields. Query params: `status`, `ownership_status`, `photography_status`, `sort` (`field:asc|desc`), `limit` (default 10), `offset` (default 0), `min_price`, `max_price`, `min_year`, `max_year`. Cached 5 min for public requests via Cache-Control header.
   - **Validation:** Unauthenticated request returns only public fields. Sorting and pagination work. Filters narrow results correctly.
   - **Test:** Integration test: 3 vehicles in DB; request with `status=frontline_ready`; expect 1 result.
 
-- [ ] **POST /api/vehicles**
+- [x] **POST /api/vehicles**
   - **Description:** Create a new vehicle. Authenticated (admin/sales) only. Validates: VIN 17 chars alphanumeric, required fields (vin, make, model, year), price non-negative, dates valid. Returns 201 + full vehicle object. Logs `vehicle_created` to audit.
   - **Validation:** Missing VIN returns 422. Duplicate VIN returns 409. Valid request returns 201 with vehicle JSON.
   - **Test:** Integration test for happy path, duplicate VIN, and missing required fields.
 
-- [ ] **GET /api/vehicles/[vin]**
+- [x] **GET /api/vehicles/[vin]**
   - **Description:** Fetch single vehicle by VIN. Unauthenticated: public fields only. Authenticated: full object. 404 if not found.
   - **Validation:** Unknown VIN returns 404. Field filtering matches role.
   - **Test:** Integration test for existing VIN (authenticated), non-existent VIN, and unauthenticated field set.
 
-- [ ] **PATCH /api/vehicles/[vin]**
+- [x] **PATCH /api/vehicles/[vin]**
   - **Description:** Partial update of vehicle fields. Authenticated (admin/sales) only. Validates same rules as POST for provided fields. Logs `vehicle_updated` with changed fields to audit. Returns 200 + full updated object.
   - **Validation:** Invalid price rejected. Unknown VIN returns 404. Valid partial update persists and returns updated object.
   - **Test:** Integration test: update `colour` only; verify `updated_at` changes; other fields unchanged.
 
-- [ ] **DELETE /api/vehicles/[vin]**
+- [x] **DELETE /api/vehicles/[vin]**
   - **Description:** Delete vehicle and cascade (expenses, documents). Authenticated (admin/sales) only. Logs `vehicle_deleted` to audit. Returns 204 No Content.
   - **Validation:** Vehicle and all expenses/documents removed. 404 on non-existent VIN. Audit log entry created.
   - **Test:** Insert vehicle + 2 expenses + 1 document; DELETE; verify all 4 rows removed.
 
-- [ ] **POST /api/vehicles/import**
+- [x] **POST /api/vehicles/import**
   - **Description:** CSV import. Accepts `multipart/form-data` with `file` (CSV) and `mapping` (JSON column-name → field-name). Validates format, returns preview for first 10 rows on `?preview=true`. On confirm: bulk insert valid rows, skip duplicates, return `{ created, failed, errors }`.
   - **Validation:** Duplicate VIN skipped (not error-abort). Missing required column returns descriptive error. 200 returned even with partial failures.
   - **Test:** Integration test: CSV with 3 rows (1 duplicate, 1 missing make, 1 valid); expect `{ created: 1, failed: 2, errors: [...] }`.

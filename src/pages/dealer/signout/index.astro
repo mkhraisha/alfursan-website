@@ -1,0 +1,14 @@
+---
+/**
+ * Sign-out handler. Clears the HttpOnly session cookie and redirects to login.
+ */
+export const prerender = false;
+
+return new Response(null, {
+  status: 302,
+  headers: {
+    Location: "/dealer/",
+    "Set-Cookie": "sb-access-token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+  },
+});
+---
