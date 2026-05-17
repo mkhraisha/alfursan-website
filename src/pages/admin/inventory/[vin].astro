@@ -1,0 +1,42 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getAdminClient } from "../../../lib/supabase-admin";
+import VehicleDetail from "../../../components/admin/VehicleDetail";
+import type { VehicleFull, VehicleExpense, VehicleDoc, UserProfile } from "../../../components/admin/VehicleDetail";
+
+const { vin } = Astro.params;
+
+if (!vin) return Astro.redirect("/admin/inventory/");
+
+const db = getAdminClient();
+
+const [vehicleRes, expensesRes, docsRes, usersRes] = await Promise.all([
+  db.from("vehicles").select("*").eq("vin", vin).single(),
+  db.from("vehicle_expenses").select("id, category, description, amount, receipt_file_path, created_at").eq("vin", vin).order("created_at", { ascending: true }),
+  db.from("vehicle_documents").select("id, document_type, file_path, description, created_at").eq("vin", vin).order("created_at", { ascending: true }),
+  db.from("user_profiles").select("id, email, commission_percentage").eq("is_active", true).order("email", { ascending: true }),
+]);
+
+if (!vehicleRes.data) return Astro.redirect("/admin/inventory/");
+
+const vehicle   = vehicleRes.data as VehicleFull;
+const expenses  = (expensesRes.data ?? []) as VehicleExpense[];
+const documents = (docsRes.data ?? []) as VehicleDoc[];
+const users     = (usersRes.data ?? []) as UserProfile[];
+
+const supabaseUrl = import.meta.env.SUPABASE_URL as string;
+const pageTitle   = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || vin;
+---
+
+<AdminLayout title={pageTitle} activeNav="inventory">
+  <VehicleDetail
+    vehicle={vehicle}
+    expenses={expenses}
+    documents={documents}
+    users={users}
+    supabaseUrl={supabaseUrl}
+    client:load
+  />
+</AdminLayout>

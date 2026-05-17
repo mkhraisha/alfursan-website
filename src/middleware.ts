@@ -5,12 +5,12 @@ import type { Role } from "./lib/permissions";
 /**
  * Middleware — runs on every request.
  *
- * For /admin/** and /dealer/** routes:
+ * For /admin/** routes (excluding login, callback, signout):
  *   1. Reads the Supabase session from the Authorization header or cookie.
- *   2. Looks up the authenticated user in the user_profiles table.
+ *   2. Looks up the authenticated user in user_profiles.
  *   3. Checks is_active = true.
- *   4. Attaches adminEmail + adminRole to Astro.locals.
- *   5. Redirects to the appropriate login page if any check fails.
+ *   4. Attaches adminEmail + adminRole + dealerUserId to Astro.locals.
+ *   5. Redirects to /admin/ if any check fails.
  *
  * Public and API routes are passed through unchanged.
  */
@@ -20,7 +20,6 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-  // Permissive baseline CSP — tighten once nonce-based inline scripts are in place
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
@@ -33,21 +32,15 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 export const onRequest = defineMiddleware(async ({ locals, request, url, redirect }, next) => {
-  const isAdminRoute  = url.pathname.startsWith("/admin/");
-  const isDealerRoute = url.pathname.startsWith("/dealer/");
-  const isProtectedRoute = isAdminRoute || isDealerRoute;
+  const isAdminRoute = url.pathname.startsWith("/admin/");
 
   const isPublicPage =
     url.pathname === "/admin/" ||
     url.pathname === "/admin" ||
-    url.pathname === "/dealer/" ||
-    url.pathname === "/dealer" ||
     url.pathname.startsWith("/admin/callback") ||
-    url.pathname.startsWith("/admin/signout") ||
-    url.pathname.startsWith("/dealer/callback") ||
-    url.pathname.startsWith("/dealer/signout");
+    url.pathname.startsWith("/admin/signout");
 
-  if (!isProtectedRoute || isPublicPage) {
+  if (!isAdminRoute || isPublicPage) {
     const res = await next();
     for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
       res.headers.set(header, value);
@@ -59,16 +52,12 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   const supabaseServiceRoleKey = import.meta.env.SUPABASE_SECRET_KEY ?? "";
   const supabaseAnonKey        = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 
-  const loginPage = isDealerRoute ? "/dealer/" : "/admin/";
-
   if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
     console.error("[middleware] Missing Supabase env vars");
-    const r = redirect(loginPage);
-    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
-    return r;
+    return redirect("/admin/");
   }
 
-  const authHeader  = request.headers.get("authorization");
+  const authHeader   = request.headers.get("authorization");
   const cookieHeader = request.headers.get("cookie");
 
   let accessToken: string | null = null;
@@ -80,7 +69,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   }
 
   if (!accessToken) {
-    const r = redirect(`${loginPage}?error=no_token`);
+    const r = redirect("/admin/?error=no_token");
     for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
     return r;
   }
@@ -93,7 +82,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (userError || !user?.email) {
     console.error("[middleware] getUser failed", userError);
-    const r = redirect(`${loginPage}?error=invalid_token`);
+    const r = redirect("/admin/?error=invalid_token");
     for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
     return r;
   }
@@ -110,13 +99,13 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (profileError || !profile || !profile.is_active) {
     console.error("[middleware] user_profiles check failed", { profileError });
-    const r = redirect(`${loginPage}?error=unauthorized`);
+    const r = redirect("/admin/?error=unauthorized");
     for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
     return r;
   }
 
-  locals.adminEmail  = user.email;
-  locals.adminRole   = profile.role as Role;
+  locals.adminEmail   = user.email;
+  locals.adminRole    = profile.role as Role;
   locals.dealerUserId = profile.id as string;
 
   const res = await next();
