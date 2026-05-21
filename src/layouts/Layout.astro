@@ -1,6 +1,7 @@
 ---
 import { rootCss } from "../lib/theme";
 import Analytics from "@vercel/analytics/astro";
+import SpeedInsights from "@vercel/speed-insights/astro";
 
 interface Props {
   title?: string;
@@ -58,6 +59,7 @@ const isActive = (href: string): boolean => {
     <title>{title}</title>
     <link rel="canonical" href={canonicalURL} />
     <Analytics />
+    <SpeedInsights />
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonicalURL} />
