@@ -27,3 +27,6 @@ dev-server.log
 
 
 coverage/
+
+test-results/
+playwright-report/

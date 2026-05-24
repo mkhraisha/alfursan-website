@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, afterEach } from "vitest";
-import { getCars, getCarBySlug, formatPrice } from "../lib/wordpress";
+import { getCars, getCarBySlug, formatPrice, clearWordpressCache } from "../lib/wordpress";
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
@@ -51,6 +51,7 @@ function stubFetch(
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  clearWordpressCache();
 });
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ describe("getCars", () => {
     expect(cars).toEqual([]);
   });
 
-  it("clamps limit to a maximum of 100", async () => {
+  it("always fetches with per_page=100 regardless of limit", async () => {
     stubFetch([]);
     await getCars(999);
     const fetchMock = vi.mocked(globalThis.fetch);
@@ -232,14 +233,10 @@ describe("getCars", () => {
     expect(carCall?.[0] as string).toContain("per_page=100");
   });
 
-  it("clamps limit to a minimum of 1", async () => {
-    stubFetch([]);
-    await getCars(-5);
-    const fetchMock = vi.mocked(globalThis.fetch);
-    const carCall = fetchMock.mock.calls.find(([url]) =>
-      (url as string).includes("/wp/v2/cars"),
-    );
-    expect(carCall?.[0] as string).toContain("per_page=1");
+  it("clamps limit to a minimum of 1 when slicing results", async () => {
+    stubFetch([RAW_CAR, RAW_CAR, RAW_CAR]);
+    const cars = await getCars(-5);
+    expect(cars).toHaveLength(1);
   });
 
   it("returns undefined image and empty images array when vehica_6673 is absent", async () => {
