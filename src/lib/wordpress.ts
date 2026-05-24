@@ -342,7 +342,12 @@ const getTermMap = async (taxonomy: string): Promise<Map<number, string>> => {
   return new Map(terms.map((term) => [term.id, decodeEntities(term.name)]));
 };
 
-const getVehicaTermMaps = async (): Promise<VehicaTermMaps> => {
+const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
+
+let termMapsInFlight: Promise<VehicaTermMaps> | null = null;
+let termMapsExpiry = 0;
+
+const fetchVehicaTermMaps = async (): Promise<VehicaTermMaps> => {
   const entries = Object.entries(VEHICA_TAXONOMIES) as Array<
     [VehicaTermKey, string]
   >;
@@ -354,6 +359,19 @@ const getVehicaTermMaps = async (): Promise<VehicaTermMaps> => {
   );
 
   return Object.fromEntries(maps) as VehicaTermMaps;
+};
+
+const getVehicaTermMaps = async (): Promise<VehicaTermMaps> => {
+  if (termMapsInFlight && Date.now() < termMapsExpiry) {
+    return termMapsInFlight;
+  }
+  termMapsExpiry = Date.now() + CACHE_TTL_MS;
+  termMapsInFlight = fetchVehicaTermMaps().catch((err) => {
+    termMapsInFlight = null;
+    termMapsExpiry = 0;
+    throw err;
+  });
+  return termMapsInFlight;
 };
 
 const CAR_FIELDS = [
@@ -380,9 +398,11 @@ const CAR_FIELDS = [
   "vehica_6670",
 ].join(",");
 
-export const getCars = async (limit = 24): Promise<CarSummary[]> => {
-  const safeLimit = Math.max(1, Math.min(limit, 100));
-  const endpoint = `${getApiBase()}/wp/v2/cars?per_page=${safeLimit}&_fields=${CAR_FIELDS}`;
+let carsInFlight: Promise<CarSummary[]> | null = null;
+let carsExpiry = 0;
+
+const fetchAllCars = async (): Promise<CarSummary[]> => {
+  const endpoint = `${getApiBase()}/wp/v2/cars?per_page=100&_fields=${CAR_FIELDS}`;
 
   const [termMaps, response] = await Promise.all([
     getVehicaTermMaps(),
@@ -398,6 +418,27 @@ export const getCars = async (limit = 24): Promise<CarSummary[]> => {
 
   const payload = (await response.json()) as WpCar[];
   return payload.map((car) => mapCar(car, termMaps));
+};
+
+export const getCars = async (limit = 24): Promise<CarSummary[]> => {
+  if (!carsInFlight || Date.now() >= carsExpiry) {
+    carsExpiry = Date.now() + CACHE_TTL_MS;
+    carsInFlight = fetchAllCars().catch((err) => {
+      carsInFlight = null;
+      carsExpiry = 0;
+      throw err;
+    });
+  }
+  const all = await carsInFlight;
+  const safeLimit = Math.max(1, Math.min(limit, 100));
+  return safeLimit >= all.length ? all : all.slice(0, safeLimit);
+};
+
+export const clearWordpressCache = (): void => {
+  termMapsInFlight = null;
+  termMapsExpiry = 0;
+  carsInFlight = null;
+  carsExpiry = 0;
 };
 
 export const getCarBySlug = async (

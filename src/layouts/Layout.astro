@@ -2,6 +2,8 @@
 import { rootCss } from "../lib/theme";
 import Analytics from "@vercel/analytics/astro";
 import SpeedInsights from "@vercel/speed-insights/astro";
+import "@fontsource-variable/mulish";
+import "@fontsource/bebas-neue";
 
 interface Props {
   title?: string;
@@ -75,16 +77,15 @@ const isActive = (href: string): boolean => {
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css?family=Muli:300,300italic,400,400italic,500,500italic,600,600italic,700,700italic,800,800italic,900,900italic&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap"
-      rel="stylesheet"
-    />
+    {
+      transparentHeader && (
+        <link
+          rel="preload"
+          as="image"
+          href="https://media.alfursanauto.ca/wp-content/uploads/2026/02/alfursan-auto-website-background.png"
+        />
+      )
+    }
     <Fragment set:html={`<style>:root{${rootCss()}}</style>`} />
     {
       schema && (
@@ -257,7 +258,7 @@ const isActive = (href: string): boolean => {
 
   :global(body) {
     margin: 0;
-    font-family: Muli, Arial, Helvetica, sans-serif;
+    font-family: 'Mulish Variable', Arial, Helvetica, sans-serif;
     color: var(--ink);
     background: var(--bg);
     font-size: 16px;

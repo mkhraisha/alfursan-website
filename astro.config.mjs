@@ -9,7 +9,11 @@ import { checkEnvIntegration } from "./src/lib/check-env.ts";
 // https://astro.build/config
 export default defineConfig({
   output: "static",
-  adapter: vercel(),
+  adapter: vercel({
+    isr: {
+      expiration: 60 * 60 * 3, // 3-hour stale-while-revalidate edge cache
+    },
+  }),
   site: "https://alfursan-website.vercel.app",
   trailingSlash: "ignore",
   redirects: {

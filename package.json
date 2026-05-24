@@ -20,6 +20,8 @@
     "@astrojs/react": "5.0.4",
     "@astrojs/sitemap": "3.7.2",
     "@astrojs/vercel": "10.0.6",
+    "@fontsource-variable/mulish": "^5.2.8",
+    "@fontsource/bebas-neue": "^5.2.7",
     "@sentry/astro": "^10.53.1",
     "@supabase/supabase-js": "2.105.4",
     "@types/react": "19.2.14",
