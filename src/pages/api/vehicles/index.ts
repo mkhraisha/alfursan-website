@@ -52,11 +52,11 @@ export const GET: APIRoute = async ({ request }) => {
 
     if (ownership) query = query.eq("ownership_status", ownership);
     if (photo)     query = query.eq("photography_status", photo);
-    if (minPrice)  query = query.gte("advertised_price", parseFloat(minPrice));
-    if (maxPrice)  query = query.lte("advertised_price", parseFloat(maxPrice));
+    if (minPrice)  query = query.gte("advertised_price_cargurus", parseFloat(minPrice));
+    if (maxPrice)  query = query.lte("advertised_price_cargurus", parseFloat(maxPrice));
     if (minYear)   query = query.gte("year", parseInt(minYear));
     if (maxYear)   query = query.lte("year", parseInt(maxYear));
-    if (status)    query = query.contains("status", status.split(","));
+    if (status)    query = query.eq("status", status);
   }
 
   const { data: vehicles, error, count } = await query;
@@ -96,7 +96,7 @@ export const GET: APIRoute = async ({ request }) => {
   const enriched = vehicles.map((v) => {
     const expenseTotal = expenseByVin[v.vin] ?? 0;
     const totalCost    = calcTotalCost(v.purchase_price, expenseTotal);
-    const profitLoss   = calcProfitLoss(v.sale_price, v.advertised_price, totalCost);
+    const profitLoss   = calcProfitLoss(v.sale_price, v.advertised_price_cargurus, totalCost);
     const commissionPct = (v.commission_user as { commission_percentage?: number } | null)?.commission_percentage ?? null;
     const commission   = calcCommission(profitLoss, commissionPct);
 

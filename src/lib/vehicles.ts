@@ -46,13 +46,16 @@ const vehicleBaseSchema = z.object({
   purchaser_name:   z.string().optional(),
   purchaser_address: z.string().optional(),
   wholesale_price:  positiveDecimal.optional(),
-  advertised_price: positiveDecimal.optional(),
+  advertised_price_cargurus: positiveDecimal.optional(),
+  advertised_price_facebook: positiveDecimal.optional(),
   sale_price:       positiveDecimal.nullable().optional(),
   sale_date:        isoDate.nullable().optional(),
   ownership_status: z.enum(["available", "en_route", "not_received"]).optional(),
-  status:           z.array(z.enum(VALID_STATUSES)).optional(),
+  status:           z.enum(VALID_STATUSES).nullable().optional(),
   photography_status: z.enum(["pending", "done", "na"]).optional(),
-  garage_register_number: z.string().optional(),
+  garage_register_number:  z.string().optional(),
+  purchased_from_name:     z.string().optional(),
+  purchased_from_address:  z.string().optional(),
   carfax_link:      z.string().url().optional().nullable(),
   internal_notes:   z.string().optional(),
   disclosures:      z.string().optional(),
@@ -115,7 +118,7 @@ export const commissionAssignSchema = z.object({
 
 /** Columns returned for unauthenticated (public) requests */
 export const PUBLIC_COLUMNS =
-  "vin, make, model, trim, series, year, colour, odometer, advertised_price, images_json, videos_json, carfax_link";
+  "vin, make, model, trim, series, year, colour, odometer, advertised_price_cargurus, images_json, videos_json, carfax_link";
 
 /**
  * Compute total cost = purchase_price + sum of expenses.

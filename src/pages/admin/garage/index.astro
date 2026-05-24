@@ -1,11 +1,24 @@
 ---
 export const prerender = false;
 import AdminLayout from "../../../layouts/AdminLayout.astro";
+import GarageRegister from "../../../components/admin/GarageRegister";
+import { getAdminClient } from "../../../lib/supabase-admin";
+
+const db = getAdminClient();
+
+const { data: vehicles, error } = await db
+  .from("vehicles")
+  .select("vin, make, body_type, colour, odometer, purchased_from_name, purchased_from_address, purchase_date, purchaser_name, purchaser_address, sale_date")
+  .order("purchase_date", { ascending: false });
+
+if (error) {
+  console.error("[garage] fetch error", error);
+}
 ---
 
 <AdminLayout title="Garage Register" activeNav="garage">
-  <div style="padding: 40px 0; text-align: center; color: #99a1b2;">
-    <p style="font-size: 18px; font-weight: 600; color: #1a1d23; margin-bottom: 8px;">Garage Register</p>
-    <p>Garage register UI coming in Sprint 9.</p>
-  </div>
+  <GarageRegister
+    vehicles={vehicles ?? []}
+    client:load
+  />
 </AdminLayout>

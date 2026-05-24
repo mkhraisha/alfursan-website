@@ -10,7 +10,7 @@ const db = getAdminClient();
 
 const { data: rawVehicles } = await db
   .from("vehicles")
-  .select("vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price, purchase_price, sale_price, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)")
+  .select("vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)")
   .order("created_at", { ascending: false });
 
 const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, unknown>) => {
@@ -23,10 +23,11 @@ const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, u
     model:                (v.model as string) ?? "",
     year:                 (v.year as number) ?? 0,
     trim:                 (v.trim as string | null) ?? null,
-    status:               (v.status as string[]) ?? [],
-    ownership_status:     (v.ownership_status as string | null) ?? null,
-    photography_status:   (v.photography_status as string | null) ?? null,
-    advertised_price:     (v.advertised_price as number | null) ?? null,
+    status:                    (v.status as string | null) ?? null,
+    ownership_status:          (v.ownership_status as string | null) ?? null,
+    photography_status:        (v.photography_status as string | null) ?? null,
+    advertised_price_cargurus: (v.advertised_price_cargurus as number | null) ?? null,
+    advertised_price_facebook: (v.advertised_price_facebook as number | null) ?? null,
     purchase_price:       (v.purchase_price as number | null) ?? null,
     sale_price:           (v.sale_price as number | null) ?? null,
     expense_total:        expenseTotal,

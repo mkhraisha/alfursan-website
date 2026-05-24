@@ -45,9 +45,6 @@ const popularMakesData = Object.entries(makeCounts)
     cars: carsByMake[make] ?? [],
   }));
 
-const popularMakes = Object.entries(makeCounts)
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 5);
 
 const allMakes = Object.keys(makeCounts).sort();
 const totalListings = cars.length;
@@ -150,7 +147,7 @@ const localBusinessSchema = {
     />
   </section>
 
-  <main class="container">
+  <main id="main-content" class="container">
     <section class="featured">
       <div class="section-head">
         <p class="section-eyebrow">Hand picked</p>
@@ -922,8 +919,8 @@ const localBusinessSchema = {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: 1px solid var(--line);
     color: var(--ink);
@@ -955,9 +952,36 @@ const localBusinessSchema = {
       grid-template-columns: 1fr;
     }
 
+    /* Move search panel above hero text on mobile */
+    .hero-right {
+      order: -1;
+    }
+
+    /* Remove the double side-padding on mobile — hero's own padding is enough */
+    .hero-content {
+      padding: 0;
+    }
+
     .hero-search-panel {
       min-width: auto;
       max-width: 100%;
+    }
+
+    /* Shrink UCDA badge on mobile */
+    .ucda-badge {
+      width: clamp(80px, 35vw, 140px);
+    }
+
+    /* Full-width CTA button on mobile */
+    .btn-outline-hero {
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Fix hero card fixed height — use aspect ratio instead */
+    .card-hero .card-img-link {
+      height: auto;
+      aspect-ratio: 16 / 9;
     }
 
     .featured-grid {
@@ -966,6 +990,17 @@ const localBusinessSchema = {
 
     .featured-side {
       grid-template-columns: 1fr;
+    }
+
+    /* Reduce why-us bottom padding on mobile */
+    .why-us {
+      padding: 3rem 0 4rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 1.4rem 16px 4.5rem;
     }
   }
 </style>
@@ -1002,6 +1037,9 @@ const localBusinessSchema = {
     font-weight: 700;
     font-size: 0.88rem;
     padding: 0.5rem 1.2rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     border-radius: 8px;
     white-space: nowrap;
     transition: opacity 0.15s;
@@ -1018,7 +1056,10 @@ const localBusinessSchema = {
     scrollbar-width: none;
     flex: 1;
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    /* Fade right edge to hint at scrollability */
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 48px), transparent 100%);
+    mask-image: linear-gradient(to right, black calc(100% - 48px), transparent 100%);
   }
 
   .pm-tabs-wrapper::-webkit-scrollbar {
@@ -1045,7 +1086,9 @@ const localBusinessSchema = {
       background 0.15s;
     text-align: left;
     min-width: 100px;
+    min-height: 44px;
     flex-shrink: 0;
+    justify-content: center;
   }
 
   .pm-tab:hover {
@@ -1083,8 +1126,8 @@ const localBusinessSchema = {
 
   /* ── Arrow buttons ── */
   .pm-arrow {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: 2px solid var(--line);
     background: var(--surface);
@@ -1269,7 +1312,7 @@ const localBusinessSchema = {
     font-weight: 600;
   }
 
-  /* ── Responsive breakpoints matching live site ── */
+  /* ── Responsive breakpoints ── */
   @media (max-width: 1199px) {
     .pm-card {
       flex: 0 0 calc(33.333% - 15px);
@@ -1282,9 +1325,66 @@ const localBusinessSchema = {
     }
   }
 
+  /* ── Mobile: full PopularMakes redesign (<= 599px) ── */
   @media (max-width: 599px) {
+    /* Stack heading above tabs */
+    .pm-section-head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+
+    /* Heading smaller on mobile */
+    .pm-heading {
+      font-size: 1.75rem;
+    }
+
+    /* Tabs go full-width as their own scroll row */
+    .pm-tabs-wrapper {
+      width: 100%;
+      flex: none;
+    }
+
+    /* Compact tab pills — just enough to tap */
+    .pm-tab {
+      min-width: 72px;
+      padding: 0.45rem 0.75rem;
+    }
+
+    .pm-tab-count {
+      font-size: 0.72rem;
+    }
+
+    /* vw-based width: viewport minus 2×30px section padding minus 30px peek */
     .pm-card {
-      flex: 0 0 100%;
+      flex: 0 0 auto;
+      width: calc(100vw - 90px);
+    }
+
+    /* Touch scroll replaces arrow buttons on mobile */
+    .pm-arrows {
+      display: none;
+    }
+
+    /* Center the view-all CTA */
+    .pm-bottom-bar {
+      justify-content: center;
+      margin-top: 1rem;
+    }
+  }
+
+  /* ── 480px: fix margin mismatch when container drops to 16px side padding ── */
+  @media (max-width: 480px) {
+    .pm-section {
+      margin-left: -16px;
+      margin-right: -16px;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    /* Recalculate: viewport minus 2×16px padding minus 28px peek */
+    .pm-card {
+      width: calc(100vw - 60px);
     }
   }
 </style>

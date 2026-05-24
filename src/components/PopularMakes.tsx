@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { CarSummary } from "../lib/wordpress";
 import { formatPrice } from "../lib/wordpress";
 import { sortCars } from "./InventoryFilters";
@@ -16,6 +16,11 @@ type Props = {
 export default function PopularMakes({ makes }: Props) {
   const [activeMake, setActiveMake] = useState(makes[0]?.make ?? "");
   const carouselRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+  }, [activeMake]);
 
   const activeGroup = makes.find((m) => m.make === activeMake);
   const cars = sortCars(activeGroup?.cars ?? [], "newest");
@@ -40,6 +45,7 @@ export default function PopularMakes({ makes }: Props) {
                 aria-selected={group.make === activeMake}
                 className={`pm-tab${group.make === activeMake ? " pm-tab--active" : ""}`}
                 onClick={() => setActiveMake(group.make)}
+                ref={group.make === activeMake ? activeTabRef : undefined}
               >
                 <div className="pm-tab-make">{group.make}</div>
                 <div className="pm-tab-count">

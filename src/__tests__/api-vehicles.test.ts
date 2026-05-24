@@ -25,11 +25,11 @@ const VEHICLE = {
   year: 2020,
   colour: "Blue",
   purchase_price: 10_000,
-  advertised_price: 14_000,
+  advertised_price_cargurus: 14_000,
   sale_price: null,
   sale_date: null,
   ownership_status: "available",
-  status: ["frontline_ready"],
+  status: "frontline_ready",
   photography_status: "done",
   images_json: [],
   videos_json: [],
@@ -338,7 +338,7 @@ describe("PATCH /api/vehicles/:vin", () => {
 
     const res = await vinPATCH({
       params: { vin: VEHICLE.vin },
-      request: req(`/api/vehicles/${VEHICLE.vin}`, "PATCH", { advertised_price: -50 }),
+      request: req(`/api/vehicles/${VEHICLE.vin}`, "PATCH", { advertised_price_cargurus: -50 }),
     } as never);
     expect(res.status).toBe(422);
   });

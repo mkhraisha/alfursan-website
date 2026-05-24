@@ -267,7 +267,7 @@ describe("PATCH /api/vehicles/:vin/commission", () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
 
     // update vehicle
-    const updateSingleFn = vi.fn().mockResolvedValue({ data: { vin: TEST_VIN, purchase_price: 10000, advertised_price: 14000, sale_price: null }, error: null });
+    const updateSingleFn = vi.fn().mockResolvedValue({ data: { vin: TEST_VIN, purchase_price: 10000, advertised_price_cargurus: 14000, sale_price: null }, error: null });
     const updateSelectFn = vi.fn().mockReturnValue({ single: updateSingleFn });
     const updateEqFn     = vi.fn().mockReturnValue({ select: updateSelectFn });
     const updateFn       = vi.fn().mockReturnValue({ eq: updateEqFn });

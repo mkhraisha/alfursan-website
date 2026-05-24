@@ -91,9 +91,15 @@ describe("vehicleCreateSchema — prices", () => {
     ).toBe(true);
   });
 
-  it("rejects negative advertised_price", () => {
+  it("rejects negative advertised_price_cargurus", () => {
     expect(
-      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, advertised_price: -0.01 }).success
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, advertised_price_cargurus: -0.01 }).success
+    ).toBe(false);
+  });
+
+  it("rejects negative advertised_price_facebook", () => {
+    expect(
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, advertised_price_facebook: -0.01 }).success
     ).toBe(false);
   });
 });
@@ -138,22 +144,27 @@ describe("vehicleCreateSchema — dates", () => {
 });
 
 describe("vehicleCreateSchema — status", () => {
-  it("accepts valid status array", () => {
+  it("accepts a valid status string", () => {
     expect(
-      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, status: ["frontline_ready", "in_deal"] }).success
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, status: "frontline_ready" }).success
     ).toBe(true);
   });
 
-  it("rejects invalid status value", () => {
+  it("rejects an invalid status value", () => {
     expect(
-      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, status: ["not_a_status"] }).success
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, status: "not_a_status" }).success
     ).toBe(false);
   });
 
-  it("accepts empty status array", () => {
+  it("accepts null status", () => {
     expect(
-      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, status: [] }).success
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, status: null }).success
     ).toBe(true);
+  });
+
+  it("accepts missing status (optional)", () => {
+    const { status: _, ...noStatus } = { ...BASE_VEHICLE, status: "frontline_ready" };
+    expect(vehicleCreateSchema.safeParse(noStatus).success).toBe(true);
   });
 });
 
@@ -203,7 +214,7 @@ describe("calcProfitLoss", () => {
     expect(calcProfitLoss(13_000, 14_000, 11_000)).toBe(2_000);
   });
 
-  it("falls back to advertised_price when sale_price is null", () => {
+  it("falls back to advertised_price_cargurus when sale_price is null", () => {
     expect(calcProfitLoss(null, 14_000, 11_000)).toBe(3_000);
   });
 

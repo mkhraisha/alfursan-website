@@ -72,6 +72,29 @@ function splitCSVRow(line: string): string[] {
   return result;
 }
 
+const PRICE_FIELDS = new Set([
+  "purchase_price", "wholesale_price", "sale_price",
+  "advertised_price_cargurus", "advertised_price_facebook",
+]);
+
+/**
+ * Normalize a raw CSV string to snake_case for enum validation.
+ * "Frontline Ready" → "frontline_ready", "SOLD" → "sold", etc.
+ */
+function normalizeEnum(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[\s\-]+/g, "_");
+}
+
+/**
+ * Normalize ownership_status.
+ * Handles "En Route from OpenLane", "en-route", "En Route" → "en_route".
+ */
+function normalizeOwnershipStatus(raw: string): string {
+  const norm = normalizeEnum(raw);
+  if (norm.startsWith("en_route") || norm.startsWith("en route")) return "en_route";
+  return norm;
+}
+
 /** Apply column mapping and coerce types for Supabase insert */
 function applyMapping(
   row: Record<string, string>,
@@ -82,17 +105,19 @@ function applyMapping(
     const raw = row[csvCol];
     if (raw === undefined || raw === "") continue;
 
-    // Coerce known numeric/array fields
     if (["year", "odometer"].includes(vehicleField)) {
-      const n = parseInt(raw, 10);
+      // Strip everything except digits (handles commas like 123,456)
+      const n = parseInt(raw.replace(/[^0-9]/g, ""), 10);
       if (!isNaN(n)) out[vehicleField] = n;
-    } else if (
-      ["purchase_price", "wholesale_price", "advertised_price", "sale_price"].includes(vehicleField)
-    ) {
-      const n = parseFloat(raw.replace(/[$,]/g, ""));
+    } else if (PRICE_FIELDS.has(vehicleField)) {
+      // Strip currency symbols, locale prefixes, and thousands separators
+      // Handles: CA$1,234.56 / $1,234.56 / 1,234.56 / 1234.56
+      const n = parseFloat(raw.replace(/[^0-9.-]/g, ""));
       if (!isNaN(n)) out[vehicleField] = n;
-    } else if (vehicleField === "status") {
-      out[vehicleField] = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (vehicleField === "ownership_status") {
+      out[vehicleField] = normalizeOwnershipStatus(raw);
+    } else if (vehicleField === "status" || vehicleField === "photography_status") {
+      out[vehicleField] = normalizeEnum(raw);
     } else {
       out[vehicleField] = raw;
     }
@@ -134,7 +159,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Apply mapping + validate each row
-  type RowError = { row: number; vin?: string; error: string };
+  type RowError = { row: number; vin?: string; column?: string; error: string };
   const valid: Array<{ rowIndex: number; data: Record<string, unknown> }> = [];
   const errors: RowError[] = [];
 
@@ -146,11 +171,14 @@ export const POST: APIRoute = async ({ request }) => {
     if (parsed.success) {
       valid.push({ rowIndex: rowNum, data: parsed.data });
     } else {
-      const firstError = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
+      const fieldErrors = parsed.error.flatten().fieldErrors;
+      const firstField = Object.keys(fieldErrors)[0];
+      const firstMsg   = (fieldErrors[firstField as keyof typeof fieldErrors] ?? [])[0];
       errors.push({
-        row: rowNum,
-        vin: typeof mapped.vin === "string" ? mapped.vin : undefined,
-        error: firstError ?? "Validation failed",
+        row:    rowNum,
+        vin:    typeof mapped.vin === "string" ? mapped.vin : undefined,
+        column: firstField ?? undefined,
+        error:  firstMsg ?? "Validation failed",
       });
     }
   });

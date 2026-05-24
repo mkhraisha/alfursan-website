@@ -67,7 +67,7 @@ try {
   title="Contact Us | Alfursan Auto"
   description="Get in touch with Alfursan Auto — a trusted used car dealership in the Greater Toronto Area. Call, email, or visit us today."
 >
-  <main class="container">
+  <main id="main-content" class="container">
     {
       fetchState !== "ok" && (
         <p class="cms-status" role="status">
@@ -338,7 +338,7 @@ try {
 
   /* Form card — gray background */
   .form-card {
-    background: #d8d8d8;
+    background: var(--bg-subtle);
     border-radius: 14px;
     padding: 1.6rem;
   }
@@ -353,6 +353,9 @@ try {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 0.6rem;
+  }
+  @media (max-width: 540px) {
+    .fields-row { grid-template-columns: 1fr; }
   }
 
   .contact-form input,
@@ -451,6 +454,12 @@ try {
 
     .contact-form button[type="submit"] {
       width: 100%;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .map-section iframe {
+      height: 300px;
     }
   }
 </style>

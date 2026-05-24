@@ -1,0 +1,9 @@
+---
+export const prerender = false;
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import CSVImport from "../../../components/admin/CSVImport";
+---
+
+<AdminLayout title="Import CSV" activeNav="inventory">
+  <CSVImport client:load />
+</AdminLayout>

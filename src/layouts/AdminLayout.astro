@@ -1,5 +1,6 @@
 ---
 import SpeedInsights from "@vercel/speed-insights/astro";
+import { rootCss } from "../lib/theme";
 
 /**
  * Shared layout for all /admin/* pages.
@@ -34,6 +35,7 @@ const nav = [
     <meta name="robots" content="noindex, nofollow" />
     <title>{title} — Alfursan Admin</title>
     <SpeedInsights />
+    <Fragment set:html={`<style>:root{${rootCss()}}</style>`} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
@@ -44,7 +46,7 @@ const nav = [
       body {
         font-family: 'Inter', sans-serif;
         background: #f0f2f5;
-        color: #1a1d23;
+        color: var(--ink);
         min-height: 100vh;
         display: flex;
         flex-direction: column;
@@ -186,9 +188,52 @@ const nav = [
         min-width: 0;
         max-width: 1100px;
       }
+
+      /* ── Skip link ───────────────────────────────────────────────── */
+      .skip-link {
+        position: absolute;
+        transform: translateY(-100%);
+        left: 0; top: 0;
+        padding: 8px 16px;
+        background: var(--ink); color: #fff;
+        font-size: 14px; font-weight: 600;
+        z-index: 200;
+        transition: transform 0.1s;
+      }
+      .skip-link:focus { transform: translateY(0); }
+
+      /* ── Mobile ──────────────────────────────────────────────────── */
+      @media (max-width: 680px) {
+        .layout { flex-direction: column; }
+        .sidebar {
+          width: 100%; height: auto; position: static;
+          flex-direction: row; flex-wrap: wrap;
+          padding: 8px 12px; border-right: none;
+          border-bottom: 1px solid #e4e7ec;
+        }
+        .sidebar__section { display: none; }
+        .sidebar__link {
+          padding: 6px 10px; font-size: 13px;
+          border-left: none; border-bottom: 3px solid transparent;
+        }
+        .sidebar__link--active {
+          border-bottom-color: #b92111; border-left-color: transparent;
+          background: #fef2f1;
+        }
+        .topbar__title { display: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
     </style>
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header class="topbar">
       <a href="/admin/dashboard/" class="topbar__brand">
         <span class="topbar__logo">⬟</span>
@@ -204,22 +249,58 @@ const nav = [
     </header>
 
     <div class="layout">
-      <aside class="sidebar">
+      <aside class="sidebar" aria-label="Main navigation">
         <span class="sidebar__section">Main</span>
         {nav.map((item) => (
           <a
             href={item.href}
             class={`sidebar__link${activeNav === item.id ? " sidebar__link--active" : ""}`}
           >
-            <span class="sidebar__icon">{item.icon}</span>
+            <span class="sidebar__icon" aria-hidden="true">{item.icon}</span>
             {item.label}
           </a>
         ))}
       </aside>
 
-      <main class="main">
+      <main class="main" id="main-content">
         <slot />
       </main>
     </div>
+
+    <script>
+      // Proactive token refresh — reads the non-HttpOnly sb-token-exp cookie to
+      // know when the access token expires, then calls /api/admin/refresh-session
+      // ~5 minutes before that time so the session never visibly expires while
+      // the user is actively working.
+
+      const REFRESH_AHEAD_MS = 5 * 60 * 1000; // refresh 5 min before expiry
+      const CHECK_INTERVAL_MS = 60 * 1000;     // check every minute
+
+      function getTokenExpMs(): number {
+        const m = document.cookie.match(/(?:^|;\s*)sb-token-exp=([^;]+)/);
+        if (!m) return 0;
+        const secs = parseInt(m[1], 10);
+        return isNaN(secs) ? 0 : secs * 1000;
+      }
+
+      async function refreshSession() {
+        try {
+          const res = await fetch("/api/admin/refresh-session", { method: "POST" });
+          if (!res.ok) {
+            // Refresh token is also expired — redirect to login cleanly.
+            window.location.href = "/admin/?error=session_expired";
+          }
+        } catch {
+          // Network error — don't redirect, just retry next interval.
+        }
+      }
+
+      setInterval(() => {
+        const expMs = getTokenExpMs();
+        if (expMs > 0 && Date.now() >= expMs - REFRESH_AHEAD_MS) {
+          refreshSession();
+        }
+      }, CHECK_INTERVAL_MS);
+    </script>
   </body>
 </html>

@@ -10,8 +10,9 @@ type FormData = {
   purchase_date: string;
   purchase_price: string;
   wholesale_price: string;
-  advertised_price: string;
-  status: string[];
+  advertised_price_cargurus: string;
+  advertised_price_facebook: string;
+  status: string;
 };
 
 const VALID_STATUSES = [
@@ -28,8 +29,8 @@ function fmtStatus(s: string) {
 export default function AddVehicleForm() {
   const [form, setForm] = useState<FormData>({
     vin: "", make: "", model: "", year: String(new Date().getFullYear()),
-    purchase_date: "", purchase_price: "", wholesale_price: "", advertised_price: "",
-    status: [],
+    purchase_date: "", purchase_price: "", wholesale_price: "", advertised_price_cargurus: "", advertised_price_facebook: "",
+    status: "",
   });
   const [vinError, setVinError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -49,14 +50,7 @@ export default function AddVehicleForm() {
     else setVinError("");
   }
 
-  function toggleStatus(s: string) {
-    setForm((f) => ({
-      ...f,
-      status: f.status.includes(s) ? f.status.filter((x) => x !== s) : [...f.status, s],
-    }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!form.vin || !VIN_RE.test(form.vin))     errs.vin            = "Valid 17-char VIN required";
@@ -72,12 +66,13 @@ export default function AddVehicleForm() {
       make:  form.make.trim(),
       model: form.model.trim(),
       year,
-      status: form.status,
+      status: form.status || null,
     };
     if (form.purchase_date)  body.purchase_date  = form.purchase_date;
-    if (form.purchase_price) body.purchase_price = parseFloat(form.purchase_price);
-    if (form.wholesale_price) body.wholesale_price = parseFloat(form.wholesale_price);
-    if (form.advertised_price) body.advertised_price = parseFloat(form.advertised_price);
+    if (form.purchase_price)  body.purchase_price  = parseFloat(form.purchase_price.replace(/,/g, ""));
+    if (form.wholesale_price)          body.wholesale_price          = parseFloat(form.wholesale_price.replace(/,/g, ""));
+    if (form.advertised_price_cargurus) body.advertised_price_cargurus = parseFloat(form.advertised_price_cargurus.replace(/,/g, ""));
+    if (form.advertised_price_facebook) body.advertised_price_facebook = parseFloat(form.advertised_price_facebook.replace(/,/g, ""));
 
     try {
       const res  = await fetch("/api/vehicles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -164,8 +159,8 @@ export default function AddVehicleForm() {
               {errors.purchase_date && <p className="field-err">{errors.purchase_date}</p>}
             </div>
             <div className="av-field">
-              <label>Purchase Price ($)</label>
-              <input type="number" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} min="0" step="0.01" placeholder="0.00" />
+              <label>Purchase Price (CAD)</label>
+              <input type="text" inputMode="decimal" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" />
             </div>
           </div>
         </div>
@@ -174,29 +169,30 @@ export default function AddVehicleForm() {
           <h2>Pricing</h2>
           <div className="av-row">
             <div className="av-field">
-              <label>Wholesale Price ($)</label>
-              <input type="number" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} min="0" step="0.01" placeholder="0.00" />
+              <label>Wholesale Price (CAD)</label>
+              <input type="text" inputMode="decimal" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} placeholder="e.g. 18,000" />
             </div>
             <div className="av-field">
-              <label>Advertised Price ($)</label>
-              <input type="number" value={form.advertised_price} onChange={(e) => set("advertised_price", e.target.value)} min="0" step="0.01" placeholder="0.00" />
+              <label>CarGurus Price (CAD)</label>
+              <input type="text" inputMode="decimal" value={form.advertised_price_cargurus} onChange={(e) => set("advertised_price_cargurus", e.target.value)} placeholder="e.g. 22,500" />
+            </div>
+            <div className="av-field">
+              <label>Facebook Price (CAD)</label>
+              <input type="text" inputMode="decimal" value={form.advertised_price_facebook} onChange={(e) => set("advertised_price_facebook", e.target.value)} placeholder="e.g. 21,000" />
             </div>
           </div>
         </div>
 
         <div className="av-section">
           <h2>Status</h2>
-          <div className="status-checks">
-            {VALID_STATUSES.map((s) => (
-              <label key={s} className="status-check">
-                <input
-                  type="checkbox"
-                  checked={form.status.includes(s)}
-                  onChange={() => toggleStatus(s)}
-                />
-                {fmtStatus(s)}
-              </label>
-            ))}
+          <div className="av-field" style={{ maxWidth: 280 }}>
+            <label>Vehicle Status</label>
+            <select value={form.status} onChange={(e) => set("status", e.target.value)}>
+              <option value="">— None —</option>
+              {VALID_STATUSES.map((s) => (
+                <option key={s} value={s}>{fmtStatus(s)}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -247,11 +243,7 @@ export default function AddVehicleForm() {
         .vin-counter--full { color: #1a7f4b; }
         .field-err { font-size: 12px; color: #b92111; margin: 0; }
 
-        .status-checks { display: flex; flex-wrap: wrap; gap: 10px; }
-        .status-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; cursor: pointer; }
-        .status-check input { accent-color: #b92111; width: 15px; height: 15px; cursor: pointer; }
-
-        .av-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; }
+.av-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; }
         .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; }
         .btn--primary { background: #b92111; color: #fff; }
         .btn--primary:hover:not(:disabled) { background: #9e1c0e; }

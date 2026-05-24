@@ -15,14 +15,17 @@ export type VehicleFull = {
   odometer: number | null;
   purchase_date: string | null;
   purchase_price: number | null;
+  purchased_from_name: string | null;
+  purchased_from_address: string | null;
   purchaser_name: string | null;
   purchaser_address: string | null;
   wholesale_price: number | null;
-  advertised_price: number | null;
+  advertised_price_cargurus: number | null;
+  advertised_price_facebook: number | null;
   sale_price: number | null;
   sale_date: string | null;
   ownership_status: string | null;
-  status: string[];
+  status: string | null;
   photography_status: string | null;
   garage_register_number: string | null;
   acquisition_bill_of_sale_path: string | null;
@@ -160,7 +163,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
   const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalCost    = calcTotalCost(v.purchase_price, expenseTotal);
-  const profitLoss   = calcProfitLoss(v.sale_price, v.advertised_price, totalCost);
+  const profitLoss   = calcProfitLoss(v.sale_price, v.advertised_price_cargurus, totalCost);
   const commUser     = users.find((u) => u.id === v.commission_user_id) ?? null;
   const commission   = calcCommission(profitLoss, commUser?.commission_percentage ?? null);
 
@@ -280,7 +283,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 // ── Basics Tab ────────────────────────────────────────────────────────────────
 
 function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ make: v.make ?? "", model: v.model ?? "", trim: v.trim ?? "", series: v.series ?? "", body_type: v.body_type ?? "", year: String(v.year ?? ""), colour: v.colour ?? "", odometer: String(v.odometer ?? "") });
+  const [form, setForm] = useState({ make: v.make ?? "", model: v.model ?? "", trim: v.trim ?? "", series: v.series ?? "", body_type: v.body_type ?? "", year: String(v.year ?? ""), colour: v.colour ?? "", odometer: v.odometer != null ? v.odometer.toLocaleString("en-CA") : "" });
   const [saving, setSaving] = useState(false);
 
   function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
@@ -293,7 +296,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     if (form.body_type) fields.body_type = form.body_type;
     if (form.year)     fields.year      = parseInt(form.year);
     if (form.colour)   fields.colour    = form.colour;
-    if (form.odometer) fields.odometer  = parseInt(form.odometer);
+    if (form.odometer) fields.odometer  = parseInt(form.odometer.replace(/,/g, ""));
     await onSave(fields); setSaving(false);
   }
 
@@ -311,7 +314,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
         <div className="f-field"><label>Series</label><input value={form.series} onChange={(e) => set("series", e.target.value)} /></div>
         <div className="f-field"><label>Body Type</label><input value={form.body_type} onChange={(e) => set("body_type", e.target.value)} /></div>
         <div className="f-field"><label>Colour</label><input value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
-        <div className="f-field"><label>Odometer (km)</label><input type="number" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} min="0" /></div>
+        <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
       </div>
       <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
     </form>
@@ -321,7 +324,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
 // ── Purchase Tab ──────────────────────────────────────────────────────────────
 
 function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ purchase_date: v.purchase_date ?? "", purchase_price: String(v.purchase_price ?? ""), purchaser_name: v.purchaser_name ?? "", purchaser_address: v.purchaser_address ?? "" });
+  const [form, setForm] = useState({ purchase_date: v.purchase_date ?? "", purchase_price: v.purchase_price != null ? v.purchase_price.toLocaleString("en-CA") : "", purchased_from_name: v.purchased_from_name ?? "", purchased_from_address: v.purchased_from_address ?? "", purchaser_name: v.purchaser_name ?? "", purchaser_address: v.purchaser_address ?? "" });
   const [saving, setSaving] = useState(false);
 
   function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
@@ -330,9 +333,11 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
     e.preventDefault(); setSaving(true);
     const fields: Record<string, unknown> = {};
     if (form.purchase_date)    fields.purchase_date    = form.purchase_date;
-    if (form.purchase_price)   fields.purchase_price   = parseFloat(form.purchase_price);
-    if (form.purchaser_name)   fields.purchaser_name   = form.purchaser_name;
-    if (form.purchaser_address) fields.purchaser_address = form.purchaser_address;
+    if (form.purchase_price)        fields.purchase_price        = parseFloat(form.purchase_price.replace(/,/g, ""));
+    if (form.purchased_from_name)   fields.purchased_from_name   = form.purchased_from_name;
+    if (form.purchased_from_address) fields.purchased_from_address = form.purchased_from_address;
+    if (form.purchaser_name)        fields.purchaser_name        = form.purchaser_name;
+    if (form.purchaser_address)     fields.purchaser_address     = form.purchaser_address;
     await onSave(fields); setSaving(false);
   }
 
@@ -341,9 +346,11 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
     <form onSubmit={submit}>
       <div className="f-grid">
         <div className="f-field"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} max={today} /></div>
-        <div className="f-field"><label>Purchase Price ($)</label><input type="number" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} min="0" step="0.01" /></div>
-        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchaser Name</label><input value={form.purchaser_name} onChange={(e) => set("purchaser_name", e.target.value)} /></div>
-        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchaser Address</label><input value={form.purchaser_address} onChange={(e) => set("purchaser_address", e.target.value)} /></div>
+        <div className="f-field"><label>Purchase Price (CAD)</label><input type="text" inputMode="decimal" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Name</label><input value={form.purchased_from_name} onChange={(e) => set("purchased_from_name", e.target.value)} placeholder="Previous owner or auction house" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Address</label><input value={form.purchased_from_address} onChange={(e) => set("purchased_from_address", e.target.value)} placeholder="Street address, city, province" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Name</label><input value={form.purchaser_name} onChange={(e) => set("purchaser_name", e.target.value)} placeholder="Buyer's full name" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Address</label><input value={form.purchaser_address} onChange={(e) => set("purchaser_address", e.target.value)} placeholder="Buyer's street address, city, province" /></div>
       </div>
       <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
     </form>
@@ -353,7 +360,7 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
 // ── Pricing Tab ───────────────────────────────────────────────────────────────
 
 function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; totalCost: number | null; profitLoss: number | null; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ wholesale_price: String(v.wholesale_price ?? ""), advertised_price: String(v.advertised_price ?? ""), sale_price: String(v.sale_price ?? ""), sale_date: v.sale_date ?? "" });
+  const [form, setForm] = useState({ wholesale_price: v.wholesale_price != null ? v.wholesale_price.toLocaleString("en-CA") : "", advertised_price_cargurus: v.advertised_price_cargurus != null ? v.advertised_price_cargurus.toLocaleString("en-CA") : "", advertised_price_facebook: v.advertised_price_facebook != null ? v.advertised_price_facebook.toLocaleString("en-CA") : "", sale_price: v.sale_price != null ? v.sale_price.toLocaleString("en-CA") : "", sale_date: v.sale_date ?? "" });
   const [saving, setSaving] = useState(false);
 
   function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
@@ -361,9 +368,10 @@ function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; tota
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
     const fields: Record<string, unknown> = {};
-    if (form.wholesale_price)  fields.wholesale_price  = parseFloat(form.wholesale_price);
-    if (form.advertised_price) fields.advertised_price = parseFloat(form.advertised_price);
-    fields.sale_price = form.sale_price ? parseFloat(form.sale_price) : null;
+    if (form.wholesale_price)  fields.wholesale_price  = parseFloat(form.wholesale_price.replace(/,/g, ""));
+    fields.advertised_price_cargurus = form.advertised_price_cargurus ? parseFloat(form.advertised_price_cargurus.replace(/,/g, "")) : null;
+    fields.advertised_price_facebook = form.advertised_price_facebook ? parseFloat(form.advertised_price_facebook.replace(/,/g, "")) : null;
+    fields.sale_price = form.sale_price ? parseFloat(form.sale_price.replace(/,/g, "")) : null;
     fields.sale_date  = form.sale_date || null;
     await onSave(fields); setSaving(false);
   }
@@ -372,9 +380,10 @@ function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; tota
   return (
     <form onSubmit={submit}>
       <div className="f-grid">
-        <div className="f-field"><label>Wholesale Price ($)</label><input type="number" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} min="0" step="0.01" /></div>
-        <div className="f-field"><label>Advertised Price ($)</label><input type="number" value={form.advertised_price} onChange={(e) => set("advertised_price", e.target.value)} min="0" step="0.01" /></div>
-        <div className="f-field"><label>Sale Price ($)</label><input type="number" value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} min="0" step="0.01" placeholder="Leave empty if not sold" /></div>
+        <div className="f-field"><label>Wholesale Price (CAD)</label><input type="text" inputMode="decimal" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} placeholder="e.g. 18,000" /></div>
+        <div className="f-field"><label>CarGurus Price (CAD)</label><input type="text" inputMode="decimal" value={form.advertised_price_cargurus} onChange={(e) => set("advertised_price_cargurus", e.target.value)} placeholder="e.g. 22,500" /></div>
+        <div className="f-field"><label>Facebook Price (CAD)</label><input type="text" inputMode="decimal" value={form.advertised_price_facebook} onChange={(e) => set("advertised_price_facebook", e.target.value)} placeholder="e.g. 21,000" /></div>
+        <div className="f-field"><label>Sale Price (CAD)</label><input type="text" inputMode="decimal" value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} placeholder="Leave empty if not sold" /></div>
         <div className="f-field"><label>Sale Date</label><input type="date" value={form.sale_date} onChange={(e) => set("sale_date", e.target.value)} max={new Date().toISOString().slice(0, 10)} /></div>
       </div>
       <div className="computed-row">
@@ -508,34 +517,30 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
 // ── Status Tab ────────────────────────────────────────────────────────────────
 
 function StatusTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [status,    setStatus]    = useState<string[]>(v.status ?? []);
+  const [status,    setStatus]    = useState(v.status ?? "");
   const [ownership, setOwnership] = useState(v.ownership_status ?? "");
   const [photo,     setPhoto]     = useState(v.photography_status ?? "");
   const [garage,    setGarage]    = useState(v.garage_register_number ?? "");
   const [saving,    setSaving]    = useState(false);
 
-  function toggleStatus(s: string) { setStatus((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]); }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
-    await onSave({ status, ownership_status: ownership || null, photography_status: photo || null, garage_register_number: garage || null });
+    await onSave({ status: status || null, ownership_status: ownership || null, photography_status: photo || null, garage_register_number: garage || null });
     setSaving(false);
   }
 
   return (
     <form onSubmit={submit}>
-      <div style={{ marginBottom: 20 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#374151", marginBottom: 10 }}>Status (select all that apply)</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {VALID_STATUSES.map((s) => (
-            <label key={s} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#374151", cursor: "pointer" }}>
-              <input type="checkbox" checked={status.includes(s)} onChange={() => toggleStatus(s)} style={{ accentColor: "#b92111" }} />
-              {fmtStatus(s)}
-            </label>
-          ))}
-        </div>
-      </div>
       <div className="f-grid">
+        <div className="f-field">
+          <label>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">— None —</option>
+            {VALID_STATUSES.map((s) => (
+              <option key={s} value={s}>{fmtStatus(s)}</option>
+            ))}
+          </select>
+        </div>
         <div className="f-field">
           <label>Ownership Status</label>
           <select value={ownership} onChange={(e) => setOwnership(e.target.value)}>

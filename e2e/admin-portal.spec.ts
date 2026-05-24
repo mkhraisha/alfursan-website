@@ -91,6 +91,30 @@ test.describe("Protected admin routes redirect to login", () => {
   });
 });
 
+test.describe("Protected dealer routes redirect to login", () => {
+  const dealerRoutes = [
+    "/dealer/",
+    "/dealer/inventory/",
+    "/dealer/users/",
+    "/dealer/garage/",
+  ];
+
+  for (const route of dealerRoutes) {
+    test(`${route} redirects unauthenticated users to /admin/`, async ({ page }) => {
+      const response = await page.goto(route);
+      const finalUrl = page.url();
+      const status = response?.status() ?? 0;
+      const isRedirectedToLogin =
+        finalUrl.includes("/admin/") && !finalUrl.includes(route.replace(/\/$/, ""));
+      const isLoginShownDirectly =
+        (await page.locator('input[type="email"]').count()) > 0;
+
+      expect(status < 400).toBe(true);
+      expect(isRedirectedToLogin || isLoginShownDirectly).toBe(true);
+    });
+  }
+});
+
 test.describe("Admin signout", () => {
   test("/admin/signout/ clears session and redirects to /admin/", async ({ page }) => {
     await page.goto("/admin/signout/");

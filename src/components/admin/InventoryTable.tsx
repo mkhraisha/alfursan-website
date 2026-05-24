@@ -9,17 +9,18 @@ export type VehicleListItem = {
   model: string;
   year: number;
   trim: string | null;
-  status: string[];
+  status: string | null;
   ownership_status: string | null;
   photography_status: string | null;
-  advertised_price: number | null;
+  advertised_price_cargurus: number | null;
+  advertised_price_facebook: number | null;
   purchase_price: number | null;
   sale_price: number | null;
   expense_total: number;
   commission_percentage: number | null;
 };
 
-type SortKey = "vin" | "make" | "year" | "advertised_price" | "total_cost" | "profit_loss";
+type SortKey = "vin" | "make" | "year" | "advertised_price_cargurus" | "total_cost" | "profit_loss";
 type SortDir = "asc" | "desc";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ const PAGE_SIZE = 10;
 
 function computeRow(v: VehicleListItem) {
   const totalCost  = calcTotalCost(v.purchase_price, v.expense_total);
-  const profitLoss = calcProfitLoss(v.sale_price, v.advertised_price, totalCost);
+  const profitLoss = calcProfitLoss(v.sale_price, v.advertised_price_cargurus, totalCost);
   const commission = calcCommission(profitLoss, v.commission_percentage);
   return { ...v, totalCost, profitLoss, commission };
 }
@@ -101,11 +102,11 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      if (filterStatus      && !r.status.includes(filterStatus))                           return false;
+      if (filterStatus      && r.status !== filterStatus)                                   return false;
       if (filterOwnership   && r.ownership_status   !== filterOwnership)                   return false;
       if (filterPhotography && r.photography_status !== filterPhotography)                  return false;
-      if (filterMinPrice    && (r.advertised_price ?? 0) < parseFloat(filterMinPrice))     return false;
-      if (filterMaxPrice    && (r.advertised_price ?? 0) > parseFloat(filterMaxPrice))     return false;
+      if (filterMinPrice    && (r.advertised_price_cargurus ?? 0) < parseFloat(filterMinPrice))  return false;
+      if (filterMaxPrice    && (r.advertised_price_cargurus ?? 0) > parseFloat(filterMaxPrice))  return false;
       if (filterMinYear     && r.year < parseInt(filterMinYear))                            return false;
       if (filterMaxYear     && r.year > parseInt(filterMaxYear))                            return false;
       return true;
@@ -119,7 +120,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
       if (sortKey === "vin")             { av = a.vin;             bv = b.vin; }
       if (sortKey === "make")            { av = a.make;            bv = b.make; }
       if (sortKey === "year")            { av = a.year;            bv = b.year; }
-      if (sortKey === "advertised_price"){ av = a.advertised_price;bv = b.advertised_price; }
+      if (sortKey === "advertised_price_cargurus"){ av = a.advertised_price_cargurus; bv = b.advertised_price_cargurus; }
       if (sortKey === "total_cost")      { av = a.totalCost;       bv = b.totalCost; }
       if (sortKey === "profit_loss")     { av = a.profitLoss;      bv = b.profitLoss; }
       if (av === null) return sortDir === "asc" ? 1 : -1;
@@ -226,7 +227,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
               <th>Status</th>
               <th>Ownership</th>
               <th>Photos</th>
-              <th onClick={() => toggleSort("advertised_price")} className="sortable">Adv. Price{sortArrow("advertised_price")}</th>
+              <th onClick={() => toggleSort("advertised_price_cargurus")} className="sortable">Listed Price{sortArrow("advertised_price_cargurus")}</th>
               <th onClick={() => toggleSort("total_cost")}       className="sortable">Total Cost{sortArrow("total_cost")}</th>
               <th onClick={() => toggleSort("profit_loss")}      className="sortable">P/L{sortArrow("profit_loss")}</th>
               <th>Commission</th>
@@ -255,17 +256,18 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
                   <td>{v.year}</td>
                   <td>
                     <div className="badges">
-                      {v.status.length === 0 && <span className="badge badge--gray">—</span>}
-                      {v.status.map((s) => (
-                        <span key={s} className="badge" style={{ background: `${STATUS_COLORS[s] ?? "#6b7280"}22`, color: STATUS_COLORS[s] ?? "#6b7280" }}>
-                          {fmtStatus(s)}
-                        </span>
-                      ))}
+                      {v.status
+                        ? <span className="badge" style={{ background: `${STATUS_COLORS[v.status] ?? "#6b7280"}22`, color: STATUS_COLORS[v.status] ?? "#6b7280" }}>{fmtStatus(v.status)}</span>
+                        : <span className="badge badge--gray">—</span>
+                      }
                     </div>
                   </td>
                   <td><span className="dim">{v.ownership_status ? OWNERSHIP_LABELS[v.ownership_status] ?? v.ownership_status : "—"}</span></td>
                   <td><span className="dim">{v.photography_status ? PHOTO_LABELS[v.photography_status] ?? v.photography_status : "—"}</span></td>
-                  <td className="num">{fmt(v.advertised_price)}</td>
+                  <td className="num">
+                    <div>{v.advertised_price_cargurus != null ? <><span style={{fontSize:10,color:"#99a1b2",fontWeight:600}}>CG </span>{fmt(v.advertised_price_cargurus)}</> : "—"}</div>
+                    {v.advertised_price_facebook != null && <div style={{fontSize:12,color:"#64748b"}}><span style={{fontSize:10,color:"#99a1b2",fontWeight:600}}>FB </span>{fmt(v.advertised_price_facebook)}</div>}
+                  </td>
                   <td className="num">{fmt(v.totalCost)}</td>
                   <td className="num" style={{ color: plColor, fontWeight: 600 }}>
                     {v.profitLoss === null ? "—" : `${v.profitLoss < 0 ? "-" : ""}${fmt(v.profitLoss)}`}

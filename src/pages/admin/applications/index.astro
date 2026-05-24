@@ -14,7 +14,7 @@ const pageParam = Number(Astro.url.searchParams.get("page") ?? "1");
 const page = Math.max(1, isNaN(pageParam) ? 1 : pageParam);
 const statusFilter = Astro.url.searchParams.get("status") ?? "";
 
-const VALID_STATUSES = ["new", "reviewing", "approved", "declined"];
+const VALID_STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitted", "approved", "declined"];
 const activeStatus = VALID_STATUSES.includes(statusFilter) ? statusFilter : "";
 
 let query = supabase
@@ -58,6 +58,8 @@ function filterUrl(status: string) {
 const statusColor: Record<string, string> = {
   new: "#3b82f6",
   reviewing: "#f59e0b",
+  document_incomplete: "#7c3aed",
+  documents_submitted: "#0891b2",
   approved: "#1a7f4b",
   declined: "#B92111",
 };
@@ -75,16 +77,19 @@ const statusColor: Record<string, string> = {
   <div class="filter-tabs">
     {
       [
-        { label: "All", value: "" },
-        { label: "New", value: "new" },
-        { label: "Reviewing", value: "reviewing" },
-        { label: "Approved", value: "approved" },
-        { label: "Declined", value: "declined" },
+        { label: "All",           value: "" },
+        { label: "New",           value: "new" },
+        { label: "Reviewing",     value: "reviewing" },
+        { label: "Docs Needed",   value: "document_incomplete" },
+        { label: "Docs Received", value: "documents_submitted" },
+        { label: "Approved",      value: "approved" },
+        { label: "Declined",      value: "declined" },
       ].map((f) => (
         <a
           href={filterUrl(f.value)}
           class={`filter-tab${activeStatus === f.value ? " filter-tab--active" : ""}`}
           style={activeStatus === f.value && f.value ? `color:${statusColor[f.value]}; border-color:${statusColor[f.value]}` : ""}
+          aria-current={activeStatus === f.value ? "page" : undefined}
         >
           {f.label}
         </a>
@@ -101,12 +106,12 @@ const statusColor: Record<string, string> = {
       <table class="table">
         <thead>
           <tr>
-            <th>Applicant</th>
-            <th>Vehicle</th>
-            <th>Employment</th>
-            <th>Status</th>
-            <th>Date</th>
-            <th></th>
+            <th scope="col">Applicant</th>
+            <th scope="col">Vehicle</th>
+            <th scope="col">Employment</th>
+            <th scope="col">Status</th>
+            <th scope="col">Date</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -256,4 +261,5 @@ const statusColor: Record<string, string> = {
   }
   .page-btn:hover { background: #f0f2f5; }
   .page-info { font-size: 14px; color: #99a1b2; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 </style>
