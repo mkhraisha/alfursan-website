@@ -59,8 +59,8 @@ export const POST: APIRoute = async ({ request }) => {
 
   const { context, vin, contentType, fileSize } = body;
 
-  if (!context || !vin || !contentType || fileSize === undefined) {
-    return json({ error: "Missing required fields: context, vin, contentType, fileSize" }, 400);
+  if (!context || !vin || !contentType || typeof fileSize !== "number" || !Number.isFinite(fileSize)) {
+    return json({ error: "Missing or invalid required fields: context, vin, contentType, fileSize" }, 400);
   }
 
   if (!["vehicle-image", "vehicle-document"].includes(context)) {
