@@ -3,14 +3,21 @@ export const prerender = false;
 
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
+import { can } from "../../../lib/permissions";
 import InventoryTable from "../../../components/admin/InventoryTable";
 import type { VehicleListItem } from "../../../components/admin/InventoryTable";
 
 const db = getAdminClient();
+const { adminRole } = Astro.locals;
+const canSeeFinancials = can(adminRole, "vehicles:financials:read");
 
 const { data: rawVehicles } = await db
   .from("vehicles")
-  .select("vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)")
+  .select(
+    canSeeFinancials
+      ? "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)"
+      : "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, commission_user_id"
+  )
   .order("created_at", { ascending: false });
 
 const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, unknown>) => {
@@ -28,10 +35,10 @@ const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, u
     photography_status:        (v.photography_status as string | null) ?? null,
     advertised_price_cargurus: (v.advertised_price_cargurus as number | null) ?? null,
     advertised_price_facebook: (v.advertised_price_facebook as number | null) ?? null,
-    purchase_price:       (v.purchase_price as number | null) ?? null,
-    sale_price:           (v.sale_price as number | null) ?? null,
-    expense_total:        expenseTotal,
-    commission_percentage: commissionUser?.commission_percentage ?? null,
+    purchase_price:       canSeeFinancials ? (v.purchase_price as number | null) ?? null : null,
+    sale_price:           canSeeFinancials ? (v.sale_price as number | null) ?? null : null,
+    expense_total:        canSeeFinancials ? expenseTotal : 0,
+    commission_percentage: canSeeFinancials ? commissionUser?.commission_percentage ?? null : null,
   };
 });
 ---

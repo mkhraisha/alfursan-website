@@ -3,6 +3,12 @@ export const prerender = false;
 
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import AddVehicleForm from "../../../components/admin/AddVehicleForm";
+import { can } from "../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+if (!can(adminRole, "vehicles:create")) {
+  return Astro.redirect("/admin/?error=unauthorized");
+}
 ---
 
 <AdminLayout title="Add Vehicle" activeNav="inventory">

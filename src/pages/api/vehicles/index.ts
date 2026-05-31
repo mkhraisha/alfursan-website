@@ -30,8 +30,8 @@ export const GET: APIRoute = async ({ request }) => {
   const url = new URL(request.url);
   const rawLimit  = parseInt(url.searchParams.get("limit")  ?? "10", 10);
   const rawOffset = parseInt(url.searchParams.get("offset") ?? "0",  10);
-  const limit  = Math.min(Number.isNaN(rawLimit)  ? 10  : rawLimit,  100);
-  const offset = Number.isNaN(rawOffset) ? 0 : rawOffset;
+  const limit = Number.isNaN(rawLimit) ? 10 : Math.min(Math.max(rawLimit, 1), 100);
+  const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
   const sortRaw = url.searchParams.get("sort") ?? "created_at:desc";
   const [rawSortCol, sortDir] = sortRaw.split(":");
   const ALLOWED_SORT_COLS = new Set(["created_at", "make", "model", "year", "advertised_price_cargurus", "purchase_date", "status"]);
@@ -56,14 +56,19 @@ export const GET: APIRoute = async ({ request }) => {
     const status    = url.searchParams.get("status"); // single value
     const bodyType  = url.searchParams.get("body_type");
 
+    const minPriceValue = minPrice ? parseFloat(minPrice) : Number.NaN;
+    const maxPriceValue = maxPrice ? parseFloat(maxPrice) : Number.NaN;
+    const minYearValue = minYear ? parseInt(minYear, 10) : Number.NaN;
+    const maxYearValue = maxYear ? parseInt(maxYear, 10) : Number.NaN;
+
     if (ownership) query = query.eq("ownership_status", ownership);
-    if (photo)     query = query.eq("photography_status", photo);
-    if (minPrice)  query = query.gte("advertised_price_cargurus", parseFloat(minPrice));
-    if (maxPrice)  query = query.lte("advertised_price_cargurus", parseFloat(maxPrice));
-    if (minYear)   query = query.gte("year", parseInt(minYear));
-    if (maxYear)   query = query.lte("year", parseInt(maxYear));
-    if (status)    query = query.eq("status", status);
-    if (bodyType)  query = query.eq("body_type", bodyType);
+    if (photo) query = query.eq("photography_status", photo);
+    if (Number.isFinite(minPriceValue)) query = query.gte("advertised_price_cargurus", minPriceValue);
+    if (Number.isFinite(maxPriceValue)) query = query.lte("advertised_price_cargurus", maxPriceValue);
+    if (Number.isFinite(minYearValue)) query = query.gte("year", minYearValue);
+    if (Number.isFinite(maxYearValue)) query = query.lte("year", maxYearValue);
+    if (status) query = query.eq("status", status);
+    if (bodyType) query = query.eq("body_type", bodyType);
   }
 
   const { data: vehicles, error, count } = await query;

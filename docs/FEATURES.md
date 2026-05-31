@@ -40,8 +40,8 @@ E2E test coverage status is tracked alongside each feature.
 
 ## Admin Portal (`/admin/`)
 
-> Single portal for all staff. Requires magic-link auth.
-> Accessible to roles: `owner`, `manager`, `staff`, `admin`, `sales`.
+> Single portal for all dealership users. Requires magic-link auth.
+> Accessible to roles: `owner`, `manager`, `sales`.
 
 ### Authentication
 - Magic-link login at `/admin/`
@@ -63,22 +63,22 @@ E2E test coverage status is tracked alongside each feature.
 - List all vehicles with live filters (status, make, year)
 - Create vehicle (POST `/api/vehicles/`)
 - Edit vehicle inline (PATCH `/api/vehicles/[vin]/`)
-- Delete vehicle (`admin`/`owner` only) (DELETE `/api/vehicles/[vin]/`)
+- Delete vehicle (`manager`/`owner` only) (DELETE `/api/vehicles/[vin]/`)
 - CSV bulk import with column mapping + preview (`POST /api/vehicles/import`)
-- Per-vehicle computed fields: `expense_total`, `total_cost`, `profit_loss`, `commission`
+- Per-vehicle computed fields: `expense_total`, `total_cost`, `profit_loss`, `commission` (`total_cost`/`profit_loss` visible to `manager`/`owner` only)
 
 ### Vehicle Expenses & Documents
 - Add/view/delete expenses (`/api/vehicles/[vin]/expenses/`)
 - Upload/download/delete documents (`/api/vehicles/[vin]/documents/`)
 
 ### Commission Management
-- Assign commission user to a vehicle (`admin`/`owner` only)
+- Assign commission user to a vehicle (`manager`/`sales`/`owner`)
 - Commission calculated as: % of profit, $150 floor if profit < 0
 
 ### Garage Register (`/admin/garage/`)
 - Record garage register entries linked to vehicles
 
-### User Management (`/admin/users/`) — `admin`/`owner` only
+### User Management (`/admin/users/`) — `manager`/`owner` only
 - List / invite / update / disable users
 - Set commission percentage per user
 
@@ -92,26 +92,27 @@ E2E test coverage status is tracked alongside each feature.
 | POST | `/api/vehicles/` | required | Create vehicle |
 | GET | `/api/vehicles/[vin]/` | optional | Get single vehicle |
 | PATCH | `/api/vehicles/[vin]/` | required | Update vehicle fields |
-| DELETE | `/api/vehicles/[vin]/` | admin only | Delete vehicle |
-| POST | `/api/vehicles/import` | required | CSV bulk import |
+| DELETE | `/api/vehicles/[vin]/` | manager/owner | Delete vehicle |
+| POST | `/api/vehicles/import` | manager/owner | CSV bulk import |
 | POST | `/api/finance` | none | Submit financing application |
 | POST | `/api/finance/phase2` | token | Phase 2 document submission |
 | POST | `/api/finance/upload-url` | token | Get signed upload URL |
-| GET | `/api/admin/export-application` | admin | Export application PDF |
-| PATCH | `/api/admin/update-application` | admin | Update application status |
+| GET | `/api/admin/export-application` | manager/owner | Export application PDF |
+| PATCH | `/api/admin/update-application` | manager/owner | Update application status |
 | POST | `/api/admin/set-session` | none | Exchange Supabase token for session cookie |
 
 ---
 
 ## Role Matrix
 
-| Feature | `owner` | `manager` | `staff` | `admin` | `sales` | Public |
-|---------|---------|-----------|---------|---------|---------|--------|
-| View public inventory | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| View full vehicle data | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| Create/edit vehicles | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| Delete vehicles | ✓ | ✓ | — | ✓ | — | — |
-| CSV import | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| Manage dealer users | ✓ | ✓ | — | ✓ | — | — |
-| Assign commission | ✓ | ✓ | — | ✓ | — | — |
-| View admin applications | ✓ | ✓ | ✓ | ✓ | — | — |
+| Feature | `owner` | `manager` | `sales` | Public |
+|---------|---------|-----------|---------|--------|
+| View public inventory | ✓ | ✓ | ✓ | ✓ |
+| View vehicle records | ✓ | ✓ | ✓ | — |
+| View vehicle financials (`purchase_price`, `sale_price`, profit/loss) | ✓ | ✓ | — | — |
+| Create/edit vehicles | ✓ | ✓ | ✓ (non-pricing fields) | — |
+| Delete vehicles | ✓ | ✓ | — | — |
+| CSV import | ✓ | ✓ | — | — |
+| Manage dealer users | ✓ | ✓ | — | — |
+| Assign commission | ✓ | ✓ | ✓ | — |
+| View admin applications | ✓ | ✓ | ✓ | — |

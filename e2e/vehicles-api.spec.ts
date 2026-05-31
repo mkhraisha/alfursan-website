@@ -153,8 +153,9 @@ test.describe("Authenticated vehicle CRUD", () => {
         make: "TestMake",
         model: "E2EModel",
         year: 2024,
+        body_type: "sedan",
         purchase_price: 15000,
-        advertised_price: 18000,
+        advertised_price_cargurus: 18000,
       },
     });
     expect(createRes.status()).toBe(201);
@@ -223,12 +224,12 @@ test.describe("Authenticated vehicle CRUD", () => {
     // Create once
     await request.post(BASE, {
       headers: authHeaders,
-      data: { vin: TEST_VIN, make: "TestMake", model: "E2EModel", year: 2024 },
+      data: { vin: TEST_VIN, make: "TestMake", model: "E2EModel", year: 2024, body_type: "sedan" },
     });
     // Create again — same VIN
     const dupRes = await request.post(BASE, {
       headers: authHeaders,
-      data: { vin: TEST_VIN, make: "TestMake", model: "E2EModel", year: 2024 },
+      data: { vin: TEST_VIN, make: "TestMake", model: "E2EModel", year: 2024, body_type: "sedan" },
     });
     expect(dupRes.status()).toBe(409);
   });
