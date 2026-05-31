@@ -27,8 +27,16 @@ export const POST: APIRoute = async ({ request }) => {
   // Same-origin only
   const origin = request.headers.get("origin");
   const host   = request.headers.get("host");
-  if (origin && host && !origin.includes(host)) {
-    return json({ error: "Forbidden" }, 403);
+  if (origin && host) {
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      // Invalid origin — fail closed
+    }
+    if (originHost !== host) {
+      return json({ error: "Forbidden" }, 403);
+    }
   }
 
   const cookieHeader = request.headers.get("cookie") ?? "";
