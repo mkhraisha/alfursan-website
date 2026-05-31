@@ -58,7 +58,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     .from("vehicles")
     .update({ commission_user_id })
     .eq("vin", vin)
-    .select("vin, purchase_price, advertised_price_cargurus, sale_price")
+    .select("vin, purchase_price, sale_price")
     .single();
 
   if (updateError) {

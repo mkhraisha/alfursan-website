@@ -142,7 +142,7 @@ export function calcProfitLoss(
   totalCost: number | null
 ): number | null {
   if (totalCost === null) return null;
-  if (salePrice === null || salePrice === undefined) return null;
+  if (salePrice === null) return null;
   return Number((salePrice - totalCost).toFixed(2));
 }
 
