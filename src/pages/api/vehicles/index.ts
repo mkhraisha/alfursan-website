@@ -28,16 +28,20 @@ export const GET: APIRoute = async ({ request }) => {
   const db = getAdminClient();
 
   const url = new URL(request.url);
-  const limit   = Math.min(parseInt(url.searchParams.get("limit")  ?? "10"), 100);
-  const offset  = parseInt(url.searchParams.get("offset") ?? "0");
+  const rawLimit  = parseInt(url.searchParams.get("limit")  ?? "10", 10);
+  const rawOffset = parseInt(url.searchParams.get("offset") ?? "0",  10);
+  const limit  = Math.min(Number.isNaN(rawLimit)  ? 10  : rawLimit,  100);
+  const offset = Number.isNaN(rawOffset) ? 0 : rawOffset;
   const sortRaw = url.searchParams.get("sort") ?? "created_at:desc";
-  const [sortCol, sortDir] = sortRaw.split(":");
+  const [rawSortCol, sortDir] = sortRaw.split(":");
+  const ALLOWED_SORT_COLS = new Set(["created_at", "make", "model", "year", "advertised_price_cargurus", "purchase_date", "status"]);
+  const sortCol = ALLOWED_SORT_COLS.has(rawSortCol) ? rawSortCol : "created_at";
   const ascending = sortDir !== "desc";
 
   // Build query
   let query = db
     .from("vehicles")
-    .select(isAuthenticated ? "*, commission_user:user_profiles!commission_user_id(commission_percentage)" : PUBLIC_COLUMNS)
+    .select(isAuthenticated ? "*, commission_user:user_profiles!commission_user_id(commission_percentage)" : PUBLIC_COLUMNS, { count: "exact" })
     .order(sortCol ?? "created_at", { ascending })
     .range(offset, offset + limit - 1);
 
@@ -58,7 +62,7 @@ export const GET: APIRoute = async ({ request }) => {
     if (maxPrice)  query = query.lte("advertised_price_cargurus", parseFloat(maxPrice));
     if (minYear)   query = query.gte("year", parseInt(minYear));
     if (maxYear)   query = query.lte("year", parseInt(maxYear));
-    if (status)    query = query.eq("status", status);
+    if (status)    query = query.in("status", status.split(","));
     if (bodyType)  query = query.eq("body_type", bodyType);
   }
 

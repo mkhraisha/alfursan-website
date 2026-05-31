@@ -137,7 +137,7 @@ test.describe("Authenticated vehicle CRUD", () => {
   test.skip(!SERVICE_TOKEN, "E2E_SERVICE_TOKEN not set — skipping authenticated tests");
 
   const authHeaders = { Authorization: `Bearer ${SERVICE_TOKEN}` };
-  const TEST_VIN = "E2ETEST00000000001"; // safe test VIN — cleaned up after
+  const TEST_VIN = "E2ETEST0000000001"; // safe test VIN (17 chars, no I/O/Q) — cleaned up after
 
   test.afterAll(async ({ request }) => {
     // Best-effort cleanup
@@ -190,7 +190,7 @@ test.describe("Authenticated vehicle CRUD", () => {
   test("CSV import — preview mode returns parsed rows without inserting", async ({ request }) => {
     const csv = [
       "VIN,Make,Model,Year,Purchase Price",
-      "CSVIMPORT0000TEST,Toyota,Camry,2023,22000",
+      "CSVTEST0000000002,Toyota,Camry,2023,22000",
     ].join("\n");
 
     const mapping = JSON.stringify({
@@ -215,7 +215,7 @@ test.describe("Authenticated vehicle CRUD", () => {
     expect(body.preview).toBeDefined();
     expect(body.valid_count).toBeGreaterThanOrEqual(1);
     // preview=true must NOT insert — verify vehicle doesn't exist
-    const checkRes = await request.get(`${BASE}/CSVIMPORT0000TEST`);
+    const checkRes = await request.get(`${BASE}/CSVTEST0000000002`);
     expect(checkRes.status()).toBe(404);
   });
 

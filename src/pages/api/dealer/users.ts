@@ -55,13 +55,17 @@ export const POST: APIRoute = async ({ request }) => {
   const { email, role, commission_percentage } = parsed.data;
   const db = getAdminClient();
 
-  // Check for duplicate email
-  const { data: existing } = await db
+  // Check for duplicate email — only treat "no rows" (PGRST116) as non-fatal
+  const { data: existing, error: existingError } = await db
     .from("user_profiles")
     .select("id")
     .eq("email", email)
     .single();
 
+  if (existingError && existingError.code !== "PGRST116") {
+    console.error("[POST /api/dealer/users] email check error", existingError);
+    return json({ error: "Database error" }, 500);
+  }
   if (existing) return json({ error: "A user with this email already exists" }, 409);
 
   // Invite via Supabase Auth (sends magic-link invite email)

@@ -62,7 +62,9 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
     console.error("[middleware] Missing Supabase env vars");
-    return redirect("/admin/");
+    const r = redirect("/admin/");
+    addSecurityHeaders(r);
+    return r;
   }
 
   const authHeader   = request.headers.get("authorization");

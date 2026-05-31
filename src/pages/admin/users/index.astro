@@ -2,6 +2,12 @@
 export const prerender = false;
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import UsersPage from "../../../components/admin/UsersPage";
+import { can } from "../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+if (!can(adminRole, "dealer:users:manage")) {
+  return Astro.redirect("/admin/?error=unauthorized");
+}
 ---
 
 <AdminLayout title="Users" activeNav="users">

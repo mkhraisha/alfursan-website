@@ -29,7 +29,7 @@ export async function getRequestUser(request: Request): Promise<RequestUser | nu
   if (authHeader?.startsWith("Bearer ")) {
     accessToken = authHeader.slice(7);
   } else if (cookieHeader) {
-    const match = cookieHeader.match(/sb-access-token=([^;]+)/);
+    const match = cookieHeader.match(/(?:^|;\s*)sb-access-token=([^;]+)/);
     if (match) accessToken = decodeURIComponent(match[1]);
   }
 
