@@ -99,8 +99,9 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     vin,
     commission_user_id,
     commission_percentage: commissionPct,
-    total_cost:            totalCost,
-    profit_loss:           profitLoss,
+    ...(can(user.role, "vehicles:financials:read")
+      ? { total_cost: totalCost, profit_loss: profitLoss }
+      : {}),
     commission,
   });
 };
