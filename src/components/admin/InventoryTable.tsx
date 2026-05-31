@@ -75,7 +75,7 @@ const PAGE_SIZE = 10;
 
 function computeRow(v: VehicleListItem) {
   const totalCost  = calcTotalCost(v.purchase_price, v.expense_total);
-  const profitLoss = calcProfitLoss(v.sale_price, v.advertised_price_cargurus, totalCost);
+  const profitLoss = calcProfitLoss(v.sale_price, totalCost);
   const commission = calcCommission(profitLoss, v.commission_percentage);
   return { ...v, totalCost, profitLoss, commission };
 }

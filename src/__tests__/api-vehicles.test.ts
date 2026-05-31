@@ -182,7 +182,7 @@ describe("GET /api/vehicles — authenticated", () => {
     const v = body.data[0];
     expect(v.expense_total).toBe(1_500);
     expect(v.total_cost).toBe(11_500);    // 10_000 + 1_500
-    expect(v.profit_loss).toBe(2_500);    // 14_000 - 11_500 (no sale_price → uses advertised)
+    expect(v.profit_loss).toBeNull();     // no sale_price → null (not sold)
     expect(v.commission).toBeNull();      // no commission user set
   });
 

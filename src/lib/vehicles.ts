@@ -139,18 +139,16 @@ export function calcTotalCost(
 
 /**
  * Compute profit/loss.
- * Uses sale_price if the car is sold, otherwise advertised_price as proxy.
- * Returns null if any required value is missing.
+ * Only returns a value when the car has been sold (sale_price is set).
+ * Returns null if sale_price or total_cost is missing.
  */
 export function calcProfitLoss(
   salePrice: number | null,
-  advertisedPrice: number | null,
   totalCost: number | null
 ): number | null {
   if (totalCost === null) return null;
-  const revenue = salePrice ?? advertisedPrice;
-  if (revenue === null || revenue === undefined) return null;
-  return Number((revenue - totalCost).toFixed(2));
+  if (salePrice === null) return null;
+  return Number((salePrice - totalCost).toFixed(2));
 }
 
 /**

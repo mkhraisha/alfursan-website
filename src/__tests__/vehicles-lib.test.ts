@@ -212,23 +212,19 @@ describe("calcTotalCost", () => {
 
 describe("calcProfitLoss", () => {
   it("uses sale_price when available (car sold)", () => {
-    expect(calcProfitLoss(13_000, 14_000, 11_000)).toBe(2_000);
+    expect(calcProfitLoss(13_000, 11_000)).toBe(2_000);
   });
 
-  it("falls back to advertised_price_cargurus when sale_price is null", () => {
-    expect(calcProfitLoss(null, 14_000, 11_000)).toBe(3_000);
+  it("returns null when sale_price is null (car not sold)", () => {
+    expect(calcProfitLoss(null, 11_000)).toBeNull();
   });
 
   it("returns negative when sold at a loss", () => {
-    expect(calcProfitLoss(9_000, null, 11_000)).toBe(-2_000);
+    expect(calcProfitLoss(9_000, 11_000)).toBe(-2_000);
   });
 
   it("returns null when total_cost is null", () => {
-    expect(calcProfitLoss(13_000, 14_000, null)).toBeNull();
-  });
-
-  it("returns null when both prices are null", () => {
-    expect(calcProfitLoss(null, null, 11_000)).toBeNull();
+    expect(calcProfitLoss(13_000, null)).toBeNull();
   });
 });
 

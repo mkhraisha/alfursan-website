@@ -165,7 +165,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
   const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalCost    = calcTotalCost(v.purchase_price, expenseTotal);
-  const profitLoss   = calcProfitLoss(v.sale_price, v.advertised_price_cargurus, totalCost);
+  const profitLoss   = calcProfitLoss(v.sale_price, totalCost);
   const commUser     = users.find((u) => u.id === v.commission_user_id) ?? null;
   const commission   = calcCommission(profitLoss, commUser?.commission_percentage ?? null);
 

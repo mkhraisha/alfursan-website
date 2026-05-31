@@ -15,11 +15,19 @@ export const POST: APIRoute = async ({ request }) => {
   // our own callback page.
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
-  if (origin && host && !origin.includes(host)) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+  if (origin && host) {
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      // Invalid origin — fail closed
+    }
+    if (originHost !== host) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   let body: { token?: unknown; expiresIn?: unknown; refreshToken?: unknown; expiresAt?: unknown };
