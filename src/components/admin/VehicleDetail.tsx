@@ -146,7 +146,6 @@ const TABS = [
   { id: "purchase",   label: "Purchase" },
   { id: "pricing",    label: "Pricing" },
   { id: "media",      label: "Media" },
-  { id: "status",     label: "Status" },
   { id: "documents",  label: "Documents" },
   { id: "expenses",   label: "Expenses" },
   { id: "commission", label: "Commission" },
@@ -207,7 +206,6 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
         {activeTab === "purchase"   && <PurchaseTab   v={v} onSave={save} />}
         {activeTab === "pricing"    && <PricingTab    v={v} totalCost={totalCost} profitLoss={profitLoss} onSave={save} />}
         {activeTab === "media"      && <MediaTab      v={v} supabaseUrl={supabaseUrl} onSave={save} show={show} />}
-        {activeTab === "status"     && <StatusTab     v={v} onSave={save} />}
         {activeTab === "documents"  && <DocumentsTab  v={v} docs={docs} supabaseUrl={supabaseUrl} setDocs={setDocs} onSave={save} show={show} />}
         {activeTab === "expenses"   && <ExpensesTab   vin={v.vin} expenses={expenses} totalCost={totalCost} setExpenses={setExpenses} show={show} />}
         {activeTab === "commission" && <CommissionTab v={v} users={users} profitLoss={profitLoss} commission={commission} setV={setV} show={show} />}
@@ -285,16 +283,20 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
 function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
   const [form, setForm] = useState({
-    make:        v.make ?? "",
-    model:       v.model ?? "",
-    trim:        v.trim ?? "",
-    series:      v.series ?? "",
-    body_type:   v.body_type ?? "",
-    engine_type: v.engine_type ?? "",
-    year:        String(v.year ?? ""),
-    colour:      v.colour ?? "",
-    odometer:    v.odometer != null ? v.odometer.toLocaleString("en-CA") : "",
-    num_keys:    v.num_keys != null ? String(v.num_keys) : "",
+    make:                  v.make ?? "",
+    model:                 v.model ?? "",
+    trim:                  v.trim ?? "",
+    series:                v.series ?? "",
+    body_type:             v.body_type ?? "",
+    engine_type:           v.engine_type ?? "",
+    year:                  String(v.year ?? ""),
+    colour:                v.colour ?? "",
+    odometer:              v.odometer != null ? v.odometer.toLocaleString("en-CA") : "",
+    num_keys:              v.num_keys != null ? String(v.num_keys) : "",
+    status:                v.status ?? "",
+    ownership_status:      v.ownership_status ?? "",
+    photography_status:    v.photography_status ?? "",
+    garage_register_number: v.garage_register_number ?? "",
   });
   const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
   const [disclosures,   setDisclosures]   = useState(v.disclosures ?? "");
@@ -314,12 +316,15 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     if (form.trim)        fields.trim        = form.trim;
     if (form.series)      fields.series      = form.series;
     if (form.body_type)   fields.body_type   = form.body_type;
-    if (form.engine_type) fields.engine_type = form.engine_type;
-    else                  fields.engine_type = null;
+    fields.engine_type           = form.engine_type || null;
     if (form.year)        fields.year        = parseInt(form.year);
     if (form.colour)      fields.colour      = form.colour;
     if (form.odometer)    fields.odometer    = parseInt(form.odometer.replace(/,/g, ""));
-    fields.num_keys = form.num_keys !== "" ? parseInt(form.num_keys) : null;
+    fields.num_keys              = form.num_keys !== "" ? parseInt(form.num_keys) : null;
+    fields.status                = form.status || null;
+    fields.ownership_status      = form.ownership_status || null;
+    fields.photography_status    = form.photography_status || null;
+    fields.garage_register_number = form.garage_register_number || null;
     await onSave(fields); setSaving(false);
   }
 
@@ -358,6 +363,44 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
           </div>
         </div>
       )}
+
+      {/* Status fields */}
+      <div style={{ borderTop: "1px solid #f0f2f5", paddingTop: 20, marginTop: 16 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: "#99a1b2", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 14px" }}>Status</h3>
+        <div className="f-grid">
+          <div className="f-field">
+            <label>Status</label>
+            <select value={form.status} onChange={(e) => set("status", e.target.value)}>
+              <option value="">— None —</option>
+              {VALID_STATUSES.map((s) => (
+                <option key={s} value={s}>{fmtStatus(s)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="f-field">
+            <label>Ownership Status</label>
+            <select value={form.ownership_status} onChange={(e) => set("ownership_status", e.target.value)}>
+              <option value="">— Select —</option>
+              <option value="available">Available</option>
+              <option value="en_route">En Route</option>
+              <option value="not_received">Not Received</option>
+            </select>
+          </div>
+          <div className="f-field">
+            <label>Photography Status</label>
+            <select value={form.photography_status} onChange={(e) => set("photography_status", e.target.value)}>
+              <option value="">— Select —</option>
+              <option value="pending">Pending</option>
+              <option value="done">Done</option>
+              <option value="na">N/A</option>
+            </select>
+          </div>
+          <div className="f-field">
+            <label>Garage Register #</label>
+            <input value={form.garage_register_number} onChange={(e) => set("garage_register_number", e.target.value)} />
+          </div>
+        </div>
+      </div>
 
       <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
 
@@ -500,6 +543,14 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
     if (!result.ok) show(result.error ?? "Save failed", false);
   }
 
+  async function setFeatured(path: string) {
+    if (images[0] === path) return;
+    const next = [path, ...images.filter((p) => p !== path)];
+    setImages(next);
+    const result = await patchVehicle(v.vin, { images_json: next });
+    if (result.ok) show("Featured image updated!", true); else show(result.error ?? "Save failed", false);
+  }
+
   async function uploadVideo(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
@@ -525,15 +576,25 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
     setSaving(false);
   }
 
+  // suppress unused-prop warning — onSave is part of the shared tab interface
+  void onSave;
+
   return (
     <div>
       {/* Images */}
       <div style={{ marginBottom: 28 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Images ({images.length})</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Images ({images.length})</h3>
+        <p style={{ fontSize: 12, color: "#99a1b2", marginBottom: 12 }}>The first image is the featured photo shown on the website. Click "Set as Featured" to reorder.</p>
         <div className="media-grid">
-          {images.map((path) => (
-            <div key={path} className="media-thumb">
+          {images.map((path, idx) => (
+            <div key={path} className={`media-thumb${idx === 0 ? " media-thumb--featured" : ""}`}>
               <img src={storageUrl(supabaseUrl, "vehicle-images", path)} alt="" />
+              {idx === 0 && <span className="media-featured-badge">★ Featured</span>}
+              {idx !== 0 && (
+                <button type="button" className="media-set-featured" onClick={() => setFeatured(path)} title="Set as featured">
+                  Set as Featured
+                </button>
+              )}
               <button type="button" className="media-remove" onClick={() => removeImage(path)}>×</button>
             </div>
           ))}
@@ -573,8 +634,12 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
       <style>{`
         .media-grid { display: flex; flex-wrap: wrap; gap: 10px; }
         .media-thumb { position: relative; width: 120px; height: 90px; border-radius: 6px; overflow: hidden; border: 1px solid #e4e7ec; }
+        .media-thumb--featured { border: 2px solid #f59e0b; }
         .media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .media-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; border: none; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .media-featured-badge { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(245,158,11,0.9); color: #fff; font-size: 10px; font-weight: 700; text-align: center; padding: 3px 0; }
+        .media-set-featured { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.65); color: #fff; font-size: 10px; font-weight: 600; text-align: center; padding: 4px 0; border: none; cursor: pointer; opacity: 0; transition: opacity 0.15s; }
+        .media-thumb:hover .media-set-featured { opacity: 1; }
         .media-add { display: flex; align-items: center; justify-content: center; width: 120px; height: 90px; border: 2px dashed #e4e7ec; border-radius: 6px; font-size: 13px; color: #99a1b2; cursor: pointer; text-align: center; }
         .media-add:hover { border-color: #b92111; color: #b92111; }
         .media-add--loading { opacity: 0.6; cursor: not-allowed; }
@@ -583,60 +648,6 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
   );
 }
 
-// ── Status Tab ────────────────────────────────────────────────────────────────
-
-function StatusTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [status,    setStatus]    = useState(v.status ?? "");
-  const [ownership, setOwnership] = useState(v.ownership_status ?? "");
-  const [photo,     setPhoto]     = useState(v.photography_status ?? "");
-  const [garage,    setGarage]    = useState(v.garage_register_number ?? "");
-  const [saving,    setSaving]    = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true);
-    await onSave({ status: status || null, ownership_status: ownership || null, photography_status: photo || null, garage_register_number: garage || null });
-    setSaving(false);
-  }
-
-  return (
-    <form onSubmit={submit}>
-      <div className="f-grid">
-        <div className="f-field">
-          <label>Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">— None —</option>
-            {VALID_STATUSES.map((s) => (
-              <option key={s} value={s}>{fmtStatus(s)}</option>
-            ))}
-          </select>
-        </div>
-        <div className="f-field">
-          <label>Ownership Status</label>
-          <select value={ownership} onChange={(e) => setOwnership(e.target.value)}>
-            <option value="">— Select —</option>
-            <option value="available">Available</option>
-            <option value="en_route">En Route</option>
-            <option value="not_received">Not Received</option>
-          </select>
-        </div>
-        <div className="f-field">
-          <label>Photography Status</label>
-          <select value={photo} onChange={(e) => setPhoto(e.target.value)}>
-            <option value="">— Select —</option>
-            <option value="pending">Pending</option>
-            <option value="done">Done</option>
-            <option value="na">N/A</option>
-          </select>
-        </div>
-        <div className="f-field">
-          <label>Garage Register #</label>
-          <input value={garage} onChange={(e) => setGarage(e.target.value)} />
-        </div>
-      </div>
-      <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
-    </form>
-  );
-}
 
 // ── Documents Tab ─────────────────────────────────────────────────────────────
 

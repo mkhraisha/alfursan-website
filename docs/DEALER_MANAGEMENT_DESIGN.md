@@ -23,7 +23,6 @@
 - Garage Register (track vehicle intake/outflow via `purchase_date` and `sale_date`)
 - Role-based access (admin: user management; sales: inventory, applications, commissions)
 - Audit logging (track all changes for compliance)
-- Customer IDs document upload (2 copies) // double check compliance documents
 - expenses add gas category
 - time on lot tracking
 
@@ -49,6 +48,7 @@
 - Real-time sync with external inventory systems (if needed)
 - Automated commission payout reports
 - AI vehicle description generation (generate ad copy based on specs and photos)
+- Customer IDs document upload (2 copies) // double check compliance documents
 
 ## Phase 3: Operational Improvements
 
