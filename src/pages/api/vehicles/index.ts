@@ -96,7 +96,7 @@ export const GET: APIRoute = async ({ request }) => {
   const enriched = vehicles.map((v) => {
     const expenseTotal = expenseByVin[v.vin] ?? 0;
     const totalCost    = calcTotalCost(v.purchase_price, expenseTotal);
-    const profitLoss   = calcProfitLoss(v.sale_price, v.advertised_price_cargurus, totalCost);
+    const profitLoss   = calcProfitLoss(v.sale_price, totalCost);
     const commissionPct = (v.commission_user as { commission_percentage?: number } | null)?.commission_percentage ?? null;
     const commission   = calcCommission(profitLoss, commissionPct);
 

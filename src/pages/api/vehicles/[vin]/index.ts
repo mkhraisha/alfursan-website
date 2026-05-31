@@ -28,7 +28,7 @@ async function enrichVehicle(db: ReturnType<typeof getAdminClient>, vehicle: Rec
 
   const expenseTotal = (expenses ?? []).reduce((sum, e) => sum + Number(e.amount), 0);
   const totalCost    = calcTotalCost(vehicle.purchase_price as number | null, expenseTotal);
-  const profitLoss   = calcProfitLoss(vehicle.sale_price as number | null, vehicle.advertised_price as number | null, totalCost);
+  const profitLoss   = calcProfitLoss(vehicle.sale_price as number | null, totalCost);
   const commissionPct = (vehicle.commission_user as { commission_percentage?: number } | null)?.commission_percentage ?? null;
   const commission   = calcCommission(profitLoss, commissionPct);
 

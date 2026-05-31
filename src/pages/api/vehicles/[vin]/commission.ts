@@ -58,7 +58,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     .from("vehicles")
     .update({ commission_user_id })
     .eq("vin", vin)
-    .select("vin, purchase_price, advertised_price, sale_price")
+    .select("vin, purchase_price, advertised_price_cargurus, sale_price")
     .single();
 
   if (updateError) {
@@ -86,7 +86,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
 
   const expenseTotal  = (expenses ?? []).reduce((s, e) => s + Number(e.amount), 0);
   const totalCost     = calcTotalCost(vehicle.purchase_price as number | null, expenseTotal);
-  const profitLoss    = calcProfitLoss(vehicle.sale_price as number | null, vehicle.advertised_price as number | null, totalCost);
+  const profitLoss    = calcProfitLoss(vehicle.sale_price as number | null, totalCost);
   const commission    = calcCommission(profitLoss, commissionPct);
 
   await writeAudit({
