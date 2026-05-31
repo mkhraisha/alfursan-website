@@ -207,7 +207,7 @@ export const POST: APIRoute = async ({ request }) => {
   let created = 0;
   const insertErrors: RowError[] = [...errors];
 
-  // Insert in batches — skip duplicates, collect errors per row
+  // Insert row-by-row — skip duplicates, collect errors per row
   for (const { rowIndex, data } of valid) {
     const { error } = await db.from("vehicles").insert(data);
     if (error) {
