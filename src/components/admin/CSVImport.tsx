@@ -27,6 +27,8 @@ const VEHICLE_FIELDS: { value: string; label: string }[] = [
   { value: "purchased_from_address", label: "Purchased From — Address" },
   { value: "purchaser_name",     label: "Purchaser Name" },
   { value: "purchaser_address",  label: "Purchaser Address" },
+  { value: "engine_type",        label: "Engine Type" },
+  { value: "num_keys",           label: "Number of Keys" },
   { value: "disclosures",        label: "Disclosures" },
   { value: "internal_notes",     label: "Internal Notes" },
   { value: "carfax_link",        label: "Carfax Link" },

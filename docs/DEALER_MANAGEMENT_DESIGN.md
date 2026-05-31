@@ -23,6 +23,9 @@
 - Garage Register (track vehicle intake/outflow via `purchase_date` and `sale_date`)
 - Role-based access (admin: user management; sales: inventory, applications, commissions)
 - Audit logging (track all changes for compliance)
+- Customer IDs document upload (2 copies) // double check compliance documents
+- expenses add gas category
+- time on lot tracking
 
 **Database & Infrastructure:**
 
@@ -45,6 +48,20 @@
 - Advanced lead/customer management module
 - Real-time sync with external inventory systems (if needed)
 - Automated commission payout reports
+- AI vehicle description generation (generate ad copy based on specs and photos)
+
+## Phase 3: Operational Improvements
+
+- Comparable market pricing integration (pull market data to suggest competitive prices)
+- Car Gurus good pricing badge integration (show if price is good compared to market) on the main portal
+- Calendar and appointment management, reach out to customers
+- Engine Type
+- Sedan/Van/Coupe/Convertible
+- Stock Number (vehicle ID)
+- Addition to flat cost calculation of a flat manager fee (configurable)
+- Add general dealer expenses rather than per car
+- Target commission based on volume 5/7/10 cars, one time bonus for hitting target cars.
+- AFC integration bulk expenses split off per car, adding a new field to the vehicle expenses for AFC fees.
 
 ---
 

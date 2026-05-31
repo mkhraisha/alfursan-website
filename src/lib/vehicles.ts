@@ -3,6 +3,9 @@ import { z } from "zod";
 // VIN: 17 alphanumeric characters excluding I, O, Q (ISO 3779)
 const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 
+export const BODY_TYPES = ["sedan", "van", "coupe", "convertible"] as const;
+export type BodyType = (typeof BODY_TYPES)[number];
+
 export const vinSchema = z
   .string()
   .length(17, "VIN must be exactly 17 characters")
@@ -38,7 +41,9 @@ const vehicleBaseSchema = z.object({
   year:             z.number().int().min(1900).max(2100),
   trim:             z.string().optional(),
   series:           z.string().optional(),
-  body_type:        z.string().optional(),
+  body_type:        z.enum(BODY_TYPES),
+  engine_type:      z.string().optional(),
+  num_keys:         z.number().int().min(0).optional(),
   colour:           z.string().optional(),
   odometer:         z.number().int().min(0).optional(),
   purchase_date:    isoDate.optional(),
@@ -146,6 +151,19 @@ export function calcProfitLoss(
   const revenue = salePrice ?? advertisedPrice;
   if (revenue === null || revenue === undefined) return null;
   return Number((revenue - totalCost).toFixed(2));
+}
+
+/**
+ * Compute the number of days a vehicle has been on the lot.
+ * Returns null if purchase_date is unknown.
+ */
+export function calcDaysOnLot(purchaseDate: string | null): number | null {
+  if (!purchaseDate) return null;
+  const purchase = new Date(purchaseDate);
+  const today    = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffMs = today.getTime() - purchase.getTime();
+  return Math.max(0, Math.floor(diffMs / 86_400_000));
 }
 
 /**

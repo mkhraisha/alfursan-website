@@ -530,11 +530,16 @@ export default function InventoryFilters({ cars }: Props) {
             }
           >
             <option value="">Body Type</option>
-            {extraFilterOptions.vehicleType.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
+            {["Sedan", "Van", "Coupe", "Convertible"].map((bt) => {
+              const count = extraFilterOptions.vehicleType.find(
+                (o) => o.value.toLowerCase() === bt.toLowerCase(),
+              )?.count ?? 0;
+              return (
+                <option key={bt} value={bt}>
+                  {bt}{count > 0 ? ` (${count})` : ""}
+                </option>
+              );
+            })}
           </select>
 
           <select

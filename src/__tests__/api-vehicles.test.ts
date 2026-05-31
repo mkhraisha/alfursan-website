@@ -15,7 +15,7 @@ import { POST as importPOST } from "../pages/api/vehicles/import";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const ADMIN_USER: RequestUser = { email: "admin@example.com", role: "admin", userId: "user-1" };
+const ADMIN_USER: RequestUser = { email: "admin@example.com", role: "manager", userId: "user-1" };
 const SALES_USER: RequestUser = { email: "sales@example.com", role: "sales", userId: "user-2" };
 
 const VEHICLE = {
@@ -201,10 +201,11 @@ describe("GET /api/vehicles — authenticated", () => {
 
 describe("POST /api/vehicles", () => {
   const VALID_BODY = {
-    vin:  "1HGCM82633A004352",
-    make: "Honda",
-    model: "Civic",
-    year: 2020,
+    vin:       "1HGCM82633A004352",
+    make:      "Honda",
+    model:     "Civic",
+    year:      2020,
+    body_type: "sedan",
   };
 
   it("returns 401 when unauthenticated", async () => {
@@ -256,13 +257,13 @@ describe("POST /api/vehicles", () => {
     expect(res.status).toBe(422);
   });
 
-  it("returns 403 when sales role tries to… wait, sales CAN create vehicles", async () => {
+  it("returns 403 when sales role tries to create a vehicle", async () => {
     (getRequestUser as Mock).mockResolvedValue(SALES_USER);
     const { client } = makeInsertMock(VEHICLE);
     (getAdminClient as Mock).mockReturnValue(client);
 
     const res = await vehiclesPOST({ request: req("/api/vehicles", "POST", VALID_BODY) } as never);
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(403);
   });
 });
 
@@ -382,11 +383,11 @@ describe("DELETE /api/vehicles/:vin", () => {
 
 describe("POST /api/vehicles/import", () => {
   const VALID_CSV = [
-    "VIN,Make,Model,Year",
-    "1HGCM82633A004352,Honda,Civic,2020",
+    "VIN,Make,Model,Year,Body Type",
+    "1HGCM82633A004352,Honda,Civic,2020,sedan",
   ].join("\n");
 
-  const MAPPING = JSON.stringify({ VIN: "vin", Make: "make", Model: "model", Year: "year" });
+  const MAPPING = JSON.stringify({ VIN: "vin", Make: "make", Model: "model", Year: "year", "Body Type": "body_type" });
 
   function makeImportFormData(csv: string, mapping = MAPPING, preview = false) {
     const fd = new FormData();

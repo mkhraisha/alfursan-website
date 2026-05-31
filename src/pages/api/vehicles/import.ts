@@ -118,6 +118,11 @@ function applyMapping(
       out[vehicleField] = normalizeOwnershipStatus(raw);
     } else if (vehicleField === "status" || vehicleField === "photography_status") {
       out[vehicleField] = normalizeEnum(raw);
+    } else if (vehicleField === "body_type") {
+      out[vehicleField] = raw.trim().toLowerCase();
+    } else if (vehicleField === "num_keys") {
+      const n = parseInt(raw.replace(/[^0-9]/g, ""), 10);
+      if (!isNaN(n)) out[vehicleField] = n;
     } else {
       out[vehicleField] = raw;
     }

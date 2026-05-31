@@ -6,8 +6,8 @@ import { userCreateSchema, userUpdateSchema } from "../lib/users";
 describe("userCreateSchema", () => {
   const BASE = { email: "user@example.com", role: "sales" as const };
 
-  it("accepts valid admin user", () => {
-    expect(userCreateSchema.safeParse({ email: "admin@test.com", role: "admin" }).success).toBe(true);
+  it("accepts valid manager user", () => {
+    expect(userCreateSchema.safeParse({ email: "manager@test.com", role: "manager" }).success).toBe(true);
   });
 
   it("accepts valid sales user with commission", () => {
@@ -23,7 +23,7 @@ describe("userCreateSchema", () => {
   });
 
   it("rejects invalid role", () => {
-    expect(userCreateSchema.safeParse({ ...BASE, role: "owner" }).success).toBe(false);
+    expect(userCreateSchema.safeParse({ ...BASE, role: "superadmin" }).success).toBe(false);
   });
 
   it("rejects commission_percentage > 100", () => {
@@ -43,7 +43,7 @@ describe("userCreateSchema", () => {
 
 describe("userUpdateSchema", () => {
   it("accepts role update only", () => {
-    expect(userUpdateSchema.safeParse({ role: "admin" }).success).toBe(true);
+    expect(userUpdateSchema.safeParse({ role: "manager" }).success).toBe(true);
   });
 
   it("accepts commission_percentage update only", () => {

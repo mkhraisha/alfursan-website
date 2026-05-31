@@ -10,6 +10,7 @@ import {
   calcTotalCost,
   calcProfitLoss,
   calcCommission,
+  calcDaysOnLot,
 } from "../../../lib/vehicles";
 import { writeAudit } from "../../../lib/audit";
 
@@ -49,6 +50,7 @@ export const GET: APIRoute = async ({ request }) => {
     const minYear   = url.searchParams.get("min_year");
     const maxYear   = url.searchParams.get("max_year");
     const status    = url.searchParams.get("status"); // comma-separated
+    const bodyType  = url.searchParams.get("body_type");
 
     if (ownership) query = query.eq("ownership_status", ownership);
     if (photo)     query = query.eq("photography_status", photo);
@@ -57,6 +59,7 @@ export const GET: APIRoute = async ({ request }) => {
     if (minYear)   query = query.gte("year", parseInt(minYear));
     if (maxYear)   query = query.lte("year", parseInt(maxYear));
     if (status)    query = query.eq("status", status);
+    if (bodyType)  query = query.eq("body_type", bodyType);
   }
 
   const { data: vehicles, error, count } = await query;
@@ -93,6 +96,8 @@ export const GET: APIRoute = async ({ request }) => {
     expenseByVin[exp.vin] = (expenseByVin[exp.vin] ?? 0) + Number(exp.amount);
   }
 
+  const canSeeFinancials = can(user.role, "vehicles:financials:read");
+
   const enriched = vehicles.map((v) => {
     const expenseTotal = expenseByVin[v.vin] ?? 0;
     const totalCost    = calcTotalCost(v.purchase_price, expenseTotal);
@@ -104,8 +109,8 @@ export const GET: APIRoute = async ({ request }) => {
       ...v,
       commission_user: undefined, // flatten — don't expose nested object
       expense_total:   expenseTotal,
-      total_cost:      totalCost,
-      profit_loss:     profitLoss,
+      days_on_lot:     calcDaysOnLot(v.purchase_date as string | null),
+      ...(canSeeFinancials ? { total_cost: totalCost, profit_loss: profitLoss } : {}),
       commission,
     };
   });
@@ -117,7 +122,7 @@ export const GET: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
   const user = await getRequestUser(request);
   if (!user) return json({ error: "Unauthorized" }, 401);
-  if (!can(user.role, "vehicles:write")) return json({ error: "Forbidden" }, 403);
+  if (!can(user.role, "vehicles:create")) return json({ error: "Forbidden" }, 403);
 
   let body: unknown;
   try {

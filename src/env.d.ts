@@ -11,10 +11,9 @@ declare namespace App {
     adminEmail?: string;
     /**
      * RBAC role from user_profiles table.
-     * Legacy financing roles: 'owner' | 'manager' | 'staff'
-     * DMS roles: 'admin' | 'sales'
+     * Roles: 'owner' | 'manager' | 'sales'
      */
-    adminRole?: "owner" | "manager" | "staff" | "admin" | "sales";
+    adminRole?: "owner" | "manager" | "sales";
     /** user_profiles.id for the authenticated dealer user (set on /dealer/** routes). */
     dealerUserId?: string;
   }

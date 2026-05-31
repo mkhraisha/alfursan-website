@@ -14,7 +14,7 @@ import { PATCH as userPATCH } from "../pages/api/dealer/users/[userId]";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const ADMIN_USER: RequestUser = { email: "admin@example.com", role: "admin", userId: "admin-1" };
+const ADMIN_USER: RequestUser = { email: "admin@example.com", role: "manager", userId: "admin-1" };
 const SALES_USER: RequestUser = { email: "sales@example.com", role: "sales", userId: "sales-1" };
 
 const PROFILE = {
@@ -181,7 +181,7 @@ describe("PATCH /api/dealer/users/[userId]", () => {
   it("returns 401 when unauthenticated", async () => {
     const res = await userPATCH({
       params: { userId: USER_ID },
-      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "admin" }),
+      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "manager" }),
     } as never);
     expect(res.status).toBe(401);
   });
@@ -190,7 +190,7 @@ describe("PATCH /api/dealer/users/[userId]", () => {
     (getRequestUser as Mock).mockResolvedValue(SALES_USER);
     const res = await userPATCH({
       params: { userId: USER_ID },
-      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "admin" }),
+      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "manager" }),
     } as never);
     expect(res.status).toBe(403);
   });
@@ -214,7 +214,7 @@ describe("PATCH /api/dealer/users/[userId]", () => {
 
     const res = await userPATCH({
       params: { userId: USER_ID },
-      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "admin" }),
+      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "manager" }),
     } as never);
     expect(res.status).toBe(404);
   });
@@ -266,7 +266,7 @@ describe("PATCH /api/dealer/users/[userId]", () => {
 
   it("updating role only returns 200", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
-    const updatedProfile = { ...PROFILE, role: "admin" };
+    const updatedProfile = { ...PROFILE, role: "manager" };
     const singleFn = vi.fn().mockResolvedValue({ data: updatedProfile, error: null });
     const selectFn = vi.fn().mockReturnValue({ single: singleFn });
     const eqFn     = vi.fn().mockReturnValue({ select: selectFn });
@@ -275,10 +275,10 @@ describe("PATCH /api/dealer/users/[userId]", () => {
 
     const res = await userPATCH({
       params: { userId: USER_ID },
-      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "admin" }),
+      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "manager" }),
     } as never);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.role).toBe("admin");
+    expect(body.role).toBe("manager");
   });
 });

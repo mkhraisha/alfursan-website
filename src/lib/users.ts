@@ -1,7 +1,13 @@
 import { z } from "zod";
 
-export const DMS_ROLES = ["admin", "sales"] as const;
+export const DMS_ROLES = ["owner", "manager", "sales"] as const;
 export type DmsRole = (typeof DMS_ROLES)[number];
+
+export const ROLE_LABELS: Record<DmsRole, string> = {
+  owner:   "Owner",
+  manager: "Manager",
+  sales:   "Sales Representative",
+};
 
 export const userCreateSchema = z.object({
   email: z.string().email("Must be a valid email"),

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BODY_TYPES } from "../../lib/vehicles";
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
 
@@ -7,6 +8,7 @@ type FormData = {
   make: string;
   model: string;
   year: string;
+  body_type: string;
   purchase_date: string;
   purchase_price: string;
   wholesale_price: string;
@@ -29,6 +31,7 @@ function fmtStatus(s: string) {
 export default function AddVehicleForm() {
   const [form, setForm] = useState<FormData>({
     vin: "", make: "", model: "", year: String(new Date().getFullYear()),
+    body_type: "",
     purchase_date: "", purchase_price: "", wholesale_price: "", advertised_price_cargurus: "", advertised_price_facebook: "",
     status: "",
   });
@@ -53,20 +56,22 @@ export default function AddVehicleForm() {
 async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!form.vin || !VIN_RE.test(form.vin))     errs.vin            = "Valid 17-char VIN required";
-    if (!form.make.trim())                         errs.make           = "Make is required";
-    if (!form.model.trim())                        errs.model          = "Model is required";
+    if (!form.vin || !VIN_RE.test(form.vin))     errs.vin       = "Valid 17-char VIN required";
+    if (!form.make.trim())                         errs.make      = "Make is required";
+    if (!form.model.trim())                        errs.model     = "Model is required";
     const year = parseInt(form.year);
-    if (!year || year < 1900 || year > 2100)       errs.year           = "Valid year required";
+    if (!year || year < 1900 || year > 2100)       errs.year      = "Valid year required";
+    if (!form.body_type)                           errs.body_type = "Body type is required";
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     setSaving(true);
     const body: Record<string, unknown> = {
-      vin:   form.vin,
-      make:  form.make.trim(),
-      model: form.model.trim(),
+      vin:       form.vin,
+      make:      form.make.trim(),
+      model:     form.model.trim(),
       year,
-      status: form.status || null,
+      body_type: form.body_type,
+      status:    form.status || null,
     };
     if (form.purchase_date)  body.purchase_date  = form.purchase_date;
     if (form.purchase_price)  body.purchase_price  = parseFloat(form.purchase_price.replace(/,/g, ""));
@@ -146,6 +151,18 @@ async function handleSubmit(e: React.FormEvent) {
               <label>Year *</label>
               <input type="number" value={form.year} onChange={(e) => set("year", e.target.value)} min="1900" max="2100" />
               {errors.year && <p className="field-err">{errors.year}</p>}
+            </div>
+          </div>
+          <div className="av-row">
+            <div className="av-field av-field--sm">
+              <label>Body Type *</label>
+              <select value={form.body_type} onChange={(e) => set("body_type", e.target.value)}>
+                <option value="">— Select —</option>
+                {BODY_TYPES.map((bt) => (
+                  <option key={bt} value={bt}>{bt.charAt(0).toUpperCase() + bt.slice(1)}</option>
+                ))}
+              </select>
+              {errors.body_type && <p className="field-err">{errors.body_type}</p>}
             </div>
           </div>
         </div>

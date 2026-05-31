@@ -18,7 +18,7 @@ import { POST as uploadUrlPOST } from "../pages/api/vehicles/upload-url";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const ADMIN_USER: RequestUser = { email: "admin@example.com", role: "admin", userId: "user-1" };
+const ADMIN_USER: RequestUser = { email: "admin@example.com", role: "manager", userId: "user-1" };
 const SALES_USER: RequestUser = { email: "sales@example.com", role: "sales", userId: "user-2" };
 const TEST_VIN = "1HGCM82633A004352";
 

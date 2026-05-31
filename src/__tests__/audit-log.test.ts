@@ -22,7 +22,7 @@ import { PATCH as userPATCH } from "../pages/api/dealer/users/[userId]";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const ADMIN: RequestUser = { email: "admin@test.com", role: "admin", userId: "user-uuid-1" };
+const ADMIN: RequestUser = { email: "admin@test.com", role: "manager", userId: "user-uuid-1" };
 const VIN        = "1HGCM82633A004352";
 const EXPENSE_ID = "exp-uuid-1";
 const DOC_ID     = "doc-uuid-1";
@@ -96,7 +96,7 @@ describe("audit: vehicle_created", () => {
     (getAdminClient as Mock).mockReturnValue({ from: vi.fn().mockReturnValue({ insert }) });
 
     const res = await vehiclesPOST({
-      request: req("/api/vehicles", "POST", { vin: VIN, make: "Honda", model: "Civic", year: 2020 }),
+      request: req("/api/vehicles", "POST", { vin: VIN, make: "Honda", model: "Civic", year: 2020, body_type: "sedan" }),
     } as never);
 
     expect(res.status).toBe(201);
@@ -379,7 +379,7 @@ describe("audit: user_created", () => {
 
 describe("audit: user_updated", () => {
   it("calls writeAudit with user_updated for non-disable PATCH /api/dealer/users/:id", async () => {
-    const UPDATED_USER = { id: USER_ID, email: "u@test.com", role: "admin", commission_percentage: 12, is_active: true, disabled_at: null };
+    const UPDATED_USER = { id: USER_ID, email: "u@test.com", role: "manager", commission_percentage: 12, is_active: true, disabled_at: null };
     const existsChain = selectEqChain({ id: USER_ID });
     const updateObj   = updateChain(UPDATED_USER);
 

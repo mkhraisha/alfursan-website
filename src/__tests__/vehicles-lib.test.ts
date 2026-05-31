@@ -43,10 +43,11 @@ describe("vinSchema", () => {
 // ── vehicleCreateSchema ───────────────────────────────────────────────────────
 
 const BASE_VEHICLE = {
-  vin:  "1HGCM82633A004352",
-  make: "Honda",
-  model: "Civic",
-  year: 2020,
+  vin:       "1HGCM82633A004352",
+  make:      "Honda",
+  model:     "Civic",
+  year:      2020,
+  body_type: "sedan" as const,
 };
 
 describe("vehicleCreateSchema — required fields", () => {

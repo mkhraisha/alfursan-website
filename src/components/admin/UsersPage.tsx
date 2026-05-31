@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 type UserProfile = {
   id: string;
   email: string;
-  role: "admin" | "sales" | "owner" | "manager" | "staff";
+  role: "owner" | "manager" | "sales";
   commission_percentage: number | null;
   is_active: boolean;
   created_at: string;
@@ -13,13 +13,17 @@ type Toast = { id: number; msg: string; ok: boolean };
 
 const ROLE_COLOR: Record<string, string> = {
   owner:   "#7c3aed",
-  admin:   "#1a7f4b",
-  manager: "#3b82f6",
+  manager: "#1a7f4b",
   sales:   "#f59e0b",
-  staff:   "#64748b",
 };
 
-const DMS_ROLES = ["admin", "sales"] as const;
+const ROLE_LABELS: Record<string, string> = {
+  owner:   "Owner",
+  manager: "Manager",
+  sales:   "Sales Representative",
+};
+
+const DMS_ROLES = ["owner", "manager", "sales"] as const;
 
 let toastId = 0;
 
@@ -30,13 +34,13 @@ export default function UsersPage() {
 
   // Add user form state
   const [email, setEmail]     = useState("");
-  const [role, setRole]       = useState<"admin" | "sales">("sales");
+  const [role, setRole]       = useState<"owner" | "manager" | "sales">("sales");
   const [commission, setCommission] = useState("");
   const [adding, setAdding]   = useState(false);
 
   // Inline edit state
   const [editingId, setEditingId]         = useState<string | null>(null);
-  const [editRole, setEditRole]           = useState<"admin" | "sales">("sales");
+  const [editRole, setEditRole]           = useState<"owner" | "manager" | "sales">("sales");
   const [editCommission, setEditCommission] = useState("");
   const [saving, setSaving]               = useState(false);
 
@@ -85,7 +89,7 @@ export default function UsersPage() {
 
   function startEdit(u: UserProfile) {
     setEditingId(u.id);
-    setEditRole(u.role === "admin" || u.role === "sales" ? u.role : "sales");
+    setEditRole(u.role);
     setEditCommission(u.commission_percentage != null ? String(u.commission_percentage) : "");
   }
 
@@ -327,10 +331,10 @@ export default function UsersPage() {
               <select
                 className="up-select"
                 value={role}
-                onChange={(e) => setRole(e.target.value as "admin" | "sales")}
+                onChange={(e) => setRole(e.target.value as "owner" | "manager" | "sales")}
               >
                 {DMS_ROLES.map((r) => (
-                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                 ))}
               </select>
             </div>
@@ -387,10 +391,10 @@ export default function UsersPage() {
                           <select
                             className="up-inline-select"
                             value={editRole}
-                            onChange={(e) => setEditRole(e.target.value as "admin" | "sales")}
+                            onChange={(e) => setEditRole(e.target.value as "owner" | "manager" | "sales")}
                           >
                             {DMS_ROLES.map((r) => (
-                              <option key={r} value={r}>{r}</option>
+                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                             ))}
                           </select>
                         ) : (
@@ -398,7 +402,7 @@ export default function UsersPage() {
                             className="up-badge"
                             style={{ background: `${color}22`, color }}
                           >
-                            {u.role}
+                            {ROLE_LABELS[u.role] ?? u.role}
                           </span>
                         )}
                       </td>

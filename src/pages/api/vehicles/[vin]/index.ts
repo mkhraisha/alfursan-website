@@ -3,15 +3,24 @@ export const prerender = false;
 import type { APIRoute } from "astro";
 import { getAdminClient } from "../../../../lib/supabase-admin";
 import { getRequestUser } from "../../../../lib/request-user";
-import { can } from "../../../../lib/permissions";
+import { can, type Role } from "../../../../lib/permissions";
 import {
   vehicleUpdateSchema,
   PUBLIC_COLUMNS,
   calcTotalCost,
   calcProfitLoss,
   calcCommission,
+  calcDaysOnLot,
 } from "../../../../lib/vehicles";
 import { writeAudit } from "../../../../lib/audit";
+
+const PRICING_FIELDS = new Set([
+  "purchase_price", "wholesale_price",
+  "advertised_price_cargurus", "advertised_price_facebook",
+  "sale_price",
+]);
+
+const MEDIA_FIELDS = new Set(["images_json", "videos_json"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -20,7 +29,11 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function enrichVehicle(db: ReturnType<typeof getAdminClient>, vehicle: Record<string, unknown>) {
+async function enrichVehicle(
+  db: ReturnType<typeof getAdminClient>,
+  vehicle: Record<string, unknown>,
+  role?: Role,
+) {
   const { data: expenses } = await db
     .from("vehicle_expenses")
     .select("amount")
@@ -32,12 +45,14 @@ async function enrichVehicle(db: ReturnType<typeof getAdminClient>, vehicle: Rec
   const commissionPct = (vehicle.commission_user as { commission_percentage?: number } | null)?.commission_percentage ?? null;
   const commission   = calcCommission(profitLoss, commissionPct);
 
+  const canSeeFinancials = !role || can(role, "vehicles:financials:read");
+
   return {
     ...vehicle,
     commission_user: undefined,
     expense_total: expenseTotal,
-    total_cost:    totalCost,
-    profit_loss:   profitLoss,
+    days_on_lot:   calcDaysOnLot(vehicle.purchase_date as string | null),
+    ...(canSeeFinancials ? { total_cost: totalCost, profit_loss: profitLoss } : {}),
     commission,
   };
 }
@@ -62,7 +77,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   if (!user) return json(data);
 
-  return json(await enrichVehicle(db, data as Record<string, unknown>));
+  return json(await enrichVehicle(db, data as Record<string, unknown>, user.role));
 };
 
 // ── PATCH /api/vehicles/:vin ───────────────────────────────────────────────────
@@ -81,6 +96,14 @@ export const PATCH: APIRoute = async ({ params, request }) => {
   const parsed = vehicleUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: "Validation failed", errors: parsed.error.flatten().fieldErrors }, 422);
+  }
+
+  const keys = Object.keys(parsed.data);
+  if (keys.some((k) => PRICING_FIELDS.has(k)) && !can(user.role, "vehicles:pricing:write")) {
+    return json({ error: "Forbidden: cannot modify pricing fields" }, 403);
+  }
+  if (keys.some((k) => MEDIA_FIELDS.has(k)) && !can(user.role, "vehicles:media:write")) {
+    return json({ error: "Forbidden: cannot modify media fields" }, 403);
   }
 
   const db  = getAdminClient();
@@ -106,7 +129,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     entityRef:  vin,
   });
 
-  return json(await enrichVehicle(db, data as Record<string, unknown>));
+  return json(await enrichVehicle(db, data as Record<string, unknown>, user.role));
 };
 
 // ── DELETE /api/vehicles/:vin ─────────────────────────────────────────────────

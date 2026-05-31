@@ -2,49 +2,49 @@
  * RBAC permission map.
  *
  * Roles:
- *   Legacy financing workflow: 'owner' | 'manager' | 'staff'
- *   DMS (Dealer Management System): 'admin' | 'sales'
- *
- * 'owner' and 'admin' bypass all permission checks (full access).
- * All other roles are checked against the PERMISSIONS map below.
+ *   'owner'   — dealership owner; bypasses all permission checks (full access)
+ *   'manager' — dealership manager; broad access including vehicle creation and financials
+ *   'sales'   — sales representative; cannot create vehicles, modify pricing/media, or view profit/loss
  */
 
-export type Role = "owner" | "manager" | "staff" | "admin" | "sales";
+export type Role = "owner" | "manager" | "sales";
 
 const PERMISSIONS: Record<string, Role[]> = {
-  // ── Financing workflow (existing) ──────────────────────────────────────────
-  "financing:read":   ["owner", "manager", "staff", "admin", "sales"],
-  "financing:write":  ["owner", "manager", "admin"],
-  "financing:delete": ["owner", "admin"],
-  "financing:export": ["owner", "manager", "admin"],
-  "users:manage":     ["owner", "admin"],
+  // ── Vehicles ───────────────────────────────────────────────────────────────
+  "vehicles:read":             ["manager", "sales"],
+  "vehicles:create":           ["manager"],          // add new vehicles (and CSV import)
+  "vehicles:write":            ["manager", "sales"], // update non-restricted fields
+  "vehicles:pricing:write":    ["manager"],          // modify pricing fields
+  "vehicles:media:write":      ["manager"],          // modify images / videos
+  "vehicles:financials:read":  ["manager"],          // view profit/loss & total cost
+  "vehicles:delete":           ["manager"],
+  "vehicles:import":           ["manager"],          // CSV bulk import
 
-  // ── DMS: Vehicles ──────────────────────────────────────────────────────────
-  "vehicles:read":   ["owner", "manager", "staff", "admin", "sales"],
-  "vehicles:write":  ["owner", "manager", "staff", "admin", "sales"],
-  "vehicles:delete": ["owner", "admin"],
+  // ── Commission ────────────────────────────────────────────────────────────
+  "commission:assign": ["manager", "sales"],
 
-  // ── DMS: Commission ────────────────────────────────────────────────────────
-  "commission:assign": ["owner", "manager", "staff", "admin", "sales"],
+  // ── User management ───────────────────────────────────────────────────────
+  "dealer:users:manage": ["manager"],
 
-  // ── DMS: User management ───────────────────────────────────────────────────
-  "dealer:users:manage": ["owner", "admin"],
+  // ── Garage Register ───────────────────────────────────────────────────────
+  "garage:read":  ["manager", "sales"],
+  "garage:write": ["manager"],
 
-  // ── DMS: Garage Register ───────────────────────────────────────────────────
-  "garage:read":  ["owner", "manager", "staff", "admin", "sales"],
-  "garage:write": ["owner", "manager", "admin"],
-
-  // ── DMS: CSV Import ────────────────────────────────────────────────────────
-  "vehicles:import": ["owner", "manager", "staff", "admin", "sales"],
+  // ── Financing workflow ─────────────────────────────────────────────────────
+  "financing:read":   ["manager", "sales"],
+  "financing:write":  ["manager"],
+  "financing:delete": [],  // owner only (via bypass)
+  "financing:export": ["manager"],
+  "users:manage":     [],  // owner only (via bypass)
 };
 
 /**
  * Returns true if the given role is allowed to perform the action.
- * 'owner' and 'admin' are implicitly allowed everything.
+ * 'owner' is implicitly allowed everything.
  */
 export function can(role: Role | undefined, permission: string): boolean {
   if (!role) return false;
-  if (role === "owner" || role === "admin") return true;
+  if (role === "owner") return true;
   const allowed = PERMISSIONS[permission];
   if (!allowed) return false;
   return allowed.includes(role);

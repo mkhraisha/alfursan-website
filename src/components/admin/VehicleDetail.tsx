@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES } from "../../lib/vehicles";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -10,6 +10,8 @@ export type VehicleFull = {
   trim: string | null;
   series: string | null;
   body_type: string | null;
+  engine_type: string | null;
+  num_keys: number | null;
   year: number | null;
   colour: string | null;
   odometer: number | null;
@@ -39,6 +41,7 @@ export type VehicleFull = {
   carfax_link: string | null;
   internal_notes: string | null;
   disclosures: string | null;
+  days_on_lot?: number | null;
 };
 
 export type VehicleExpense = {
@@ -147,7 +150,6 @@ const TABS = [
   { id: "documents",  label: "Documents" },
   { id: "expenses",   label: "Expenses" },
   { id: "commission", label: "Commission" },
-  { id: "notes",      label: "Notes" },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -209,7 +211,6 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
         {activeTab === "documents"  && <DocumentsTab  v={v} docs={docs} supabaseUrl={supabaseUrl} setDocs={setDocs} onSave={save} show={show} />}
         {activeTab === "expenses"   && <ExpensesTab   vin={v.vin} expenses={expenses} totalCost={totalCost} setExpenses={setExpenses} show={show} />}
         {activeTab === "commission" && <CommissionTab v={v} users={users} profitLoss={profitLoss} commission={commission} setV={setV} show={show} />}
-        {activeTab === "notes"      && <NotesTab      v={v} onSave={save} />}
       </div>
 
       <style>{`
@@ -283,20 +284,42 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 // ── Basics Tab ────────────────────────────────────────────────────────────────
 
 function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ make: v.make ?? "", model: v.model ?? "", trim: v.trim ?? "", series: v.series ?? "", body_type: v.body_type ?? "", year: String(v.year ?? ""), colour: v.colour ?? "", odometer: v.odometer != null ? v.odometer.toLocaleString("en-CA") : "" });
+  const [form, setForm] = useState({
+    make:        v.make ?? "",
+    model:       v.model ?? "",
+    trim:        v.trim ?? "",
+    series:      v.series ?? "",
+    body_type:   v.body_type ?? "",
+    engine_type: v.engine_type ?? "",
+    year:        String(v.year ?? ""),
+    colour:      v.colour ?? "",
+    odometer:    v.odometer != null ? v.odometer.toLocaleString("en-CA") : "",
+    num_keys:    v.num_keys != null ? String(v.num_keys) : "",
+  });
+  const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
+  const [disclosures,   setDisclosures]   = useState(v.disclosures ?? "");
   const [saving, setSaving] = useState(false);
 
+  const daysOnLot = calcDaysOnLot(v.purchase_date);
+
   function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
+
+  async function autoSave(field: "internal_notes" | "disclosures", value: string) {
+    await onSave({ [field]: value || null });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setSaving(true);
     const fields: Record<string, unknown> = { make: form.make, model: form.model };
-    if (form.trim)     fields.trim      = form.trim;
-    if (form.series)   fields.series    = form.series;
-    if (form.body_type) fields.body_type = form.body_type;
-    if (form.year)     fields.year      = parseInt(form.year);
-    if (form.colour)   fields.colour    = form.colour;
-    if (form.odometer) fields.odometer  = parseInt(form.odometer.replace(/,/g, ""));
+    if (form.trim)        fields.trim        = form.trim;
+    if (form.series)      fields.series      = form.series;
+    if (form.body_type)   fields.body_type   = form.body_type;
+    if (form.engine_type) fields.engine_type = form.engine_type;
+    else                  fields.engine_type = null;
+    if (form.year)        fields.year        = parseInt(form.year);
+    if (form.colour)      fields.colour      = form.colour;
+    if (form.odometer)    fields.odometer    = parseInt(form.odometer.replace(/,/g, ""));
+    fields.num_keys = form.num_keys !== "" ? parseInt(form.num_keys) : null;
     await onSave(fields); setSaving(false);
   }
 
@@ -312,11 +335,57 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
         <div className="f-field"><label>Year</label><input type="number" value={form.year} onChange={(e) => set("year", e.target.value)} min="1900" max="2100" /></div>
         <div className="f-field"><label>Trim</label><input value={form.trim} onChange={(e) => set("trim", e.target.value)} /></div>
         <div className="f-field"><label>Series</label><input value={form.series} onChange={(e) => set("series", e.target.value)} /></div>
-        <div className="f-field"><label>Body Type</label><input value={form.body_type} onChange={(e) => set("body_type", e.target.value)} /></div>
+        <div className="f-field">
+          <label>Body Type *</label>
+          <select value={form.body_type} onChange={(e) => set("body_type", e.target.value)} required>
+            <option value="">— Select —</option>
+            {BODY_TYPES.map((bt) => (
+              <option key={bt} value={bt}>{bt.charAt(0).toUpperCase() + bt.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field"><label>Engine Type</label><input value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L 4-Cylinder" /></div>
         <div className="f-field"><label>Colour</label><input value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
         <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
+        <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
       </div>
+
+      {daysOnLot !== null && (
+        <div className="computed-row" style={{ marginTop: 16 }}>
+          <div className="computed-item">
+            <span className="label">Days on Lot</span>
+            <span className="value">{daysOnLot} {daysOnLot === 1 ? "day" : "days"}</span>
+          </div>
+        </div>
+      )}
+
       <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+
+      {/* Notes — auto-save on blur */}
+      <div style={{ borderTop: "1px solid #f0f2f5", paddingTop: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 16 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: "#99a1b2", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>Notes</h3>
+        <div className="f-field">
+          <label>Internal Notes</label>
+          <textarea
+            value={internalNotes}
+            onChange={(e) => setInternalNotes(e.target.value)}
+            onBlur={(e) => autoSave("internal_notes", e.target.value)}
+            rows={4}
+            placeholder="Internal notes visible to staff only…"
+          />
+        </div>
+        <div className="f-field">
+          <label>Disclosures</label>
+          <textarea
+            value={disclosures}
+            onChange={(e) => setDisclosures(e.target.value)}
+            onBlur={(e) => autoSave("disclosures", e.target.value)}
+            rows={4}
+            placeholder="Disclosures shown on bill of sale…"
+          />
+        </div>
+        <p style={{ fontSize: 12, color: "#99a1b2", margin: 0 }}>Notes auto-save when you click away from the text area.</p>
+      </div>
     </form>
   );
 }
@@ -844,39 +913,3 @@ function CommissionTab({ v, users, profitLoss, commission, setV, show }: { v: Ve
   );
 }
 
-// ── Notes Tab ─────────────────────────────────────────────────────────────────
-
-function NotesTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
-  const [disclosures,   setDisclosures]   = useState(v.disclosures ?? "");
-
-  async function autoSave(field: "internal_notes" | "disclosures", value: string) {
-    await onSave({ [field]: value || null });
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="f-field">
-        <label>Internal Notes</label>
-        <textarea
-          value={internalNotes}
-          onChange={(e) => setInternalNotes(e.target.value)}
-          onBlur={(e) => autoSave("internal_notes", e.target.value)}
-          rows={6}
-          placeholder="Internal notes visible to staff only…"
-        />
-      </div>
-      <div className="f-field">
-        <label>Disclosures</label>
-        <textarea
-          value={disclosures}
-          onChange={(e) => setDisclosures(e.target.value)}
-          onBlur={(e) => autoSave("disclosures", e.target.value)}
-          rows={6}
-          placeholder="Disclosures shown on bill of sale…"
-        />
-      </div>
-      <p style={{ fontSize: 12, color: "#99a1b2" }}>Auto-saves when you click away from the text area.</p>
-    </div>
-  );
-}
