@@ -53,7 +53,7 @@ export const GET: APIRoute = async ({ request }) => {
     const maxPrice  = url.searchParams.get("max_price");
     const minYear   = url.searchParams.get("min_year");
     const maxYear   = url.searchParams.get("max_year");
-    const status    = url.searchParams.get("status"); // comma-separated
+    const status    = url.searchParams.get("status"); // single value
     const bodyType  = url.searchParams.get("body_type");
 
     if (ownership) query = query.eq("ownership_status", ownership);
@@ -62,7 +62,7 @@ export const GET: APIRoute = async ({ request }) => {
     if (maxPrice)  query = query.lte("advertised_price_cargurus", parseFloat(maxPrice));
     if (minYear)   query = query.gte("year", parseInt(minYear));
     if (maxYear)   query = query.lte("year", parseInt(maxYear));
-    if (status)    query = query.in("status", status.split(","));
+    if (status)    query = query.eq("status", status);
     if (bodyType)  query = query.eq("body_type", bodyType);
   }
 
