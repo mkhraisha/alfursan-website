@@ -89,6 +89,10 @@ export const POST: APIRoute = async ({ request }) => {
     .single();
 
   if (insertError || !profile) {
+    // Roll back the Auth account so the email slot is not permanently occupied
+    await db.auth.admin.deleteUser(authData.user.id).catch((e) =>
+      console.error("[POST /api/dealer/users] Auth rollback failed", e)
+    );
     console.error("[POST /api/dealer/users] insert error", insertError);
     return json({ error: "Failed to create user profile" }, 500);
   }

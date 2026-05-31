@@ -6,6 +6,8 @@ import {
   calcTotalCost,
   calcProfitLoss,
   calcCommission,
+  calcDaysOnLot,
+  BODY_TYPES,
 } from "../lib/vehicles";
 
 // ── VIN validation ────────────────────────────────────────────────────────────
@@ -254,5 +256,61 @@ describe("calcCommission", () => {
 
   it("rounds to 2 decimal places", () => {
     expect(calcCommission(333, 0.1)).toBe(33.3);
+  });
+});
+
+// ── calcDaysOnLot ─────────────────────────────────────────────────────────────
+
+function daysAgoStr(n: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+describe("calcDaysOnLot", () => {
+  it("returns null when purchaseDate is null", () => {
+    expect(calcDaysOnLot(null)).toBeNull();
+  });
+
+  it("returns 0 when purchased today", () => {
+    expect(calcDaysOnLot(daysAgoStr(0))).toBe(0);
+  });
+
+  it("returns correct day count for a past purchase date", () => {
+    expect(calcDaysOnLot(daysAgoStr(30))).toBe(30);
+    expect(calcDaysOnLot(daysAgoStr(365))).toBe(365);
+  });
+
+  it("returns 0 (not negative) for a future date", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(calcDaysOnLot(tomorrow.toISOString().slice(0, 10))).toBe(0);
+  });
+});
+
+// ── BODY_TYPES enum validation ────────────────────────────────────────────────
+// BASE_VEHICLE is declared above (includes body_type: "sedan")
+
+describe("vehicleCreateSchema — body_type", () => {
+  it.each(BODY_TYPES)("accepts valid body_type '%s'", (bt) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, body_type: bt }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised body_type", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, body_type: "suv" }).success).toBe(false);
+  });
+
+  it("rejects body_type with wrong capitalisation", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, body_type: "Sedan" }).success).toBe(false);
+  });
+
+  it("rejects missing body_type (required on create)", () => {
+    const { body_type: _, ...noBodyType } = { ...BASE_VEHICLE, body_type: "sedan" };
+    expect(vehicleCreateSchema.safeParse(noBodyType).success).toBe(false);
+  });
+
+  it("body_type is optional on update (partial schema)", () => {
+    expect(vehicleUpdateSchema.safeParse({ colour: "Blue" }).success).toBe(true);
   });
 });

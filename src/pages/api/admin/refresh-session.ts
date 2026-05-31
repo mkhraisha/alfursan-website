@@ -80,7 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (expires_at) {
     headers.append(
       "Set-Cookie",
-      `sb-token-exp=${expires_at}${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
+      `sb-token-exp=${expires_at}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
     );
   }
 

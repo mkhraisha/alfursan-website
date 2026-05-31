@@ -156,6 +156,15 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "mapping must be valid JSON" }, 400);
   }
 
+  // body_type is required by vehicleCreateSchema — fail early if it is not mapped
+  // rather than silently failing every single row with a cryptic validation error.
+  const mappedFields = new Set(Object.values(mapping));
+  if (!mappedFields.has("body_type")) {
+    return json({
+      error: "body_type is required but not mapped. Map a CSV column to 'Body Type' (accepted values: sedan, van, coupe, convertible).",
+    }, 422);
+  }
+
   const csvText = await file.text();
   const rows    = parseCSV(csvText);
 

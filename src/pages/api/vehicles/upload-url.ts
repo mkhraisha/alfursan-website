@@ -17,6 +17,7 @@ export const prerender = false;
 import type { APIRoute } from "astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
 import { getRequestUser } from "../../../lib/request-user";
+import { can } from "../../../lib/permissions";
 import { vinSchema } from "../../../lib/vehicles";
 
 function json(body: unknown, status = 200) {
@@ -43,6 +44,14 @@ const EXT_MAP: Record<string, string> = {
 export const POST: APIRoute = async ({ request }) => {
   const user = await getRequestUser(request);
   if (!user) return json({ error: "Unauthorized" }, 401);
+
+  // Image uploads require media:write permission (same boundary as the PATCH media guard).
+  // Document uploads stay auth-only to match the /documents POST endpoint.
+  let bodyPeek: { context?: string } = {};
+  try { bodyPeek = await request.clone().json(); } catch { /* validated below */ }
+  if (bodyPeek.context === "vehicle-image" && !can(user.role, "vehicles:media:write")) {
+    return json({ error: "Forbidden: cannot upload vehicle images" }, 403);
+  }
 
   let body: {
     context?:     string;

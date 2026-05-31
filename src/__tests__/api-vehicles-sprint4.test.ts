@@ -375,3 +375,49 @@ describe("POST /api/vehicles/upload-url", () => {
     expect(body.storagePath).toContain(`vehicles/${TEST_VIN}/docs/`);
   });
 });
+
+// ── Security: upload-url requires vehicles:media:write for images ─────────────
+
+describe("POST /api/vehicles/upload-url — media:write permission gate", () => {
+  it("returns 403 when sales role requests a vehicle-image upload URL", async () => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+    const res = await uploadUrlPOST({
+      request: req("/api/vehicles/upload-url", "POST", {
+        context: "vehicle-image", vin: TEST_VIN, contentType: "image/jpeg", fileSize: 1000,
+      }),
+    } as never);
+    expect(res.status).toBe(403);
+  });
+
+  it("allows manager role to request a vehicle-image upload URL", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const signedUrlFn = vi.fn().mockResolvedValue({
+      data: { signedUrl: "https://storage.example.com/signed" }, error: null,
+    });
+    (getAdminClient as Mock).mockReturnValue({
+      storage: { from: () => ({ createSignedUploadUrl: signedUrlFn }) },
+    });
+    const res = await uploadUrlPOST({
+      request: req("/api/vehicles/upload-url", "POST", {
+        context: "vehicle-image", vin: TEST_VIN, contentType: "image/jpeg", fileSize: 1000,
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+  });
+
+  it("allows sales role to request a vehicle-document upload URL (no media:write needed)", async () => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+    const signedUrlFn = vi.fn().mockResolvedValue({
+      data: { signedUrl: "https://storage.example.com/signed" }, error: null,
+    });
+    (getAdminClient as Mock).mockReturnValue({
+      storage: { from: () => ({ createSignedUploadUrl: signedUrlFn }) },
+    });
+    const res = await uploadUrlPOST({
+      request: req("/api/vehicles/upload-url", "POST", {
+        context: "vehicle-document", vin: TEST_VIN, contentType: "application/pdf", fileSize: 1000,
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+  });
+});

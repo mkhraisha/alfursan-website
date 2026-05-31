@@ -15,9 +15,14 @@ import {
 import { writeAudit } from "../../../../lib/audit";
 
 const PRICING_FIELDS = new Set([
+  // Monetary values
   "purchase_price", "wholesale_price",
   "advertised_price_cargurus", "advertised_price_facebook",
   "sale_price",
+  // Deal-closing / purchase dates — coupled to the prices above
+  "sale_date", "purchase_date",
+  // Operational status — determines whether a vehicle is available, sold, etc.
+  "status",
 ]);
 
 const MEDIA_FIELDS = new Set(["images_json", "videos_json"]);

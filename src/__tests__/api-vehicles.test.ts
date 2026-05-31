@@ -44,8 +44,18 @@ const VEHICLE = {
 
 /** Build a Supabase mock chain that resolves GET /api/vehicles (list + expenses) */
 function makeListMock(vehicles = [VEHICLE], expenses: {vin: string; amount: number}[] = []) {
-  const rangeFn   = vi.fn().mockResolvedValue({ data: vehicles, error: null, count: vehicles.length });
-  const orderFn   = vi.fn().mockReturnValue({ range: rangeFn });
+  const result = { data: vehicles, error: null, count: vehicles.length };
+  // The query builder returns a chainable, thenable object from `.range()` so
+  // filter methods (.eq, .gte, .lte) can be appended after pagination without throwing.
+  const queryResult: Record<string, unknown> = {};
+  for (const m of ["eq", "gte", "lte", "neq", "in"]) {
+    queryResult[m] = vi.fn(() => queryResult);
+  }
+  queryResult.then = (resolve: (v: typeof result) => void, reject?: (e: unknown) => void) =>
+    Promise.resolve(result).then(resolve, reject);
+
+  const rangeFn      = vi.fn().mockReturnValue(queryResult);
+  const orderFn      = vi.fn().mockReturnValue({ range: rangeFn });
   const selectListFn = vi.fn().mockReturnValue({ order: orderFn });
 
   const inFn      = vi.fn().mockResolvedValue({ data: expenses, error: null });
@@ -195,6 +205,40 @@ describe("GET /api/vehicles — authenticated", () => {
     const body = await res.json();
     expect(body.data).toEqual([]);
   });
+
+  it("hides total_cost and profit_loss from sales role (vehicles:financials:read denied)", async () => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+    const { client } = makeListMock([VEHICLE], [{ vin: VEHICLE.vin, amount: 1_500 }]);
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vehiclesGET({ request: req("/api/vehicles") } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const v = body.data[0];
+    expect(v.expense_total).toBe(1_500);   // always visible
+    expect(v).not.toHaveProperty("total_cost");
+    expect(v).not.toHaveProperty("profit_loss");
+  });
+
+  it("includes total_cost and profit_loss for manager role", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const { client } = makeListMock([VEHICLE], []);
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vehiclesGET({ request: req("/api/vehicles") } as never);
+    const body = await res.json();
+    expect(body.data[0]).toHaveProperty("total_cost");
+    expect(body.data[0]).toHaveProperty("profit_loss");
+  });
+
+  it("accepts body_type filter param without error", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const { client } = makeListMock([VEHICLE]);
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vehiclesGET({ request: req("/api/vehicles?body_type=sedan") } as never);
+    expect(res.status).toBe(200);
+  });
 });
 
 // ── POST /api/vehicles ────────────────────────────────────────────────────────
@@ -297,6 +341,19 @@ describe("GET /api/vehicles/:vin", () => {
     expect(body.expense_total).toBe(500);
     expect(body.total_cost).toBe(10_500);
   });
+
+  it("hides total_cost and profit_loss from sales role (vehicles:financials:read denied)", async () => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+    const { client } = makeSingleMock(VEHICLE, [{ amount: 500 }]);
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.expense_total).toBe(500);   // always visible
+    expect(body).not.toHaveProperty("total_cost");
+    expect(body).not.toHaveProperty("profit_loss");
+  });
 });
 
 // ── PATCH /api/vehicles/:vin ──────────────────────────────────────────────────
@@ -376,6 +433,38 @@ describe("DELETE /api/vehicles/:vin", () => {
       request: req(`/api/vehicles/${VEHICLE.vin}`, "DELETE"),
     } as never);
     expect(res.status).toBe(204);
+  });
+});
+
+// ── Security: sales role blocked from sale_date / status / purchase_date ──────
+
+describe("PATCH /api/vehicles/:vin — sales role cannot modify deal-closing fields", () => {
+  const vin = VEHICLE.vin;
+
+  it.each([
+    ["sale_date",     "2026-05-31"],
+    ["status",        "sold"],
+    ["purchase_date", "2026-01-01"],
+  ])("returns 403 when sales role tries to update %s", async (field, value) => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+
+    const res = await vinPATCH({
+      params:  { vin },
+      request: req(`/api/vehicles/${vin}`, "PATCH", { [field]: value }),
+    } as never);
+    expect(res.status).toBe(403);
+  });
+
+  it("allows manager to update sale_date and status", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const { client } = makeUpdateMock({ ...VEHICLE, status: "sold", sale_date: "2026-05-31" });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinPATCH({
+      params:  { vin },
+      request: req(`/api/vehicles/${vin}`, "PATCH", { status: "sold", sale_date: "2026-05-31" }),
+    } as never);
+    expect(res.status).toBe(200);
   });
 });
 
@@ -488,5 +577,20 @@ describe("POST /api/vehicles/import", () => {
     });
     const res = await importPOST({ request } as never);
     expect(res.status).toBe(400);
+  });
+
+  it("returns 422 with a clear error when body_type column is not mapped", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const mappingWithoutBodyType = JSON.stringify({
+      VIN: "vin", Make: "make", Model: "model", Year: "year",
+    });
+    const request = new Request("https://alfursanauto.ca/api/vehicles/import", {
+      method: "POST",
+      body: makeImportFormData(VALID_CSV, mappingWithoutBodyType),
+    });
+    const res = await importPOST({ request } as never);
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toMatch(/body_type/i);
   });
 });

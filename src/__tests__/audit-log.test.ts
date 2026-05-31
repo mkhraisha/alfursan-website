@@ -407,11 +407,17 @@ describe("audit: user_updated", () => {
 describe("audit: user_disabled", () => {
   it("calls writeAudit with user_disabled when PATCH sets is_active: false", async () => {
     const DISABLED_USER = { id: USER_ID, email: "u@test.com", role: "sales", commission_percentage: null, is_active: false, disabled_at: new Date().toISOString() };
-    const existsChain = selectEqChain({ id: USER_ID });
-    const updateObj   = updateChain(DISABLED_USER);
+
+    // Count chain for last-active-manager guard (returns count=1 → not the last one)
+    const countNeqFn = vi.fn().mockResolvedValue({ count: 1, error: null });
+    const countEqFn  = vi.fn().mockReturnValue({ neq: countNeqFn });
+    const countInFn  = vi.fn().mockReturnValue({ eq: countEqFn });
+    const countSelFn = vi.fn().mockReturnValue({ in: countInFn });
+
+    const updateObj = updateChain(DISABLED_USER);
 
     (getAdminClient as Mock).mockReturnValue({
-      from: vi.fn().mockReturnValue({ ...existsChain, ...updateObj }),
+      from: vi.fn().mockReturnValue({ select: countSelFn, ...updateObj }),
     });
 
     const res = await userPATCH({

@@ -17,6 +17,12 @@ const BASE = "/api/vehicles";
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:4321";
 const SERVICE_TOKEN = process.env.E2E_SERVICE_TOKEN;
 
+// Role-specific tokens for RBAC tests.
+// To run: set up Supabase users with the relevant roles, then:
+//   E2E_MANAGER_TOKEN=<jwt>  E2E_SALES_TOKEN=<jwt>  npx playwright test
+const MANAGER_TOKEN = process.env.E2E_MANAGER_TOKEN;
+const SALES_TOKEN   = process.env.E2E_SALES_TOKEN;
+
 test.describe("GET /api/vehicles (public)", () => {
   test("returns 200 with an array", async ({ request }) => {
     const res = await request.get(BASE);
@@ -50,8 +56,12 @@ test.describe("GET /api/vehicles (public)", () => {
   });
 
   test("accepts pagination params without erroring", async ({ request }) => {
-    const res = await request.get(`${BASE}?page=1&limit=5`);
+    // The API uses offset+limit, not page+limit
+    const res = await request.get(`${BASE}?offset=0&limit=5`);
     expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty("data");
+    expect(body).toHaveProperty("total");
   });
 });
 
@@ -189,17 +199,19 @@ test.describe("Authenticated vehicle CRUD", () => {
   });
 
   test("CSV import — preview mode returns parsed rows without inserting", async ({ request }) => {
+    // body_type is required — must be included in the CSV and mapped
     const csv = [
-      "VIN,Make,Model,Year,Purchase Price",
-      "CSVTEST0000000002,Toyota,Camry,2023,22000",
+      "VIN,Make,Model,Year,Purchase Price,Body Type",
+      "CSVTEST0000000002,Toyota,Camry,2023,22000,sedan",
     ].join("\n");
 
     const mapping = JSON.stringify({
-      "VIN": "vin",
-      "Make": "make",
-      "Model": "model",
-      "Year": "year",
+      "VIN":            "vin",
+      "Make":           "make",
+      "Model":          "model",
+      "Year":           "year",
       "Purchase Price": "purchase_price",
+      "Body Type":      "body_type",
     });
 
     const res = await request.post(`${BASE}/import`, {
@@ -232,5 +244,113 @@ test.describe("Authenticated vehicle CRUD", () => {
       data: { vin: TEST_VIN, make: "TestMake", model: "E2EModel", year: 2024, body_type: "sedan" },
     });
     expect(dupRes.status()).toBe(409);
+  });
+});
+
+// ── RBAC e2e tests ────────────────────────────────────────────────────────────
+//
+// These require real Supabase JWTs for users with specific roles.
+// Skip automatically when the env vars are absent.
+//
+// Setup:
+//   1. Create a "manager" user in Supabase Auth + user_profiles (role=manager).
+//   2. Create a "sales" user in Supabase Auth + user_profiles (role=sales).
+//   3. Sign in as each and export their access tokens as:
+//      E2E_MANAGER_TOKEN=<jwt>  E2E_SALES_TOKEN=<jwt>
+
+test.describe("RBAC — sales role restrictions", () => {
+  test.skip(!SALES_TOKEN || !MANAGER_TOKEN,
+    "E2E_SALES_TOKEN and E2E_MANAGER_TOKEN not set — skipping RBAC e2e tests");
+
+  const managerAuth = () => ({ Authorization: `Bearer ${MANAGER_TOKEN}` });
+  const salesAuth   = () => ({ Authorization: `Bearer ${SALES_TOKEN}` });
+  const RBAC_VIN    = "RBACE2ETEST000001";
+
+  test.beforeAll(async () => {
+    // Create a vehicle as manager so sales tests have something to work with
+    const ctx = await newRequest.newContext({ baseURL: BASE_URL });
+    await ctx.post(BASE, {
+      headers: managerAuth(),
+      data: { vin: RBAC_VIN, make: "RbacMake", model: "RbacModel", year: 2024, body_type: "sedan",
+              purchase_price: 10000, advertised_price_cargurus: 14000 },
+    });
+    await ctx.dispose();
+  });
+
+  test.afterAll(async () => {
+    const ctx = await newRequest.newContext({ baseURL: BASE_URL });
+    await ctx.delete(`${BASE}/${RBAC_VIN}`, { headers: managerAuth() });
+    await ctx.dispose();
+  });
+
+  test("sales role cannot create a vehicle (403)", async ({ request }) => {
+    const res = await request.post(BASE, {
+      headers: salesAuth(),
+      data: { vin: "RBACBLOCKED000002", make: "X", model: "Y", year: 2024, body_type: "sedan" },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test("sales role can read vehicles but profit_loss and total_cost are absent", async ({ request }) => {
+    const res = await request.get(BASE, { headers: salesAuth() });
+    expect(res.status()).toBe(200);
+    const { data } = await res.json();
+    if (data.length > 0) {
+      expect(data[0]).not.toHaveProperty("profit_loss");
+      expect(data[0]).not.toHaveProperty("total_cost");
+      expect(data[0]).toHaveProperty("expense_total"); // still visible
+    }
+  });
+
+  test("sales role cannot set sale_date on a vehicle (403)", async ({ request }) => {
+    const res = await request.patch(`${BASE}/${RBAC_VIN}`, {
+      headers: salesAuth(),
+      data: { sale_date: "2026-01-01" },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test("sales role cannot change status to sold (403)", async ({ request }) => {
+    const res = await request.patch(`${BASE}/${RBAC_VIN}`, {
+      headers: salesAuth(),
+      data: { status: "sold" },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test("sales role can update non-restricted fields (colour, odometer)", async ({ request }) => {
+    const res = await request.patch(`${BASE}/${RBAC_VIN}`, {
+      headers: salesAuth(),
+      data: { colour: "Red", odometer: 42000 },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test("sales role cannot get a signed upload URL for vehicle images (403)", async ({ request }) => {
+    const res = await request.post(`${BASE}/upload-url`, {
+      headers: salesAuth(),
+      data: { context: "vehicle-image", vin: RBAC_VIN, contentType: "image/jpeg", fileSize: 1000 },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  test("manager can create and delete a vehicle", async ({ request }) => {
+    const TEMP_VIN = "RBACMGR0000000003";
+    const createRes = await request.post(BASE, {
+      headers: managerAuth(),
+      data: { vin: TEMP_VIN, make: "MgrMake", model: "MgrModel", year: 2024, body_type: "van" },
+    });
+    expect(createRes.status()).toBe(201);
+
+    const deleteRes = await request.delete(`${BASE}/${TEMP_VIN}`, { headers: managerAuth() });
+    expect(deleteRes.status()).toBe(204);
+  });
+
+  test("manager GET response includes profit_loss and total_cost", async ({ request }) => {
+    const res = await request.get(`${BASE}/${RBAC_VIN}`, { headers: managerAuth() });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty("total_cost");
+    expect(body).toHaveProperty("profit_loss");
   });
 });

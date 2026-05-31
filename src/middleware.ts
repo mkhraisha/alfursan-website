@@ -174,7 +174,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     if (refreshedSession.expires_at) {
       res.headers.append(
         "Set-Cookie",
-        `sb-token-exp=${refreshedSession.expires_at}${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
+        `sb-token-exp=${refreshedSession.expires_at}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
       );
     }
   }

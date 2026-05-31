@@ -212,9 +212,10 @@ describe("PATCH /api/dealer/users/[userId]", () => {
     const updateFn = vi.fn().mockReturnValue({ eq: eqFn });
     (getAdminClient as Mock).mockReturnValue({ from: () => ({ update: updateFn }) });
 
+    // Use "sales" — a manager (rank 1) can assign roles below their own rank
     const res = await userPATCH({
       params: { userId: USER_ID },
-      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "manager" }),
+      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "sales" }),
     } as never);
     expect(res.status).toBe(404);
   });
@@ -222,11 +223,22 @@ describe("PATCH /api/dealer/users/[userId]", () => {
   it("disabling user sets disabled_at and returns 200", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
     const disabledProfile = { ...PROFILE, is_active: false, disabled_at: "2026-05-17T00:00:00Z" };
-    const singleFn = vi.fn().mockResolvedValue({ data: disabledProfile, error: null });
-    const selectFn = vi.fn().mockReturnValue({ single: singleFn });
-    const eqFn     = vi.fn().mockReturnValue({ select: selectFn });
-    const updateFn = vi.fn().mockReturnValue({ eq: eqFn });
-    (getAdminClient as Mock).mockReturnValue({ from: () => ({ update: updateFn }) });
+
+    // Count chain for last-active-manager guard (returns count=1 → not the last one)
+    const countNeqFn  = vi.fn().mockResolvedValue({ count: 1, error: null });
+    const countEqFn   = vi.fn().mockReturnValue({ neq: countNeqFn });
+    const countInFn   = vi.fn().mockReturnValue({ eq: countEqFn });
+    const countSelFn  = vi.fn().mockReturnValue({ in: countInFn });
+
+    // Update chain
+    const singleFn    = vi.fn().mockResolvedValue({ data: disabledProfile, error: null });
+    const updateSelFn = vi.fn().mockReturnValue({ single: singleFn });
+    const eqFn        = vi.fn().mockReturnValue({ select: updateSelFn });
+    const updateFn    = vi.fn().mockReturnValue({ eq: eqFn });
+
+    (getAdminClient as Mock).mockReturnValue({
+      from: () => ({ select: countSelFn, update: updateFn }),
+    });
 
     const res = await userPATCH({
       params: { userId: USER_ID },
@@ -266,7 +278,8 @@ describe("PATCH /api/dealer/users/[userId]", () => {
 
   it("updating role only returns 200", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
-    const updatedProfile = { ...PROFILE, role: "manager" };
+    // Manager can assign "sales" (rank 0 < manager rank 1)
+    const updatedProfile = { ...PROFILE, role: "sales" };
     const singleFn = vi.fn().mockResolvedValue({ data: updatedProfile, error: null });
     const selectFn = vi.fn().mockReturnValue({ single: singleFn });
     const eqFn     = vi.fn().mockReturnValue({ select: selectFn });
@@ -275,10 +288,111 @@ describe("PATCH /api/dealer/users/[userId]", () => {
 
     const res = await userPATCH({
       params: { userId: USER_ID },
-      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "manager" }),
+      request: req(`/api/dealer/users/${USER_ID}`, "PATCH", { role: "sales" }),
     } as never);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.role).toBe("manager");
+    expect(body.role).toBe("sales");
+  });
+});
+
+// ── Security: role escalation prevention ─────────────────────────────────────
+
+describe("PATCH /api/dealer/users/[userId] — role escalation prevention", () => {
+  const TARGET_ID = "user-uuid-target";
+
+  it("returns 403 when manager tries to assign owner role", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const res = await userPATCH({
+      params:  { userId: TARGET_ID },
+      request: req(`/api/dealer/users/${TARGET_ID}`, "PATCH", { role: "owner" }),
+    } as never);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toMatch(/role equal to or higher/i);
+  });
+
+  it("returns 403 when manager tries to assign manager role (same rank)", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const res = await userPATCH({
+      params:  { userId: TARGET_ID },
+      request: req(`/api/dealer/users/${TARGET_ID}`, "PATCH", { role: "manager" }),
+    } as never);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 when manager tries to disable their own account", async () => {
+    // ADMIN_USER.userId === "admin-1" matches the target userId
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const res = await userPATCH({
+      params:  { userId: "admin-1" },
+      request: req("/api/dealer/users/admin-1", "PATCH", { is_active: false }),
+    } as never);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/own account/i);
+  });
+
+  it("returns 400 when disabling the last active manager", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    // Count query returns 0 — no other active managers/owners remain
+    const neqFn    = vi.fn().mockResolvedValue({ count: 0, error: null });
+    const eqActFn  = vi.fn().mockReturnValue({ neq: neqFn });
+    const inFn     = vi.fn().mockReturnValue({ eq: eqActFn });
+    const selFn    = vi.fn().mockReturnValue({ in: inFn });
+    (getAdminClient as Mock).mockReturnValue({ from: () => ({ select: selFn }) });
+
+    const res = await userPATCH({
+      params:  { userId: TARGET_ID },
+      request: req(`/api/dealer/users/${TARGET_ID}`, "PATCH", { is_active: false }),
+    } as never);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/last active manager/i);
+  });
+});
+
+// ── Security: Auth user rollback on profile insert failure ────────────────────
+
+describe("POST /api/dealer/users — Auth rollback on insert failure", () => {
+  it("calls deleteUser on the Auth account when user_profiles insert fails", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    // Duplicate-email check: no existing user
+    const singleFn    = vi.fn().mockResolvedValue({ data: null, error: null });
+    const eqFn        = vi.fn().mockReturnValue({ single: singleFn });
+    const selectFn    = vi.fn().mockReturnValue({ eq: eqFn });
+
+    // Insert fails
+    const insertSingleFn = vi.fn().mockResolvedValue({ data: null, error: { message: "db error" } });
+    const insertSelectFn = vi.fn().mockReturnValue({ single: insertSingleFn });
+    const insertFn       = vi.fn().mockReturnValue({ select: insertSelectFn });
+
+    const deleteUserFn = vi.fn().mockResolvedValue({ data: null, error: null });
+
+    let callCount = 0;
+    (getAdminClient as Mock).mockReturnValue({
+      from: () => {
+        callCount++;
+        if (callCount === 1) return { select: selectFn };
+        return { insert: insertFn };
+      },
+      auth: {
+        admin: {
+          inviteUserByEmail: vi.fn().mockResolvedValue({
+            data: { user: { id: "orphan-auth-uuid" } }, error: null,
+          }),
+          deleteUser: deleteUserFn,
+        },
+      },
+    });
+
+    const res = await usersPOST({
+      request: req("/api/dealer/users", "POST", { email: "fail@example.com", role: "sales" }),
+    } as never);
+
+    expect(res.status).toBe(500);
+    expect(deleteUserFn).toHaveBeenCalledWith("orphan-auth-uuid");
   });
 });

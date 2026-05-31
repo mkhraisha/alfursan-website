@@ -162,4 +162,14 @@ describe("POST /api/admin/refresh-session", () => {
     } as never);
     expect(res.status).toBe(200);
   });
+
+  it("sb-token-exp cookie is HttpOnly (consistent with access and refresh cookies)", async () => {
+    const res  = await POST({ request: makeRequest(VALID_COOKIE) } as never);
+    const raw  = res.headers.get("Set-Cookie") ?? "";
+    // Locate the sb-token-exp segment — multiple Set-Cookie values may be joined
+    const segments = raw.split(/,\s*(?=[^\s;=]+=)/);
+    const tokenExpSegment = segments.find((s) => s.includes("sb-token-exp="));
+    expect(tokenExpSegment).toBeDefined();
+    expect(tokenExpSegment).toContain("HttpOnly");
+  });
 });
