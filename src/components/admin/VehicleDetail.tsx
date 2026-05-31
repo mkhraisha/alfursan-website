@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES } from "../../lib/vehicles";
+import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -94,9 +95,6 @@ function fmt(n: number | null, prefix = "$") {
   return `${n < 0 ? "-" : ""}${prefix}${Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function storageUrl(base: string, bucket: string, path: string) {
-  return `${base}/storage/v1/object/public/${bucket}/${path}`;
-}
 
 // ── Per-tab patch helper ──────────────────────────────────────────────────────
 
@@ -537,15 +535,15 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
   }
 
   async function removeImage(path: string) {
-    const next = images.filter((p) => p !== path);
+    const next = removeImagePath(images, path);
     setImages(next);
     const result = await patchVehicle(v.vin, { images_json: next });
     if (!result.ok) show(result.error ?? "Save failed", false);
   }
 
   async function setFeatured(path: string) {
-    if (images[0] === path) return;
-    const next = [path, ...images.filter((p) => p !== path)];
+    const next = setFeaturedImage(images, path);
+    if (next === images) return; // already featured — no change
     setImages(next);
     const result = await patchVehicle(v.vin, { images_json: next });
     if (result.ok) show("Featured image updated!", true); else show(result.error ?? "Save failed", false);
@@ -588,7 +586,7 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
         <div className="media-grid">
           {images.map((path, idx) => (
             <div key={path} className={`media-thumb${idx === 0 ? " media-thumb--featured" : ""}`}>
-              <img src={storageUrl(supabaseUrl, "vehicle-images", path)} alt="" />
+              <img src={buildStorageUrl(supabaseUrl, "vehicle-images", path)} alt="" />
               {idx === 0 && <span className="media-featured-badge">★ Featured</span>}
               {idx !== 0 && (
                 <button type="button" className="media-set-featured" onClick={() => setFeatured(path)} title="Set as featured">
@@ -722,7 +720,7 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
             <div key={key as string} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8f9fb", borderRadius: 8 }}>
               <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{label}</span>
               {path ? (
-                <a href={storageUrl(supabaseUrl, "vehicle-documents", path)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#1a7f4b", fontWeight: 600 }}>View ↗</a>
+                <a href={buildStorageUrl(supabaseUrl, "vehicle-documents", path)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: "#1a7f4b", fontWeight: 600 }}>View ↗</a>
               ) : (
                 <span style={{ fontSize: 12, color: "#99a1b2" }}>Not uploaded</span>
               )}
@@ -766,7 +764,7 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
                 <tr key={doc.id}>
                   <td style={{ padding: "10px 14px", fontWeight: 600 }}>{doc.document_type}</td>
                   <td style={{ padding: "10px 14px", color: "#6b7280" }}>{doc.description ?? "—"}</td>
-                  <td style={{ padding: "10px 14px" }}><a href={storageUrl(supabaseUrl, "vehicle-documents", doc.file_path)} target="_blank" rel="noopener noreferrer" style={{ color: "#1a7f4b", fontWeight: 600 }}>View ↗</a></td>
+                  <td style={{ padding: "10px 14px" }}><a href={buildStorageUrl(supabaseUrl, "vehicle-documents", doc.file_path)} target="_blank" rel="noopener noreferrer" style={{ color: "#1a7f4b", fontWeight: 600 }}>View ↗</a></td>
                   <td style={{ padding: "10px 14px" }}><button type="button" className="btn-danger" onClick={() => deleteDoc(doc.id)}>Delete</button></td>
                 </tr>
               ))}
