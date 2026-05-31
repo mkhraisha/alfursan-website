@@ -63,8 +63,8 @@ export const POST: APIRoute = async ({ request }) => {
     .single();
 
   if (existingError && existingError.code !== "PGRST116") {
-    console.error("[POST /api/dealer/users] email check error", existingError);
-    return json({ error: "Database error" }, 500);
+    console.error("[POST /api/dealer/users] email check error", existingError.code, existingError.message);
+    return json({ error: "Failed to check for duplicate email" }, 500);
   }
   if (existing) return json({ error: "A user with this email already exists" }, 409);
 

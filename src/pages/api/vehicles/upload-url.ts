@@ -9,7 +9,7 @@ export const prerender = false;
  * Body:
  *   context     — "vehicle-image" | "vehicle-document"
  *   vin         — 17-char VIN string
- *   contentType — MIME type of the file being uploaded (used to derive the storage extension)
+ *   contentType — MIME type of the file being uploaded (used to derive the storage extension via EXT_MAP, regardless of the extension in filename)
  *   fileSize    — byte size of the file (enforced ≤ 50 MiB)
  *   filename    — original filename (informational only; extension is derived from contentType)
  */
