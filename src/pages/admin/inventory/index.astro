@@ -1,0 +1,48 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getAdminClient } from "../../../lib/supabase-admin";
+import { can } from "../../../lib/permissions";
+import InventoryTable from "../../../components/admin/InventoryTable";
+import type { VehicleListItem } from "../../../components/admin/InventoryTable";
+
+const db = getAdminClient();
+const { adminRole } = Astro.locals;
+const canSeeFinancials = can(adminRole, "vehicles:financials:read");
+
+const { data: rawVehicles } = await db
+  .from("vehicles")
+  .select(
+    canSeeFinancials
+      ? "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)"
+      : "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, commission_user_id, vehicle_expenses(amount)"
+  )
+  .order("created_at", { ascending: false });
+
+const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, unknown>) => {
+  const expenseRows = (v.vehicle_expenses as { amount: number }[] | null) ?? [];
+  const expenseTotal = expenseRows.reduce((s, e) => s + Number(e.amount), 0);
+  const commissionUser = v.commission_user as { commission_percentage: number | null } | null;
+  return {
+    vin:                  v.vin as string,
+    make:                 (v.make as string) ?? "",
+    model:                (v.model as string) ?? "",
+    year:                 (v.year as number) ?? 0,
+    trim:                 (v.trim as string | null) ?? null,
+    status:                    (v.status as string | null) ?? null,
+    ownership_status:          (v.ownership_status as string | null) ?? null,
+    photography_status:        (v.photography_status as string | null) ?? null,
+    advertised_price_cargurus: (v.advertised_price_cargurus as number | null) ?? null,
+    advertised_price_facebook: (v.advertised_price_facebook as number | null) ?? null,
+    purchase_price:       canSeeFinancials ? (v.purchase_price as number | null) ?? null : null,
+    sale_price:           canSeeFinancials ? (v.sale_price as number | null) ?? null : null,
+    expense_total:        expenseTotal,
+    commission_percentage: canSeeFinancials ? commissionUser?.commission_percentage ?? null : null,
+  };
+});
+---
+
+<AdminLayout title="Inventory" activeNav="inventory">
+  <InventoryTable vehicles={vehicles} client:load />
+</AdminLayout>

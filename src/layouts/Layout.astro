@@ -52,7 +52,7 @@ const isActive = (href: string): boolean => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
@@ -95,6 +95,7 @@ const isActive = (href: string): boolean => {
   </head>
 
   <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <header
       class:list={["site-header", { "header-transparent": transparentHeader }]}
     >
@@ -233,6 +234,11 @@ const isActive = (href: string): boolean => {
         update();
         window.addEventListener("scroll", update, { passive: true });
       }
+
+      document.addEventListener("click", (e) => {
+        const nav = document.querySelector<HTMLDetailsElement>(".mobile-nav");
+        if (nav?.open && !nav.contains(e.target as Node)) nav.open = false;
+      });
     </script>
 
     <!-- If Supabase redirects a magic-link to the site root (dashboard test links
@@ -392,7 +398,7 @@ const isActive = (href: string): boolean => {
     letter-spacing: 0.02em;
     font-size: 0.88rem;
     border-radius: 999px;
-    padding: 0.4rem 0.68rem;
+    padding: 0.6rem 0.68rem;
   }
 
   .desktop-nav a:hover,
@@ -413,7 +419,7 @@ const isActive = (href: string): boolean => {
     color: var(--ink);
     border: 1.5px solid var(--ink);
     font-weight: 700;
-    padding: 0.5rem 1.2rem;
+    padding: 0.65rem 1.2rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-size: 0.78rem;
@@ -597,8 +603,8 @@ const isActive = (href: string): boolean => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: 1px solid var(--footer-divider);
     color: var(--surface);
@@ -633,6 +639,30 @@ const isActive = (href: string): boolean => {
   @media (max-width: 900px) {
     .footer-grid {
       grid-template-columns: 1fr;
+    }
+    .footer-col-contact {
+      text-align: left;
+    }
+  }
+
+  .skip-link {
+    position: absolute;
+    transform: translateY(-100%);
+    left: 0; top: 0;
+    padding: 8px 16px;
+    background: var(--ink); color: #fff;
+    font-size: 14px; font-weight: 600;
+    z-index: 200;
+    transition: transform 0.1s;
+    text-decoration: none;
+  }
+  .skip-link:focus { transform: translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 </style>

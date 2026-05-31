@@ -28,7 +28,6 @@ if (Astro.request.method === "POST") {
     if (valid.includes(newStatus)) {
       const updatePayload: Record<string, unknown> = { status: newStatus };
 
-      // When moving to document_incomplete: generate a phase2 token and email the applicant
       if (newStatus === "document_incomplete") {
         const { data: current } = await supabase
           .from("applications")
@@ -36,14 +35,12 @@ if (Astro.request.method === "POST") {
           .eq("id", id)
           .single();
 
-        // Reuse existing token if present (idempotent resend) but always refresh expiry.
         const token = current?.phase2_token ?? randomUUID();
         updatePayload.phase2_token = token;
         updatePayload.phase2_token_expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
         const siteUrl = import.meta.env.SITE_URL ?? "https://alfursanauto.ca";
         const phase2Link = `${siteUrl}/apply/phase2?token=${token}`;
-
         const resendKey   = import.meta.env.RESEND_API_KEY;
         const fromAddress = import.meta.env.RESEND_FROM_ADDRESS;
 
@@ -105,7 +102,6 @@ if (Astro.request.method === "POST") {
   }
 
   if (action === "delete" && can(adminRole!, "financing:delete")) {
-    // Fetch all storage paths before deleting the row
     const { data: toDelete } = await supabase
       .from("applications")
       .select("license_front_path, license_back_path, void_cheque_path, proof_insurance_path, payslip_path")
@@ -121,7 +117,6 @@ if (Astro.request.method === "POST") {
     });
     await supabase.from("applications").delete().eq("id", id);
 
-    // Delete all storage files (best-effort; don't block redirect on failure)
     const paths = [
       toDelete?.license_front_path,
       toDelete?.license_back_path,
@@ -136,7 +131,6 @@ if (Astro.request.method === "POST") {
     return Astro.redirect("/admin/applications/");
   }
 
-  // Redirect back to same page after mutation (PRG pattern)
   return Astro.redirect(`/admin/applications/${id}/`);
 }
 
@@ -156,14 +150,13 @@ const { data: auditRows } = await supabase
   .eq("application_ref", id)
   .order("created_at", { ascending: false });
 
-// ── Generate signed URL for license (if applicable) ───────────────────────────
+// ── Generate signed URLs ──────────────────────────────────────────────────────
 let licenseFrontUrl: string | null = null;
 let licenseBackUrl: string | null = null;
 
 const ip = Astro.request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 const ipHash = createHash("sha256").update(ip).digest("hex");
 
-// Build a clean filename prefix: "FirstLast_REF-{shortId}"
 const shortId = (app.id as string).slice(0, 8).toUpperCase();
 const filePrefix = `REF-${shortId}`;
 
@@ -172,21 +165,20 @@ function licenseFilename(storagePath: string, side: "front" | "back"): string {
   return `${filePrefix}_${side}${ext}`;
 }
 
+function docFilename(storagePath: string, label: string): string {
+  const ext = storagePath.match(/\.[^.]+$/)?.[0] ?? ".pdf";
+  return `${filePrefix}_${label}${ext}`;
+}
+
 if (app.license_front_path && can(adminRole!, "financing:read")) {
   const { data } = await supabase.storage
     .from("license-documents")
-    .createSignedUrl(app.license_front_path, 300, {
-      download: licenseFilename(app.license_front_path, "front"),
-    });
+    .createSignedUrl(app.license_front_path, 300, { download: licenseFilename(app.license_front_path, "front") });
   if (data) {
     licenseFrontUrl = data.signedUrl;
-    // Write audit row (non-blocking)
     supabase.from("application_audit").insert({
-      application_id: id,
-      application_ref: id,
-      action: "viewed_license",
-      admin_email: adminEmail,
-      ip_hash: ipHash,
+      application_id: id, application_ref: id,
+      action: "viewed_license", admin_email: adminEmail, ip_hash: ipHash,
     });
   }
 }
@@ -194,16 +186,8 @@ if (app.license_front_path && can(adminRole!, "financing:read")) {
 if (app.license_back_path && can(adminRole!, "financing:read")) {
   const { data } = await supabase.storage
     .from("license-documents")
-    .createSignedUrl(app.license_back_path, 300, {
-      download: licenseFilename(app.license_back_path, "back"),
-    });
+    .createSignedUrl(app.license_back_path, 300, { download: licenseFilename(app.license_back_path, "back") });
   if (data) licenseBackUrl = data.signedUrl;
-}
-
-// ── Generate signed URLs for Phase 2 documents ────────────────────────────────
-function docFilename(storagePath: string, label: string): string {
-  const ext = storagePath.match(/\.[^.]+$/)?.[0] ?? ".pdf";
-  return `${filePrefix}_${label}${ext}`;
 }
 
 let voidChequeUrl:     string | null = null;
@@ -212,20 +196,17 @@ let payslipUrl:        string | null = null;
 
 if (can(adminRole!, "financing:read")) {
   if (app.void_cheque_path) {
-    const { data } = await supabase.storage
-      .from("license-documents")
+    const { data } = await supabase.storage.from("license-documents")
       .createSignedUrl(app.void_cheque_path, 300, { download: docFilename(app.void_cheque_path, "void-cheque") });
     if (data) voidChequeUrl = data.signedUrl;
   }
   if (app.proof_insurance_path) {
-    const { data } = await supabase.storage
-      .from("license-documents")
+    const { data } = await supabase.storage.from("license-documents")
       .createSignedUrl(app.proof_insurance_path, 300, { download: docFilename(app.proof_insurance_path, "proof-insurance") });
     if (data) proofInsuranceUrl = data.signedUrl;
   }
   if (app.payslip_path) {
-    const { data } = await supabase.storage
-      .from("license-documents")
+    const { data } = await supabase.storage.from("license-documents")
       .createSignedUrl(app.payslip_path, 300, { download: docFilename(app.payslip_path, "payslip") });
     if (data) payslipUrl = data.signedUrl;
   }
@@ -233,11 +214,7 @@ if (can(adminRole!, "financing:read")) {
 
 function fmt(iso: string | null) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-CA", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return new Date(iso).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function money(v: number | null) {
@@ -246,404 +223,808 @@ function money(v: number | null) {
 }
 
 const statusColor: Record<string, string> = {
-  new: "#3b82f6",
-  reviewing: "#f59e0b",
-  approved: "#1a7f4b",
-  declined: "#B92111",
-  document_incomplete: "#7c3aed",
-  documents_submitted: "#0891b2",
+  new:                  "#3b82f6",
+  reviewing:            "#f59e0b",
+  approved:             "#1a7f4b",
+  declined:             "#B92111",
+  document_incomplete:  "#7c3aed",
+  documents_submitted:  "#0891b2",
 };
 
 const STATUSES = ["new", "reviewing", "document_incomplete", "documents_submitted", "approved", "declined"];
+
+const heroAccent = statusColor[app.status as string] ?? "#99a1b2";
+const hasDocuments = app.license_front_path || app.license_back_path
+  || app.void_cheque_path || app.proof_insurance_path || app.payslip_path
+  || (app.references && Array.isArray(app.references) && (app.references as any[]).length > 0);
+const amountFinanced = app.vehicle_price != null && app.down_payment != null
+  ? money(app.vehicle_price - app.down_payment) : null;
 ---
 
 <AdminLayout title={`Application — ${app.full_name}`} activeNav="applications">
-  <!-- Breadcrumb -->
-  <div class="breadcrumb">
-    <a href="/admin/applications/">Applications</a>
-    <span>›</span>
-    <span>{app.full_name}</span>
-  </div>
 
   {Astro.url.searchParams.get("error") && (
-    <div style="background:#fee2e2; color:#7f1d1d; padding:10px 16px; border-radius:6px; border:1px solid #fca5a5; margin-bottom:16px; font-size:14px;">
-      {Astro.url.searchParams.get("error")}
-    </div>
+    <div class="alert-error">{Astro.url.searchParams.get("error")}</div>
   )}
 
-  <div class="page-header">
-    <div>
-      <h1>{app.full_name}</h1>
-      <p class="ref">REF-{app.id}</p>
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb">
+    <a href="/admin/applications/">Applications</a>
+    <span class="breadcrumb__sep">›</span>
+    <span>{app.full_name}</span>
+  </nav>
+
+  <!-- Hero ─────────────────────────────────────────────────────────────────── -->
+  <div class="hero" style={`--accent: ${heroAccent}`}>
+    <div class="hero__inner">
+      <div class="hero__left">
+        <div class="hero__name-row">
+          <h1 class="hero__name">{app.full_name}</h1>
+          <span class="hero__status-badge" style={`background:${heroAccent}1a; color:${heroAccent}; border-color:${heroAccent}44`}>
+            <span class="hero__status-dot" style={`background:${heroAccent}`}></span>
+            {formatStatusLabel(app.status)}
+          </span>
+        </div>
+        <p class="hero__sub">
+          <span class="hero__ref">REF-{shortId}</span>
+          <span class="hero__bullet">·</span>
+          Submitted {fmt(app.created_at)}
+          {app.email && (
+            <>
+              <span class="hero__bullet">·</span>
+              <a href={`mailto:${app.email}`} class="hero__email">{app.email}</a>
+            </>
+          )}
+        </p>
+      </div>
+      {app.phone && (
+        <a href={`tel:${app.phone}`} class="hero__phone-btn">{app.phone}</a>
+      )}
     </div>
-    <div class="header-actions">
-      <span
-        class="badge"
-        style={`background:${statusColor[app.status]}22; color:${statusColor[app.status]}`}
-      >
-        {formatStatusLabel(app.status)}
-      </span>
+
+    <div class="hero__stats">
+      <div class="hero__stat">
+        <span class="hero__stat-label">Vehicle</span>
+        <span class="hero__stat-value">
+          {[app.vehicle_year, app.vehicle_make, app.vehicle_model].filter(Boolean).join(" ") || "—"}
+        </span>
+      </div>
+      <div class="hero__stat-sep"></div>
+      <div class="hero__stat">
+        <span class="hero__stat-label">Price</span>
+        <span class="hero__stat-value">{money(app.vehicle_price)}</span>
+      </div>
+      <div class="hero__stat-sep"></div>
+      <div class="hero__stat">
+        <span class="hero__stat-label">Down Payment</span>
+        <span class="hero__stat-value">{money(app.down_payment)}</span>
+      </div>
+      {amountFinanced && (
+        <>
+          <div class="hero__stat-sep"></div>
+          <div class="hero__stat">
+            <span class="hero__stat-label">Amount Financed</span>
+            <span class="hero__stat-value hero__stat-value--accent">{amountFinanced}</span>
+          </div>
+        </>
+      )}
+      <div class="hero__stat-sep"></div>
+      <div class="hero__stat">
+        <span class="hero__stat-label">Annual Income</span>
+        <span class="hero__stat-value">{money(app.annual_income)}</span>
+      </div>
+      <div class="hero__stat-sep"></div>
+      <div class="hero__stat">
+        <span class="hero__stat-label">Loan Term</span>
+        <span class="hero__stat-value">{app.loan_term_months ? `${app.loan_term_months} months` : "—"}</span>
+      </div>
     </div>
   </div>
 
-  <div class="layout">
-    <!-- Left column: application details -->
-    <div class="details">
+  <!-- Page body ────────────────────────────────────────────────────────────── -->
+  <div class="page-body">
 
-      <!-- Personal -->
-      <div class="card">
-        <h2 class="card__title">Personal</h2>
-        <dl class="dl">
-          <dt>Full Name</dt><dd>{app.full_name}</dd>
-          <dt>Date of Birth</dt><dd>{app.dob ?? "—"}</dd>
-          <dt>Email</dt><dd><a href={`mailto:${app.email}`}>{app.email}</a></dd>
-          <dt>Phone</dt><dd>{app.phone ?? "—"}</dd>
-          <dt>Address</dt><dd>{app.address ?? "—"}</dd>
-          <dt>Postal Code</dt><dd>{app.postal_code ?? "—"}</dd>
-          <dt>Time at Address</dt><dd>{app.time_at_address ?? "—"}</dd>
-          {app.prev_addresses && Array.isArray(app.prev_addresses) && (app.prev_addresses as any[]).map((p: any, i: number) => {
-            const dateRange = p.untilMonth && p.untilYear
-              ? `${p.sinceMonth}/${p.sinceYear} – ${p.untilMonth}/${p.untilYear}`
-              : `since ${p.sinceMonth}/${p.sinceYear}`;
-            return (
-              <>
-                <dt>Previous Address {i + 1}</dt>
-                <dd>{p.address}{p.postalCode ? `, ${p.postalCode}` : ""} <span style="color:#99a1b2;font-size:12px">({dateRange})</span></dd>
-              </>
-            );
-          })}
-          <dt>Marital Status</dt><dd>{app.marital_status ?? "—"}</dd>
-        </dl>
+    <!-- Left: tabbed content ─────────────────────────────────────────── -->
+    <div class="content-col">
+      <div class="tabs" role="tablist" aria-label="Application details">
+        <button class="tab tab--active" data-tab="personal"   role="tab" id="tab-btn-personal"   aria-selected="true"  aria-controls="tab-personal">Personal</button>
+        <button class="tab"             data-tab="employment"  role="tab" id="tab-btn-employment" aria-selected="false" aria-controls="tab-employment">Employment</button>
+        <button class="tab"             data-tab="vehicle"     role="tab" id="tab-btn-vehicle"    aria-selected="false" aria-controls="tab-vehicle">Vehicle & Loan</button>
+        <button class="tab"             data-tab="documents"   role="tab" id="tab-btn-documents"  aria-selected="false" aria-controls="tab-documents">
+          Documents
+          {hasDocuments && <span class="tab__dot"></span>}
+        </button>
+        <button class="tab"             data-tab="activity"    role="tab" id="tab-btn-activity"   aria-selected="false" aria-controls="tab-activity">Activity</button>
       </div>
 
-      <!-- Employment -->
-      <div class="card">
-        <h2 class="card__title">Employment</h2>
-        <dl class="dl">
-          <dt>Status</dt><dd>{app.employment_status ?? "—"}</dd>
-          <dt>Employer</dt><dd>{app.employer ?? "—"}</dd>
-          <dt>Employer Address</dt><dd>{app.employer_address ?? "—"}</dd>
-          <dt>Employer Phone</dt><dd>{app.employer_phone ?? "—"}</dd>
-          <dt>Job Title</dt><dd>{app.job_title ?? "—"}</dd>
-          <dt>Annual Income</dt><dd>{money(app.annual_income)}</dd>
-          <dt>Time at Employer</dt><dd>{app.time_at_employer ?? "—"}</dd>
-          {app.prev_employers && Array.isArray(app.prev_employers) && (app.prev_employers as any[]).map((p: any, i: number) => {
-            const dateRange = p.untilMonth && p.untilYear
-              ? `${p.sinceMonth}/${p.sinceYear} – ${p.untilMonth}/${p.untilYear}`
-              : `since ${p.sinceMonth}/${p.sinceYear}`;
-            return (
-              <>
-                <dt>Previous Employer {i + 1}</dt>
-                <dd>{p.employer}{p.address ? `, ${p.address}` : ""}{p.postalCode ? `, ${p.postalCode}` : ""} <span style="color:#99a1b2;font-size:12px">({dateRange})</span></dd>
-              </>
-            );
-          })}
-        </dl>
-      </div>
-
-      <!-- Vehicle & Loan -->
-      <div class="card">
-        <h2 class="card__title">Vehicle & Loan</h2>
-        <dl class="dl">
-          <dt>Vehicle</dt>
-          <dd>
-            {[app.vehicle_year, app.vehicle_make, app.vehicle_model].filter(Boolean).join(" ") || "—"}
-          </dd>
-          <dt>Price</dt><dd>{money(app.vehicle_price)}</dd>
-          <dt>Down Payment</dt><dd>{money(app.down_payment)}</dd>
-          <dt>Loan Term</dt>
-          <dd>{app.loan_term_months ? `${app.loan_term_months} months` : "—"}</dd>
-          <dt>VIN</dt><dd>{app.vin ?? "—"}</dd>
-          {app.listing_slug && (
-            <>
-              <dt>Listing</dt>
-              <dd>
-                <a href={`/listings/${app.listing_slug}/`} target="_blank" rel="noopener">
-                  {app.listing_slug}
-                </a>
-              </dd>
-            </>
-          )}
-        </dl>
-      </div>
-
-      <!-- Driver's License -->
-      {(licenseFrontUrl || licenseBackUrl) && (
-        <div class="card">
-          <h2 class="card__title">Driver's License</h2>
-          <p class="license-note">Links expire in 5 minutes.</p>
-          <div class="license-imgs">
-            {licenseFrontUrl && (
-              <a href={licenseFrontUrl} target="_blank" rel="noopener" class="license-link">
-                Front →
-              </a>
-            )}
-            {licenseBackUrl && (
-              <a href={licenseBackUrl} target="_blank" rel="noopener" class="license-link">
-                Back →
-              </a>
-            )}
+      <!-- ── Personal ── -->
+      <div class="panel" id="tab-personal" role="tabpanel" aria-labelledby="tab-btn-personal">
+        <div class="field-grid">
+          <div class="field">
+            <span class="field__label">Full Name</span>
+            <span class="field__value">{app.full_name}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">Date of Birth</span>
+            <span class="field__value">{app.dob ?? "—"}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">Phone</span>
+            {app.phone
+              ? <a class="field__value field__link" href={`tel:${app.phone}`}>{app.phone}</a>
+              : <span class="field__value">—</span>
+            }
+          </div>
+          <div class="field">
+            <span class="field__label">Marital Status</span>
+            <span class="field__value capitalize">{app.marital_status ?? "—"}</span>
+          </div>
+          <div class="field field--span2">
+            <span class="field__label">Email</span>
+            <a class="field__value field__link" href={`mailto:${app.email}`}>{app.email}</a>
+          </div>
+          <div class="field field--span2">
+            <span class="field__label">Address</span>
+            <span class="field__value">{[app.address, app.postal_code].filter(Boolean).join(", ") || "—"}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">Time at Address</span>
+            <span class="field__value">{app.time_at_address ?? "—"}</span>
           </div>
         </div>
-      )}
 
-      <!-- Phase 2 — Documents & References -->
-      {(voidChequeUrl || proofInsuranceUrl || payslipUrl || app.references) && (
-        <div class="card">
-          <h2 class="card__title">Phase 2 — Documents</h2>
-          {(voidChequeUrl || proofInsuranceUrl || payslipUrl) && (
-            <>
-              <p class="license-note">Links expire in 5 minutes.</p>
-              <div class="license-imgs" style="flex-wrap:wrap; gap:8px; margin-bottom:14px;">
-                {voidChequeUrl && (
-                  <a href={voidChequeUrl} target="_blank" rel="noopener" class="license-link">Void Cheque →</a>
-                )}
-                {proofInsuranceUrl && (
-                  <a href={proofInsuranceUrl} target="_blank" rel="noopener" class="license-link">Proof of Insurance →</a>
-                )}
-                {payslipUrl && (
-                  <a href={payslipUrl} target="_blank" rel="noopener" class="license-link">Payslip →</a>
-                )}
-              </div>
-            </>
-          )}
-          <dl class="dl">
-            <dt>DealerTrack Consent</dt>
-            <dd>{app.dealertrack_consent ? "Yes" : "No"}</dd>
-            <dt>Submitted</dt>
-            <dd>{fmt(app.phase2_submitted_at ?? null)}</dd>
-          </dl>
-          {app.references && Array.isArray(app.references) && (app.references as any[]).length > 0 && (
-            <>
-              <p style="font-size:12px; font-weight:700; color:#99a1b2; text-transform:uppercase; letter-spacing:0.05em; margin:14px 0 8px;">References</p>
-              {(app.references as any[]).map((r: any, i: number) => (
-                <div style="margin-bottom:10px; padding:10px; background:#f7f9fd; border-radius:6px; font-size:13px; color:#1a1d23;">
-                  <strong>{i + 1}. {r.name}</strong>
-                  <span style="color:#99a1b2; margin-left:8px;">{r.relationship}</span>
-                  <br />
-                  <a href={`tel:${r.phone}`} style="color:#B92111;">{r.phone}</a>
-                </div>
-              ))}
-            </>
+        {app.prev_addresses && Array.isArray(app.prev_addresses) && (app.prev_addresses as any[]).length > 0 && (
+          <div class="sub-section">
+            <h3 class="sub-section__title">Previous Addresses</h3>
+            <div class="history-list">
+              {(app.prev_addresses as any[]).map((p: any, i: number) => {
+                const dateRange = p.untilMonth && p.untilYear
+                  ? `${p.sinceMonth}/${p.sinceYear} – ${p.untilMonth}/${p.untilYear}`
+                  : `from ${p.sinceMonth}/${p.sinceYear}`;
+                return (
+                  <div class="history-item">
+                    <span class="history-item__num">{i + 1}</span>
+                    <div>
+                      <div class="history-item__main">{p.address}{p.postalCode ? `, ${p.postalCode}` : ""}</div>
+                      <div class="history-item__meta">{dateRange}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <!-- ── Employment ── -->
+      <div class="panel panel--hidden" id="tab-employment" role="tabpanel" aria-labelledby="tab-btn-employment">
+        <div class="field-grid">
+          <div class="field">
+            <span class="field__label">Employment Status</span>
+            <span class="field__value capitalize">{app.employment_status ?? "—"}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">Job Title</span>
+            <span class="field__value">{app.job_title ?? "—"}</span>
+          </div>
+          <div class="field field--span2">
+            <span class="field__label">Employer</span>
+            <span class="field__value">{app.employer ?? "—"}</span>
+          </div>
+          <div class="field field--span2">
+            <span class="field__label">Employer Address</span>
+            <span class="field__value">{app.employer_address ?? "—"}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">Employer Phone</span>
+            {app.employer_phone
+              ? <a class="field__value field__link" href={`tel:${app.employer_phone}`}>{app.employer_phone}</a>
+              : <span class="field__value">—</span>
+            }
+          </div>
+          <div class="field">
+            <span class="field__label">Time at Employer</span>
+            <span class="field__value">{app.time_at_employer ?? "—"}</span>
+          </div>
+          <div class="field field--highlight">
+            <span class="field__label">Annual Income</span>
+            <span class="field__value field__value--lg">{money(app.annual_income)}</span>
+          </div>
+        </div>
+
+        {app.prev_employers && Array.isArray(app.prev_employers) && (app.prev_employers as any[]).length > 0 && (
+          <div class="sub-section">
+            <h3 class="sub-section__title">Previous Employers</h3>
+            <div class="history-list">
+              {(app.prev_employers as any[]).map((p: any, i: number) => {
+                const dateRange = p.untilMonth && p.untilYear
+                  ? `${p.sinceMonth}/${p.sinceYear} – ${p.untilMonth}/${p.untilYear}`
+                  : `from ${p.sinceMonth}/${p.sinceYear}`;
+                return (
+                  <div class="history-item">
+                    <span class="history-item__num">{i + 1}</span>
+                    <div>
+                      <div class="history-item__main">{p.employer}{p.address ? `, ${p.address}` : ""}{p.postalCode ? `, ${p.postalCode}` : ""}</div>
+                      <div class="history-item__meta">{dateRange}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <!-- ── Vehicle & Loan ── -->
+      <div class="panel panel--hidden" id="tab-vehicle" role="tabpanel" aria-labelledby="tab-btn-vehicle">
+        <div class="field-grid">
+          <div class="field field--span2">
+            <span class="field__label">Vehicle</span>
+            <span class="field__value field__value--lg">
+              {[app.vehicle_year, app.vehicle_make, app.vehicle_model].filter(Boolean).join(" ") || "—"}
+            </span>
+          </div>
+          <div class="field field--span2">
+            <span class="field__label">VIN</span>
+            <span class="field__value" style="font-family:monospace;letter-spacing:0.04em">{app.vin ?? "—"}</span>
+          </div>
+          {app.listing_slug && (
+            <div class="field field--span2">
+              <span class="field__label">Listing</span>
+              <a class="field__value field__link" href={`/listings/${app.listing_slug}/`} target="_blank" rel="noopener">
+                {app.listing_slug} ↗
+              </a>
+            </div>
           )}
         </div>
-      )}
 
-      <!-- Submission metadata -->
-      <div class="card">
-        <h2 class="card__title">Submission</h2>
-        <dl class="dl">
-          <dt>Submitted</dt><dd>{fmt(app.created_at)}</dd>
-          <dt>Consent</dt><dd>{fmt(app.consent_timestamp)}</dd>
-          <dt>License Consent</dt><dd>{app.license_consent ? "Yes" : "No"}</dd>
-        </dl>
+        <div class="loan-grid">
+          <div class="loan-stat">
+            <span class="loan-stat__label">Vehicle Price</span>
+            <span class="loan-stat__value">{money(app.vehicle_price)}</span>
+          </div>
+          <div class="loan-stat loan-stat--minus">
+            <span class="loan-stat__label">Down Payment</span>
+            <span class="loan-stat__value">{money(app.down_payment)}</span>
+          </div>
+          {amountFinanced && (
+            <div class="loan-stat loan-stat--result">
+              <span class="loan-stat__label">Amount Financed</span>
+              <span class="loan-stat__value">{amountFinanced}</span>
+            </div>
+          )}
+          <div class="loan-stat">
+            <span class="loan-stat__label">Loan Term</span>
+            <span class="loan-stat__value">{app.loan_term_months ? `${app.loan_term_months} months` : "—"}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Documents ── -->
+      <div class="panel panel--hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents">
+        {!hasDocuments && (
+          <div class="empty-state">
+            <div class="empty-state__icon">—</div>
+            <p class="empty-state__text">No documents on file yet.</p>
+          </div>
+        )}
+
+        {(app.license_front_path || app.license_back_path) && (
+          <div class="doc-block">
+            <h3 class="doc-block__title">Driver's License</h3>
+            <div class="field-grid" style="margin-bottom:16px">
+              <div class="field">
+                <span class="field__label">Uploaded</span>
+                <span class="field__value">{fmt(app.license_uploaded_at ?? null)}</span>
+              </div>
+            </div>
+            {(licenseFrontUrl || licenseBackUrl) ? (
+              <>
+                <p class="doc-expire-note">Signed links expire in 5 minutes.</p>
+                <div class="doc-btn-row">
+                  {licenseFrontUrl && (
+                    <a href={licenseFrontUrl} target="_blank" rel="noopener" class="doc-btn">License Front ↗</a>
+                  )}
+                  {licenseBackUrl && (
+                    <a href={licenseBackUrl} target="_blank" rel="noopener" class="doc-btn">License Back ↗</a>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p class="doc-unavail">
+                Files on record but signed links could not be generated.
+                {app.license_front_path && <code class="path-code">{app.license_front_path}</code>}
+                {app.license_back_path && <code class="path-code">{app.license_back_path}</code>}
+              </p>
+            )}
+          </div>
+        )}
+
+        {(app.void_cheque_path || app.proof_insurance_path || app.payslip_path || app.phase2_submitted_at) && (
+          <div class="doc-block">
+            <h3 class="doc-block__title">Phase 2 Documents</h3>
+            <div class="field-grid" style="margin-bottom:16px">
+              <div class="field">
+                <span class="field__label">Submitted</span>
+                <span class="field__value">{fmt(app.phase2_submitted_at ?? null)}</span>
+              </div>
+              <div class="field">
+                <span class="field__label">DealerTrack Consent</span>
+                <span class="field__value">{app.dealertrack_consent ? "Yes" : "No"}</span>
+              </div>
+            </div>
+            {(voidChequeUrl || proofInsuranceUrl || payslipUrl) && (
+              <>
+                <p class="doc-expire-note">Signed links expire in 5 minutes.</p>
+                <div class="doc-btn-row">
+                  {voidChequeUrl && <a href={voidChequeUrl} target="_blank" rel="noopener" class="doc-btn">Void Cheque ↗</a>}
+                  {proofInsuranceUrl && <a href={proofInsuranceUrl} target="_blank" rel="noopener" class="doc-btn">Proof of Insurance ↗</a>}
+                  {payslipUrl && <a href={payslipUrl} target="_blank" rel="noopener" class="doc-btn">Payslip ↗</a>}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {app.references && Array.isArray(app.references) && (app.references as any[]).length > 0 && (
+          <div class="doc-block">
+            <h3 class="doc-block__title">References</h3>
+            <div class="ref-grid">
+              {(app.references as any[]).map((r: any, i: number) => (
+                <div class="ref-card">
+                  <div class="ref-card__num">{i + 1}</div>
+                  <div class="ref-card__body">
+                    <div class="ref-card__name">{r.name}</div>
+                    <div class="ref-card__rel">{r.relationship}</div>
+                    <a href={`tel:${r.phone}`} class="ref-card__phone">{r.phone}</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <!-- ── Activity ── -->
+      <div class="panel panel--hidden" id="tab-activity" role="tabpanel" aria-labelledby="tab-btn-activity">
+        <div class="field-grid" style="margin-bottom:28px">
+          <div class="field">
+            <span class="field__label">Submitted</span>
+            <span class="field__value">{fmt(app.created_at)}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">Consent Given</span>
+            <span class="field__value">{fmt(app.consent_timestamp)}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">License Consent</span>
+            <span class="field__value">{app.license_consent ? "Yes" : "No"}</span>
+          </div>
+        </div>
+
+        <h3 class="sub-section__title" style="margin-bottom:16px">Audit Log</h3>
+        {(auditRows ?? []).length === 0 ? (
+          <p class="muted-text">No events recorded.</p>
+        ) : (
+          <div class="timeline">
+            {(auditRows ?? []).map((row: { action: string; admin_email: string; created_at: string }) => (
+              <div class="tl-item">
+                <div class="tl-dot"></div>
+                <div class="tl-content">
+                  <span class="tl-action">{row.action.replace(/_/g, " ")}</span>
+                  <span class="tl-meta">{row.admin_email} · {fmt(row.created_at)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
 
-    <!-- Right column: actions + audit -->
-    <div class="sidebar">
+    <!-- Right: action panel ──────────────────────────────────────────── -->
+    <div class="action-col">
 
-      <!-- Status change -->
       {can(adminRole!, "financing:write") && (
-        <div class="card">
-          <h2 class="card__title">Change Status</h2>
+        <div class="action-card">
+          <h2 class="action-card__title">Update Status</h2>
+
           {app.status === "document_incomplete" && app.phase2_token && (
-            <div style="margin-bottom:12px; padding:10px 12px; background:#f5f0ff; border:1px solid #ddd6fe; border-radius:6px; font-size:12px; color:#7c3aed; word-break:break-all;">
-              Phase 2 link sent. Token: <code style="font-family:monospace;">{(app.phase2_token as string).slice(0, 8)}…</code>
+            <div class="phase2-banner">
+              <div class="phase2-banner__label">Phase 2 link active</div>
+              <div class="phase2-banner__token">
+                Token: <code>{(app.phase2_token as string).slice(0, 8)}…</code>
+              </div>
+              {app.phase2_token_expires_at && (
+                <div class="phase2-banner__exp">Expires {fmt(app.phase2_token_expires_at)}</div>
+              )}
             </div>
           )}
+
           <form method="POST">
             <input type="hidden" name="action" value="status_change" />
-            <select name="status" class="select">
+            <div class="status-picker">
               {STATUSES.map((s) => (
-                <option value={s} selected={s === app.status}>
-                  {formatStatusLabel(s)}
-                </option>
+                <label
+                  class={`status-opt${s === app.status ? " status-opt--active" : ""}`}
+                  style={s === app.status ? `border-color:${statusColor[s]}; background:${statusColor[s]}12` : ""}
+                >
+                  <input type="radio" name="status" value={s} checked={s === app.status} />
+                  <span class="status-opt__dot" style={`background:${statusColor[s] ?? "#99a1b2"}`}></span>
+                  <span class="status-opt__label">{formatStatusLabel(s)}</span>
+                  {s === app.status && <span class="status-opt__tag">current</span>}
+                </label>
               ))}
-            </select>
-            <button type="submit" class="btn btn--primary">
-              {app.status !== "document_incomplete" && "Update Status"}
-              {app.status === "document_incomplete" && "Resend Phase 2 Email"}
+            </div>
+            <button type="submit" class="btn-submit">
+              {app.status === "document_incomplete" ? "Resend Phase 2 Email" : "Update Status"}
             </button>
           </form>
         </div>
       )}
 
-      <!-- Danger zone (owner only) -->
       {can(adminRole!, "financing:delete") && (
-        <div class="card card--danger">
-          <h2 class="card__title card__title--danger">Danger Zone</h2>
-          <p class="danger-note">
-            Deleting this application is irreversible. The audit log will be preserved.
-          </p>
-          <form
-            method="POST"
-            onsubmit="return confirm('Permanently delete this application? This cannot be undone.')"
-          >
+        <div class="action-card action-card--danger">
+          <h2 class="action-card__title action-card__title--danger">Danger Zone</h2>
+          <p class="danger-note">Deleting this application is permanent. The audit log will be preserved.</p>
+          <form method="POST" onsubmit="return confirm('Permanently delete this application? This cannot be undone.')">
             <input type="hidden" name="action" value="delete" />
-            <button type="submit" class="btn btn--danger">Delete Application</button>
+            <button type="submit" class="btn-delete">Delete Application</button>
           </form>
         </div>
       )}
-
-      <!-- Audit log -->
-      <div class="card">
-        <h2 class="card__title">Audit Log</h2>
-        {(auditRows ?? []).length === 0 ? (
-          <p class="empty">No events recorded.</p>
-        ) : (
-          <ul class="audit-list">
-            {(auditRows ?? []).map((row: { action: string; admin_email: string; created_at: string }) => (
-              <li class="audit-item">
-                <span class="audit-action">{row.action.replace(/_/g, " ")}</span>
-                <span class="audit-meta">
-                  {row.admin_email} · {fmt(row.created_at)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   </div>
 </AdminLayout>
 
+<script>
+  const tabs = document.querySelectorAll<HTMLButtonElement>(".tab");
+  const panels = document.querySelectorAll<HTMLElement>(".panel");
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab!;
+      tabs.forEach((t) => {
+        t.classList.toggle("tab--active", t === tab);
+        t.setAttribute("aria-selected", String(t === tab));
+      });
+      panels.forEach((p) => p.classList.toggle("panel--hidden", p.id !== `tab-${target}`));
+    });
+    tab.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") (tabs[(i + 1) % tabs.length] as HTMLButtonElement).focus();
+      if (e.key === "ArrowLeft")  (tabs[(i - 1 + tabs.length) % tabs.length] as HTMLButtonElement).focus();
+    });
+  });
+</script>
+
 <style>
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .alert-error {
+    background: #fef2f1; color: #b92111; border: 1px solid #fca5a5;
+    padding: 10px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px;
+  }
+
   .breadcrumb {
-    font-size: 13px;
-    color: #99a1b2;
-    margin-bottom: 16px;
-    display: flex;
-    gap: 6px;
-    align-items: center;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #99a1b2; margin-bottom: 16px;
   }
-  .breadcrumb a { color: #B92111; }
+  .breadcrumb a { color: #b92111; }
+  .breadcrumb a:hover { text-decoration: underline; }
+  .breadcrumb__sep { color: #d1d5db; }
 
-  .page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 24px;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .page-header h1 { font-size: 22px; font-weight: 800; color: #1a1d23; }
-  .ref { font-size: 12px; color: #99a1b2; margin-top: 4px; font-family: monospace; }
-  .header-actions { display: flex; align-items: center; gap: 10px; }
-
-  .badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 100px;
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: capitalize;
-  }
-
-  .layout {
+  .page-body {
     display: grid;
-    grid-template-columns: 1fr 280px;
+    grid-template-columns: 1fr 300px;
     gap: 20px;
     align-items: start;
   }
-  @media (max-width: 800px) {
-    .layout { grid-template-columns: 1fr; }
+  @media (max-width: 860px) {
+    .page-body { grid-template-columns: 1fr; }
   }
 
-  .details { display: flex; flex-direction: column; gap: 16px; }
-  .sidebar { display: flex; flex-direction: column; gap: 16px; }
-
-  .card {
+  /* ── Hero ────────────────────────────────────────────────────────────── */
+  .hero {
     background: #fff;
     border: 1px solid #e4e7ec;
+    border-top: 3px solid var(--accent);
     border-radius: 10px;
-    padding: 20px;
+    margin-bottom: 20px;
+    overflow: hidden;
   }
-  .card--danger { border-color: #fca5a5; background: #fff5f5; }
-  .card__title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #99a1b2;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 14px;
+  .hero__inner {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px 16px;
+    flex-wrap: wrap;
   }
-  .card__title--danger { color: #B92111; }
-
-  .dl {
-    display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 6px 12px;
-    font-size: 14px;
+  .hero__name-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
   }
-  .dl dt { color: #99a1b2; font-weight: 500; }
-  .dl dd { color: #1a1d23; word-break: break-word; }
-  .dl a { color: #B92111; }
-
-  .license-note { font-size: 12px; color: #99a1b2; margin-bottom: 10px; }
-  .license-imgs { display: flex; gap: 10px; }
-  .license-link {
-    padding: 8px 16px;
-    background: #f0f2f5;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #1a1d23;
-    border: 1px solid #e4e7ec;
+  .hero__name {
+    font-size: 22px; font-weight: 800; color: #1a1d23;
+  }
+  .hero__status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 100px; border: 1px solid;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .hero__status-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  }
+  .hero__sub {
+    font-size: 13px; color: #6b7280; display: flex; align-items: center;
+    flex-wrap: wrap; gap: 6px;
+  }
+  .hero__ref { font-family: monospace; color: #99a1b2; font-size: 12px; }
+  .hero__bullet { color: #d1d5db; }
+  .hero__email { color: #b92111; }
+  .hero__email:hover { text-decoration: underline; }
+  .hero__phone-btn {
+    display: inline-block; padding: 8px 16px;
+    background: #f8f9fb; border: 1px solid #e4e7ec; border-radius: 7px;
+    font-size: 14px; font-weight: 600; color: #1a1d23; white-space: nowrap;
     transition: background 0.15s;
   }
-  .license-link:hover { background: #e4e7ec; }
+  .hero__phone-btn:hover { background: #f0f2f5; }
 
-  .select {
-    display: block;
-    width: 100%;
-    padding: 9px 12px;
-    border: 1px solid #e4e7ec;
-    border-radius: 6px;
-    font-size: 14px;
-    font-family: inherit;
-    color: #1a1d23;
-    background: #fff;
+  .hero__stats {
+    display: flex; align-items: center; flex-wrap: wrap;
+    padding: 14px 24px; background: #f8f9fb;
+    border-top: 1px solid #e4e7ec; gap: 0;
+  }
+  .hero__stat { padding: 4px 20px 4px 0; }
+  .hero__stat:first-child { padding-left: 0; }
+  .hero__stat-label {
+    display: block; font-size: 10px; font-weight: 700;
+    color: #99a1b2; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 3px;
+  }
+  .hero__stat-value { font-size: 14px; font-weight: 600; color: #1a1d23; }
+  .hero__stat-value--accent { color: var(--accent); }
+  .hero__stat-sep {
+    width: 1px; height: 32px; background: #e4e7ec; margin: 0 20px 0 0; flex-shrink: 0;
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 2px; background: #f0f2f5;
+    border: 1px solid #e4e7ec; border-bottom: none;
+    border-radius: 8px 8px 0 0; padding: 6px 6px 0;
+    overflow-x: auto;
+  }
+  .tab {
+    position: relative; display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border: none; border-radius: 6px 6px 0 0;
+    background: transparent; font-size: 13px; font-weight: 500;
+    color: #6b7280; cursor: pointer; white-space: nowrap;
+    transition: color 0.15s, background 0.15s;
+  }
+  .tab:hover { color: #1a1d23; background: #e4e7ec; }
+  .tab--active {
+    background: #fff; color: #1a1d23; font-weight: 700;
+    box-shadow: 0 -1px 0 0 #e4e7ec inset, 1px 0 0 0 #e4e7ec inset, -1px 0 0 0 #e4e7ec inset;
+  }
+  .tab__dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #b92111; flex-shrink: 0;
+  }
+
+  /* ── Panel ───────────────────────────────────────────────────────────── */
+  .panel {
+    background: #fff; border: 1px solid #e4e7ec;
+    border-radius: 0 8px 8px 8px; padding: 24px;
+  }
+  .panel--hidden { display: none; }
+
+  /* ── Field grid ──────────────────────────────────────────────────────── */
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .field {
+    padding: 12px 14px;
+    background: #f8f9fb; border: 1px solid #edf0f4;
+    border-radius: 8px;
+  }
+  .field--span2 { grid-column: span 2; }
+  .field--highlight { background: #f0fdf4; border-color: #bbf7d0; }
+  .field__label {
+    display: block; font-size: 10px; font-weight: 700;
+    color: #99a1b2; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 5px;
+  }
+  .field__value { font-size: 14px; color: #1a1d23; font-weight: 500; line-height: 1.4; }
+  .field__value--lg { font-size: 16px; font-weight: 700; }
+  .field__link { color: #b92111; }
+  .field__link:hover { text-decoration: underline; }
+
+  /* ── History lists (prev addresses/employers) ────────────────────────── */
+  .sub-section { margin-top: 20px; }
+  .sub-section__title {
+    font-size: 11px; font-weight: 700; color: #99a1b2;
+    text-transform: uppercase; letter-spacing: 0.06em;
     margin-bottom: 10px;
-    cursor: pointer;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 14px; background: #f8f9fb;
+    border: 1px solid #edf0f4; border-radius: 8px;
+  }
+  .history-item__num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #e4e7ec; color: #6b7280;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .history-item__main { font-size: 14px; color: #1a1d23; font-weight: 500; }
+  .history-item__meta { font-size: 12px; color: #99a1b2; margin-top: 2px; }
+
+  /* ── Loan grid ───────────────────────────────────────────────────────── */
+  .loan-grid {
+    display: flex; gap: 0; margin-top: 20px;
+    border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden;
+  }
+  .loan-stat {
+    flex: 1; padding: 16px 20px; text-align: center;
+    border-right: 1px solid #e4e7ec;
+  }
+  .loan-stat:last-child { border-right: none; }
+  .loan-stat--result { background: #f0fdf4; }
+  .loan-stat__label {
+    display: block; font-size: 10px; font-weight: 700;
+    color: #99a1b2; text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .loan-stat__value { font-size: 18px; font-weight: 800; color: #1a1d23; }
+  .loan-stat--result .loan-stat__value { color: #1a7f4b; }
+
+  /* ── Documents ───────────────────────────────────────────────────────── */
+  .doc-block {
+    padding-bottom: 24px; margin-bottom: 24px;
+    border-bottom: 1px solid #f0f2f5;
+  }
+  .doc-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .doc-block__title {
+    font-size: 12px; font-weight: 700; color: #1a1d23;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px;
+  }
+  .doc-expire-note { font-size: 12px; color: #99a1b2; margin-bottom: 10px; }
+  .doc-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .doc-btn {
+    display: inline-block; padding: 9px 18px;
+    background: #fff; border: 1px solid #e4e7ec; border-radius: 7px;
+    font-size: 13px; font-weight: 600; color: #1a1d23;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .doc-btn:hover { background: #f8f9fb; border-color: #c9cdd6; }
+  .doc-unavail { font-size: 13px; color: #99a1b2; line-height: 1.6; }
+  .path-code {
+    display: block; margin-top: 4px;
+    font-family: monospace; font-size: 11px; color: #6b7280;
+    word-break: break-all;
   }
 
-  .btn {
-    display: block;
-    width: 100%;
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    text-align: center;
-    border: none;
-    transition: opacity 0.15s;
-    text-decoration: none;
+  /* ── References ──────────────────────────────────────────────────────── */
+  .ref-grid { display: flex; flex-direction: column; gap: 8px; }
+  .ref-card {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; background: #f8f9fb;
+    border: 1px solid #edf0f4; border-radius: 8px;
   }
-  .btn--primary { background: #1a1d23; color: #fff; }
-  .btn--primary:hover { opacity: 0.85; }
-  .btn--outline {
-    background: #fff;
-    border: 1px solid #e4e7ec;
-    color: #1a1d23;
+  .ref-card__num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #1a1d23; color: #fff;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .btn--outline:hover { background: #f0f2f5; }
-  .btn--danger { background: #B92111; color: #fff; margin-top: 10px; }
-  .btn--danger:hover { opacity: 0.88; }
+  .ref-card__body { flex: 1; }
+  .ref-card__name { font-size: 14px; font-weight: 700; color: #1a1d23; }
+  .ref-card__rel { font-size: 12px; color: #99a1b2; margin-top: 1px; }
+  .ref-card__phone { font-size: 13px; color: #b92111; margin-top: 4px; display: inline-block; }
+  .ref-card__phone:hover { text-decoration: underline; }
 
-  .danger-note { font-size: 13px; color: #7f1d1d; line-height: 1.5; }
-
-  .empty { font-size: 13px; color: #99a1b2; }
-
-  .audit-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-  .audit-item { display: flex; flex-direction: column; gap: 2px; }
-  .audit-action {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1a1d23;
+  /* ── Timeline ────────────────────────────────────────────────────────── */
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px;
+    width: 1px; background: #e4e7ec;
+  }
+  .tl-item {
+    position: relative; display: flex; align-items: flex-start;
+    gap: 12px; margin-bottom: 16px;
+  }
+  .tl-item:last-child { margin-bottom: 0; }
+  .tl-dot {
+    position: absolute; left: -20px; top: 4px;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #fff; border: 2px solid #e4e7ec; flex-shrink: 0;
+  }
+  .tl-content { display: flex; flex-direction: column; gap: 2px; }
+  .tl-action {
+    font-size: 13px; font-weight: 600; color: #1a1d23;
     text-transform: capitalize;
   }
-  .audit-meta { font-size: 11px; color: #99a1b2; }
+  .tl-meta { font-size: 11px; color: #99a1b2; }
+
+  /* ── Empty state ─────────────────────────────────────────────────────── */
+  .empty-state { text-align: center; padding: 32px 20px; }
+  .empty-state__icon { font-size: 28px; color: #d1d5db; display: block; margin-bottom: 8px; }
+  .empty-state__text { font-size: 14px; color: #99a1b2; }
+  .muted-text { font-size: 13px; color: #99a1b2; }
+  .capitalize { text-transform: capitalize; }
+
+  /* ── Action column ───────────────────────────────────────────────────── */
+  .action-col { display: flex; flex-direction: column; gap: 16px; }
+  .action-card {
+    background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; padding: 20px;
+  }
+  .action-card--danger { border-color: #fca5a5; background: #fff8f7; }
+  .action-card__title {
+    font-size: 11px; font-weight: 700; color: #99a1b2;
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px;
+  }
+  .action-card__title--danger { color: #b92111; }
+
+  /* Status picker */
+  .status-picker { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .status-opt {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 12px; border: 1px solid #e4e7ec; border-radius: 7px;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .status-opt:hover { border-color: #c9cdd6; background: #f8f9fb; }
+  .status-opt--active { font-weight: 700; }
+  .status-opt input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .status-opt:focus-within {
+    outline: 2px solid #b92111;
+    outline-offset: 1px;
+  }
+  .status-opt__dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-opt__label { font-size: 13px; color: #1a1d23; flex: 1; }
+  .status-opt__tag {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #99a1b2;
+    background: #f0f2f5; border-radius: 4px; padding: 2px 6px;
+  }
+
+  .btn-submit {
+    display: block; width: 100%; padding: 10px 14px;
+    background: #1a1d23; color: #fff; border: none; border-radius: 7px;
+    font-size: 13px; font-weight: 700; font-family: inherit;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-submit:hover { opacity: 0.85; }
+
+  .danger-note { font-size: 13px; color: #7f1d1d; line-height: 1.5; margin-bottom: 12px; }
+  .btn-delete {
+    display: block; width: 100%; padding: 10px 14px;
+    background: #b92111; color: #fff; border: none; border-radius: 7px;
+    font-size: 13px; font-weight: 700; font-family: inherit;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-delete:hover { opacity: 0.88; }
+
+  /* Phase 2 banner */
+  .phase2-banner {
+    margin-bottom: 14px; padding: 10px 12px;
+    background: #f5f0ff; border: 1px solid #ddd6fe;
+    border-radius: 7px; font-size: 12px;
+  }
+  .phase2-banner__label { font-weight: 700; color: #7c3aed; margin-bottom: 4px; }
+  .phase2-banner__token { color: #6b7280; word-break: break-all; }
+  .phase2-banner__token code { font-family: monospace; }
+  .phase2-banner__exp { color: #99a1b2; margin-top: 3px; }
 </style>

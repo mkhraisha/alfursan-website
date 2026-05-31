@@ -5,12 +5,16 @@ import type { Role } from "./lib/permissions";
 /**
  * Middleware — runs on every request.
  *
- * For /admin/** and /dealer/** routes:
- *   1. Reads the Supabase session from the Authorization header or cookie.
- *   2. Looks up the authenticated user in the user_profiles table.
- *   3. Checks is_active = true.
- *   4. Attaches adminEmail + adminRole to Astro.locals.
- *   5. Redirects to the appropriate login page if any check fails.
+ * For /admin/** routes (excluding login, callback, signout):
+ *   1. Reads the access token from Authorization header or sb-access-token cookie.
+ *   2. Calls getUser(accessToken) to validate it.
+ *   3. If the token is expired, transparently attempts a refresh via sb-refresh-token.
+ *      On success, the rotated tokens are written to the response cookies so the
+ *      browser stays logged in without any visible interruption.
+ *   4. Looks up the authenticated user in user_profiles.
+ *   5. Checks is_active = true.
+ *   6. Attaches adminEmail + adminRole + dealerUserId to Astro.locals.
+ *   7. Redirects to /admin/ if any check fails.
  *
  * Public and API routes are passed through unchanged.
  */
@@ -20,7 +24,6 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-  // Permissive baseline CSP — tighten once nonce-based inline scripts are in place
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
@@ -32,26 +35,24 @@ const SECURITY_HEADERS: Record<string, string> = {
   ].join("; "),
 };
 
+function addSecurityHeaders(res: Response) {
+  for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
+    res.headers.set(header, value);
+  }
+}
+
 export const onRequest = defineMiddleware(async ({ locals, request, url, redirect }, next) => {
-  const isAdminRoute  = url.pathname.startsWith("/admin/");
-  const isDealerRoute = url.pathname.startsWith("/dealer/");
-  const isProtectedRoute = isAdminRoute || isDealerRoute;
+  const isAdminRoute = url.pathname.startsWith("/admin/");
 
   const isPublicPage =
     url.pathname === "/admin/" ||
     url.pathname === "/admin" ||
-    url.pathname === "/dealer/" ||
-    url.pathname === "/dealer" ||
     url.pathname.startsWith("/admin/callback") ||
-    url.pathname.startsWith("/admin/signout") ||
-    url.pathname.startsWith("/dealer/callback") ||
-    url.pathname.startsWith("/dealer/signout");
+    url.pathname.startsWith("/admin/signout");
 
-  if (!isProtectedRoute || isPublicPage) {
+  if (!isAdminRoute || isPublicPage) {
     const res = await next();
-    for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
-      res.headers.set(header, value);
-    }
+    addSecurityHeaders(res);
     return res;
   }
 
@@ -59,29 +60,27 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   const supabaseServiceRoleKey = import.meta.env.SUPABASE_SECRET_KEY ?? "";
   const supabaseAnonKey        = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 
-  const loginPage = isDealerRoute ? "/dealer/" : "/admin/";
-
   if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
     console.error("[middleware] Missing Supabase env vars");
-    const r = redirect(loginPage);
-    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    const r = redirect("/admin/");
+    addSecurityHeaders(r);
     return r;
   }
 
-  const authHeader  = request.headers.get("authorization");
-  const cookieHeader = request.headers.get("cookie");
+  const authHeader   = request.headers.get("authorization");
+  const cookieHeader = request.headers.get("cookie") ?? "";
 
   let accessToken: string | null = null;
   if (authHeader?.startsWith("Bearer ")) {
     accessToken = authHeader.slice(7);
-  } else if (cookieHeader) {
-    const match = cookieHeader.match(/sb-access-token=([^;]+)/);
+  } else {
+    const match = cookieHeader.match(/(?:^|;\s*)sb-access-token=([^;]+)/);
     if (match) accessToken = decodeURIComponent(match[1]);
   }
 
   if (!accessToken) {
-    const r = redirect(`${loginPage}?error=no_token`);
-    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    const r = redirect("/admin/?error=no_token");
+    addSecurityHeaders(r);
     return r;
   }
 
@@ -89,15 +88,51 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: { user }, error: userError } = await anonClient.auth.getUser(accessToken);
+  let { data: { user }, error: userError } = await anonClient.auth.getUser(accessToken);
+
+  // ── Token expired — attempt transparent refresh ────────────────────────────
+  type RefreshedSession = {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    expires_at?: number;
+  };
+  let refreshedSession: RefreshedSession | null = null;
 
   if (userError || !user?.email) {
-    console.error("[middleware] getUser failed", userError);
-    const r = redirect(`${loginPage}?error=invalid_token`);
-    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
-    return r;
+    const rtMatch = cookieHeader.match(/(?:^|;\s*)sb-refresh-token=([^;]+)/);
+    if (!rtMatch) {
+      const r = redirect("/admin/?error=invalid_token");
+      addSecurityHeaders(r);
+      return r;
+    }
+
+    const refreshToken = decodeURIComponent(rtMatch[1]);
+    const { data: rd, error: re } = await anonClient.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
+
+    if (re || !rd.session) {
+      console.error("[middleware] Refresh failed", re?.message);
+      const r = redirect("/admin/?error=invalid_token");
+      addSecurityHeaders(r);
+      return r;
+    }
+
+    // Re-validate with the new access token
+    const revalidated = await anonClient.auth.getUser(rd.session.access_token);
+    if (revalidated.error || !revalidated.data.user?.email) {
+      const r = redirect("/admin/?error=invalid_token");
+      addSecurityHeaders(r);
+      return r;
+    }
+
+    user           = revalidated.data.user;
+    userError      = null;
+    refreshedSession = rd.session as RefreshedSession;
   }
 
+  // ── Look up user profile ───────────────────────────────────────────────────
   const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -105,23 +140,44 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   const { data: profile, error: profileError } = await adminClient
     .from("user_profiles")
     .select("id, role, is_active")
-    .eq("email", user.email)
+    .eq("email", user!.email)
     .single();
 
   if (profileError || !profile || !profile.is_active) {
     console.error("[middleware] user_profiles check failed", { profileError });
-    const r = redirect(`${loginPage}?error=unauthorized`);
-    for (const [header, value] of Object.entries(SECURITY_HEADERS)) r.headers.set(header, value);
+    const r = redirect("/admin/?error=unauthorized");
+    addSecurityHeaders(r);
     return r;
   }
 
-  locals.adminEmail  = user.email;
-  locals.adminRole   = profile.role as Role;
+  locals.adminEmail   = user!.email!;
+  locals.adminRole    = profile.role as Role;
   locals.dealerUserId = profile.id as string;
 
   const res = await next();
-  for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
-    res.headers.set(header, value);
+  addSecurityHeaders(res);
+
+  // ── Write rotated cookies if we refreshed ─────────────────────────────────
+  if (refreshedSession) {
+    const maxAge = typeof refreshedSession.expires_in === "number" && refreshedSession.expires_in > 0
+      ? refreshedSession.expires_in : 28800;
+    const secure = import.meta.env.PROD ? "; Secure" : "";
+
+    res.headers.append(
+      "Set-Cookie",
+      `sb-access-token=${encodeURIComponent(refreshedSession.access_token)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${maxAge}`
+    );
+    res.headers.append(
+      "Set-Cookie",
+      `sb-refresh-token=${encodeURIComponent(refreshedSession.refresh_token)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
+    );
+    if (refreshedSession.expires_at) {
+      res.headers.append(
+        "Set-Cookie",
+        `sb-token-exp=${refreshedSession.expires_at}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
+      );
+    }
   }
+
   return res;
 });

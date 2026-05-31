@@ -891,6 +891,7 @@ function LicenseUploadField({
         id={inputId}
         type="file"
         accept="image/jpeg,image/png,image/heic,image/webp,application/pdf"
+        capture="environment"
         style={{ display: "none" }}
         onChange={(e) => {
           const file = e.target.files?.[0];

@@ -85,7 +85,7 @@ const vehicleSchema: Record<string, unknown> = {
   image={car.image}
   schema={vehicleSchema}
 >
-  <main class="container">
+  <main id="main-content" class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb">
       <a href="/">Homepage</a>
       <span class="sep">&rsaquo;</span>
@@ -260,16 +260,33 @@ const vehicleSchema: Record<string, unknown> = {
     ) as HTMLImageElement | null;
     const thumbs = document.querySelectorAll<HTMLButtonElement>(".thumb");
 
+    function activateThumb(thumb: HTMLButtonElement) {
+      const src = thumb.dataset.src;
+      if (mainImg && src) {
+        mainImg.src = src;
+        thumbs.forEach((t) => t.classList.remove("active"));
+        thumb.classList.add("active");
+      }
+    }
+
     thumbs.forEach((thumb) => {
-      thumb.addEventListener("click", () => {
-        const src = thumb.dataset.src;
-        if (mainImg && src) {
-          mainImg.src = src;
-          thumbs.forEach((t) => t.classList.remove("active"));
-          thumb.classList.add("active");
-        }
-      });
+      thumb.addEventListener("click", () => activateThumb(thumb));
     });
+
+    // Swipe to advance through gallery on touch devices
+    let touchStartX = 0;
+    const gallery = document.querySelector(".gallery-main-wrap") ?? mainImg;
+    gallery?.addEventListener("touchstart", (e) => {
+      touchStartX = (e as TouchEvent).touches[0].clientX;
+    }, { passive: true });
+    gallery?.addEventListener("touchend", (e) => {
+      const dx = (e as TouchEvent).changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) < 40) return;
+      const all = Array.from(thumbs);
+      const current = all.findIndex(t => t.classList.contains("active"));
+      const next = dx < 0 ? current + 1 : current - 1;
+      if (all[next]) activateThumb(all[next] as HTMLButtonElement);
+    }, { passive: true });
   });
 </script>
 

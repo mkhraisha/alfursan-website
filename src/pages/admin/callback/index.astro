@@ -63,7 +63,12 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
             const res = await fetch("/api/admin/set-session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token: session.access_token, expiresIn: session.expires_in ?? 3600 }),
+              body: JSON.stringify({
+                token:        session.access_token,
+                expiresIn:    session.expires_in ?? 28800,
+                refreshToken: session.refresh_token,
+                expiresAt:    session.expires_at,
+              }),
             });
             if (!res.ok) {
               msg.innerHTML = '<strong style="color:#B92111">Sign-in error.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';

@@ -1,0 +1,24 @@
+---
+export const prerender = false;
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import GarageRegister from "../../../components/admin/GarageRegister";
+import { getAdminClient } from "../../../lib/supabase-admin";
+
+const db = getAdminClient();
+
+const { data: vehicles, error } = await db
+  .from("vehicles")
+  .select("vin, make, body_type, colour, odometer, purchased_from_name, purchased_from_address, purchase_date, purchaser_name, purchaser_address, sale_date")
+  .order("purchase_date", { ascending: false });
+
+if (error) {
+  console.error("[garage] fetch error", error);
+}
+---
+
+<AdminLayout title="Garage Register" activeNav="garage">
+  <GarageRegister
+    vehicles={vehicles ?? []}
+    client:load
+  />
+</AdminLayout>

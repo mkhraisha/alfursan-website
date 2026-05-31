@@ -1,18 +1,17 @@
 ---
 /**
- * Sign-out handler. Clears the HttpOnly session cookie server-side then
+ * Sign-out handler. Expires all three session cookies server-side then
  * redirects to the login page.
  *
- * The cookie is HttpOnly so it cannot be cleared from JavaScript; only the
- * server can expire it via a Set-Cookie header.
+ * All session cookies are HttpOnly (except sb-token-exp) so they can only
+ * be cleared here via Set-Cookie, not from JavaScript.
  */
 export const prerender = false;
 
-return new Response(null, {
-  status: 302,
-  headers: {
-    Location: "/admin/",
-    "Set-Cookie": "sb-access-token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
-  },
-});
+const headers = new Headers({ Location: "/admin/" });
+headers.append("Set-Cookie", "sb-access-token=;  HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+headers.append("Set-Cookie", "sb-refresh-token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+headers.append("Set-Cookie", "sb-token-exp=;             SameSite=Lax; Path=/; Max-Age=0");
+
+return new Response(null, { status: 302, headers });
 ---

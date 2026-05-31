@@ -81,6 +81,9 @@ export const colors = {
 
   /** Mobile menu border */
   menuBorder: "#d8dde5",
+
+  /** Approved / financing success green */
+  approved: "#1a7f4b",
 } as const;
 
 /** Map from CSS custom-property name → hex value, injected into :root */
@@ -112,6 +115,7 @@ export const cssVars: Record<string, string> = {
   "--active-filter-border": colors.activeFilterBorder,
   "--active-filter-text": colors.activeFilterText,
   "--menu-border": colors.menuBorder,
+  "--approved": colors.approved,
 };
 
 /** Returns a valid CSS string for injecting inside :root { } */

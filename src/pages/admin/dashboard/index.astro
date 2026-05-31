@@ -130,7 +130,7 @@ const statusColor: Record<string, string> = {
     )}
   </div>
 
-  {can(adminRole!, "manage_users") && (
+  {can(adminRole, "dealer:users:manage") && (
     <div class="section">
       <div class="section__header">
         <h2>Admin Access</h2>
