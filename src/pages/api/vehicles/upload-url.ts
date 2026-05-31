@@ -71,7 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Invalid VIN" }, 400);
   }
 
-  if (fileSize > MAX_BYTES) {
+  if (fileSize < 0 || fileSize > MAX_BYTES) {
     return json({ error: "File exceeds the 50 MiB limit" }, 400);
   }
 
