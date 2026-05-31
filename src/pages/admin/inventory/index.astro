@@ -16,7 +16,7 @@ const { data: rawVehicles } = await db
   .select(
     canSeeFinancials
       ? "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)"
-      : "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, commission_user_id"
+      : "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, commission_user_id, vehicle_expenses(amount)"
   )
   .order("created_at", { ascending: false });
 
@@ -37,7 +37,7 @@ const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, u
     advertised_price_facebook: (v.advertised_price_facebook as number | null) ?? null,
     purchase_price:       canSeeFinancials ? (v.purchase_price as number | null) ?? null : null,
     sale_price:           canSeeFinancials ? (v.sale_price as number | null) ?? null : null,
-    expense_total:        canSeeFinancials ? expenseTotal : 0,
+    expense_total:        expenseTotal,
     commission_percentage: canSeeFinancials ? commissionUser?.commission_percentage ?? null : null,
   };
 });
