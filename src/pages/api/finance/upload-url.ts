@@ -135,7 +135,7 @@ export const POST: APIRoute = async ({ request }) => {
     const storagePath = `phase2/${appId}/${docType}.${ext}`;
     const { data, error } = await supabase.storage
       .from("license-documents")
-      .createSignedUploadUrl(storagePath);
+      .createSignedUploadUrl(storagePath, { upsert: true });
 
     if (error || !data) {
       console.error(
@@ -170,7 +170,7 @@ export const POST: APIRoute = async ({ request }) => {
     const supabase = getAdminClient();
     const { data, error } = await supabase.storage
       .from("license-documents")
-      .createSignedUploadUrl(storagePath);
+      .createSignedUploadUrl(storagePath, { upsert: true });
 
     if (error || !data) {
       console.error(

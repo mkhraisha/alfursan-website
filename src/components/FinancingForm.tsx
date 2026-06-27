@@ -44,10 +44,19 @@ const MARITAL_OPTIONS = [
 ];
 
 const MONTHS = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
-
 
 const DEFAULT_DATA: FormData = {
   fullName: "",
@@ -143,9 +152,7 @@ function FormField({
         }}
       >
         {label}
-        {required && (
-          <span style={{ color: C.red, marginLeft: "3px" }}>*</span>
-        )}
+        {required && <span style={{ color: C.red, marginLeft: "3px" }}>*</span>}
       </label>
       {children}
       {error && (
@@ -237,7 +244,14 @@ function ProgressStepper({ current }: { current: number }) {
         const active = n === current;
         return (
           <React.Fragment key={n}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                flex: 1,
+              }}
+            >
               <div
                 style={{
                   width: "32px",
@@ -302,12 +316,16 @@ function Step1Personal({
   setData: React.Dispatch<React.SetStateAction<FormData>>;
   errors: Errors;
 }) {
-  const needPrev = monthsSince(data.addressSinceYear, data.addressSinceMonth) < 24;
+  const needPrev =
+    monthsSince(data.addressSinceYear, data.addressSinceMonth) < 24;
 
   const addAddress = () =>
     setData((prev) => ({
       ...prev,
-      prevAddresses: [...prev.prevAddresses, { address: "", postalCode: "", sinceYear: "", sinceMonth: "" }],
+      prevAddresses: [
+        ...prev.prevAddresses,
+        { address: "", postalCode: "", sinceYear: "", sinceMonth: "" },
+      ],
     }));
 
   const removeAddress = (i: number) =>
@@ -327,13 +345,20 @@ function Step1Personal({
     data.prevAddresses.length > 0
       ? monthsSince(
           data.prevAddresses[data.prevAddresses.length - 1].sinceYear,
-          data.prevAddresses[data.prevAddresses.length - 1].sinceMonth
+          data.prevAddresses[data.prevAddresses.length - 1].sinceMonth,
         )
       : 0;
   const needMoreAddresses = needPrev && oldestPrevMonths < 24;
   return (
     <div>
-      <h2 style={{ fontSize: "20px", fontWeight: 700, color: C.ink, marginBottom: "4px" }}>
+      <h2
+        style={{
+          fontSize: "20px",
+          fontWeight: 700,
+          color: C.ink,
+          marginBottom: "4px",
+        }}
+      >
         Personal Information
       </h2>
       <p style={{ color: C.muted, fontSize: "14px", marginBottom: "24px" }}>
@@ -385,7 +410,11 @@ function Step1Personal({
             autoComplete="postal-code"
           />
         </FormField>
-        <FormField label="Living at Current Address Since" required error={errors.addressSinceYear || errors.addressSinceMonth}>
+        <FormField
+          label="Living at Current Address Since"
+          required
+          error={errors.addressSinceYear || errors.addressSinceMonth}
+        >
           <Row>
             <SelectInput
               value={data.addressSinceMonth}
@@ -394,7 +423,9 @@ function Step1Personal({
             >
               <option value="">Month</option>
               {MONTHS.map((m, i) => (
-                <option key={i} value={String(i + 1)}>{m}</option>
+                <option key={i} value={String(i + 1)}>
+                  {m}
+                </option>
               ))}
             </SelectInput>
             <TextInput
@@ -413,7 +444,8 @@ function Step1Personal({
       {needPrev && (
         <div style={{ marginTop: "8px" }}>
           <p style={{ fontSize: "13px", color: C.muted, marginBottom: "12px" }}>
-            You've been at your current address for less than 2 years. Please add previous addresses going back at least 2 years total.
+            You've been at your current address for less than 2 years. Please
+            add previous addresses going back at least 2 years total.
           </p>
 
           {data.prevAddresses.map((entry, i) => (
@@ -427,19 +459,39 @@ function Step1Personal({
                 background: C.bg,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <span style={{ fontSize: "13px", fontWeight: 600, color: C.ink }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "12px",
+                }}
+              >
+                <span
+                  style={{ fontSize: "13px", fontWeight: 600, color: C.ink }}
+                >
                   Previous Address {i + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeAddress(i)}
-                  style={{ fontSize: "12px", color: C.red, background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}
+                  style={{
+                    fontSize: "12px",
+                    color: C.red,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "2px 6px",
+                  }}
                 >
                   Remove
                 </button>
               </div>
-              <FormField label="Address" required error={errors[`prevAddresses_${i}_address`]}>
+              <FormField
+                label="Address"
+                required
+                error={errors[`prevAddresses_${i}_address`]}
+              >
                 <TextInput
                   type="text"
                   value={entry.address}
@@ -449,32 +501,52 @@ function Step1Personal({
                 />
               </FormField>
               <Row>
-                <FormField label="Postal Code" required error={errors[`prevAddresses_${i}_postalCode`]}>
+                <FormField
+                  label="Postal Code"
+                  required
+                  error={errors[`prevAddresses_${i}_postalCode`]}
+                >
                   <TextInput
                     type="text"
                     value={entry.postalCode}
-                    onChange={(e) => updateAddress(i, "postalCode", e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      updateAddress(
+                        i,
+                        "postalCode",
+                        e.target.value.toUpperCase(),
+                      )
+                    }
                     placeholder="A1B 2C3"
                     maxLength={7}
                     error={errors[`prevAddresses_${i}_postalCode`]}
                   />
                 </FormField>
-                <FormField label="From" required error={errors[`prevAddresses_${i}_since`]}>
+                <FormField
+                  label="From"
+                  required
+                  error={errors[`prevAddresses_${i}_since`]}
+                >
                   <Row>
                     <SelectInput
                       value={entry.sinceMonth}
-                      onChange={(e) => updateAddress(i, "sinceMonth", e.target.value)}
+                      onChange={(e) =>
+                        updateAddress(i, "sinceMonth", e.target.value)
+                      }
                       error={errors[`prevAddresses_${i}_since`]}
                     >
                       <option value="">Month</option>
                       {MONTHS.map((m, mi) => (
-                        <option key={mi} value={String(mi + 1)}>{m}</option>
+                        <option key={mi} value={String(mi + 1)}>
+                          {m}
+                        </option>
                       ))}
                     </SelectInput>
                     <TextInput
                       type="number"
                       value={entry.sinceYear}
-                      onChange={(e) => updateAddress(i, "sinceYear", e.target.value)}
+                      onChange={(e) =>
+                        updateAddress(i, "sinceYear", e.target.value)
+                      }
                       placeholder="Year"
                       min="1950"
                       max={String(new Date().getFullYear())}
@@ -482,22 +554,31 @@ function Step1Personal({
                     />
                   </Row>
                 </FormField>
-                <FormField label="Until" error={errors[`prevAddresses_${i}_until`]}>
+                <FormField
+                  label="Until"
+                  error={errors[`prevAddresses_${i}_until`]}
+                >
                   <Row>
                     <SelectInput
                       value={entry.untilMonth ?? ""}
-                      onChange={(e) => updateAddress(i, "untilMonth", e.target.value)}
+                      onChange={(e) =>
+                        updateAddress(i, "untilMonth", e.target.value)
+                      }
                       error={errors[`prevAddresses_${i}_until`]}
                     >
                       <option value="">Month</option>
                       {MONTHS.map((m, mi) => (
-                        <option key={mi} value={String(mi + 1)}>{m}</option>
+                        <option key={mi} value={String(mi + 1)}>
+                          {m}
+                        </option>
                       ))}
                     </SelectInput>
                     <TextInput
                       type="number"
                       value={entry.untilYear ?? ""}
-                      onChange={(e) => updateAddress(i, "untilYear", e.target.value)}
+                      onChange={(e) =>
+                        updateAddress(i, "untilYear", e.target.value)
+                      }
                       placeholder="Year"
                       min="1950"
                       max={String(new Date().getFullYear())}
@@ -530,12 +611,15 @@ function Step1Personal({
                 marginBottom: "4px",
               }}
             >
-              + Add{data.prevAddresses.length > 0 ? " another" : " a"} previous address
+              + Add{data.prevAddresses.length > 0 ? " another" : " a"} previous
+              address
             </button>
           )}
 
           {errors.prevAddresses && (
-            <p style={{ fontSize: "13px", color: C.red, marginTop: "6px" }}>{errors.prevAddresses}</p>
+            <p style={{ fontSize: "13px", color: C.red, marginTop: "6px" }}>
+              {errors.prevAddresses}
+            </p>
           )}
         </div>
       )}
@@ -570,7 +654,7 @@ function Step1Personal({
           error={errors.maritalStatus}
         >
           <option value="">Select…</option>
-          {MARITAL_OPTIONS.filter(o => o.value !== "").map((o) => (
+          {MARITAL_OPTIONS.filter((o) => o.value !== "").map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
@@ -594,14 +678,25 @@ function Step2Employment({
   errors: Errors;
 }) {
   const isEmployed = ["full-time", "part-time", "self-employed"].includes(
-    data.employmentStatus
+    data.employmentStatus,
   );
-  const needPrev = isEmployed && monthsSince(data.employerSinceYear, data.employerSinceMonth) < 24;
+  const needPrev =
+    isEmployed &&
+    monthsSince(data.employerSinceYear, data.employerSinceMonth) < 24;
 
   const addEmployer = () =>
     setData((prev) => ({
       ...prev,
-      prevEmployers: [...prev.prevEmployers, { employer: "", address: "", postalCode: "", sinceYear: "", sinceMonth: "" }],
+      prevEmployers: [
+        ...prev.prevEmployers,
+        {
+          employer: "",
+          address: "",
+          postalCode: "",
+          sinceYear: "",
+          sinceMonth: "",
+        },
+      ],
     }));
 
   const removeEmployer = (i: number) =>
@@ -610,7 +705,11 @@ function Step2Employment({
       prevEmployers: prev.prevEmployers.filter((_, idx) => idx !== i),
     }));
 
-  const updateEmployer = (i: number, field: keyof PrevEmployer, value: string) =>
+  const updateEmployer = (
+    i: number,
+    field: keyof PrevEmployer,
+    value: string,
+  ) =>
     setData((prev) => {
       const updated = [...prev.prevEmployers];
       updated[i] = { ...updated[i], [field]: value };
@@ -621,21 +720,32 @@ function Step2Employment({
     data.prevEmployers.length > 0
       ? monthsSince(
           data.prevEmployers[data.prevEmployers.length - 1].sinceYear,
-          data.prevEmployers[data.prevEmployers.length - 1].sinceMonth
+          data.prevEmployers[data.prevEmployers.length - 1].sinceMonth,
         )
       : 0;
   const needMoreEmployers = needPrev && oldestPrevMonths < 24;
 
   return (
     <div>
-      <h2 style={{ fontSize: "20px", fontWeight: 700, color: C.ink, marginBottom: "4px" }}>
+      <h2
+        style={{
+          fontSize: "20px",
+          fontWeight: 700,
+          color: C.ink,
+          marginBottom: "4px",
+        }}
+      >
         Employment
       </h2>
       <p style={{ color: C.muted, fontSize: "14px", marginBottom: "24px" }}>
         We use this to assess your financing eligibility.
       </p>
 
-      <FormField label="Employment Status" required error={errors.employmentStatus}>
+      <FormField
+        label="Employment Status"
+        required
+        error={errors.employmentStatus}
+      >
         <SelectInput
           value={data.employmentStatus}
           onChange={(e) => set("employmentStatus", e.target.value)}
@@ -652,7 +762,11 @@ function Step2Employment({
       {isEmployed && (
         <>
           <Row>
-            <FormField label="Employer / Company Name" required error={errors.employer}>
+            <FormField
+              label="Employer / Company Name"
+              required
+              error={errors.employer}
+            >
               <TextInput
                 type="text"
                 value={data.employer}
@@ -660,7 +774,11 @@ function Step2Employment({
                 placeholder="Company name"
               />
             </FormField>
-            <FormField label="Job Title / Position" required error={errors.jobTitle}>
+            <FormField
+              label="Job Title / Position"
+              required
+              error={errors.jobTitle}
+            >
               <TextInput
                 type="text"
                 value={data.jobTitle}
@@ -671,7 +789,11 @@ function Step2Employment({
           </Row>
 
           <Row>
-            <FormField label="Employer Address" required error={errors.employerAddress}>
+            <FormField
+              label="Employer Address"
+              required
+              error={errors.employerAddress}
+            >
               <TextInput
                 type="text"
                 value={data.employerAddress}
@@ -679,7 +801,11 @@ function Step2Employment({
                 placeholder="123 Business Ave, City"
               />
             </FormField>
-            <FormField label="Employer Phone" required error={errors.employerPhone}>
+            <FormField
+              label="Employer Phone"
+              required
+              error={errors.employerPhone}
+            >
               <TextInput
                 type="tel"
                 value={data.employerPhone}
@@ -690,11 +816,17 @@ function Step2Employment({
           </Row>
 
           <Row>
-            <FormField label="Gross Annual Income (CAD)" required error={errors.annualIncome}>
+            <FormField
+              label="Gross Annual Income (CAD)"
+              required
+              error={errors.annualIncome}
+            >
               <TextInput
                 type="number"
                 value={data.annualIncome}
-                onChange={(e) => set("annualIncome", stripCommas(e.target.value))}
+                onChange={(e) =>
+                  set("annualIncome", stripCommas(e.target.value))
+                }
                 placeholder="e.g. 55000"
                 min="0"
                 step="1000"
@@ -708,7 +840,9 @@ function Step2Employment({
                 >
                   <option value="">Month</option>
                   {MONTHS.map((m, i) => (
-                    <option key={i} value={String(i + 1)}>{m}</option>
+                    <option key={i} value={String(i + 1)}>
+                      {m}
+                    </option>
                   ))}
                 </SelectInput>
                 <TextInput
@@ -725,8 +859,15 @@ function Step2Employment({
 
           {needPrev && (
             <div style={{ marginTop: "8px" }}>
-              <p style={{ fontSize: "13px", color: C.muted, marginBottom: "12px" }}>
-                You've been at your current employer for less than 2 years. Please add previous employers going back at least 2 years total.
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: C.muted,
+                  marginBottom: "12px",
+                }}
+              >
+                You've been at your current employer for less than 2 years.
+                Please add previous employers going back at least 2 years total.
               </p>
 
               {data.prevEmployers.map((entry, i) => (
@@ -740,64 +881,112 @@ function Step2Employment({
                     background: C.bg,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <span style={{ fontSize: "13px", fontWeight: 600, color: C.ink }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: C.ink,
+                      }}
+                    >
                       Previous Employer {i + 1}
                     </span>
                     <button
                       type="button"
                       onClick={() => removeEmployer(i)}
-                      style={{ fontSize: "12px", color: C.red, background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}
+                      style={{
+                        fontSize: "12px",
+                        color: C.red,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "2px 6px",
+                      }}
                     >
                       Remove
                     </button>
                   </div>
                   <Row>
-                    <FormField label="Company Name" required error={errors[`prevEmployers_${i}_employer`]}>
+                    <FormField
+                      label="Company Name"
+                      required
+                      error={errors[`prevEmployers_${i}_employer`]}
+                    >
                       <TextInput
                         type="text"
                         value={entry.employer}
-                        onChange={(e) => updateEmployer(i, "employer", e.target.value)}
+                        onChange={(e) =>
+                          updateEmployer(i, "employer", e.target.value)
+                        }
                         placeholder="Previous company name"
                         error={errors[`prevEmployers_${i}_employer`]}
                       />
                     </FormField>
-                    <FormField label="Address" required error={errors[`prevEmployers_${i}_address`]}>
+                    <FormField
+                      label="Address"
+                      required
+                      error={errors[`prevEmployers_${i}_address`]}
+                    >
                       <TextInput
                         type="text"
                         value={entry.address}
-                        onChange={(e) => updateEmployer(i, "address", e.target.value)}
+                        onChange={(e) =>
+                          updateEmployer(i, "address", e.target.value)
+                        }
                         placeholder="Company address"
                         error={errors[`prevEmployers_${i}_address`]}
                       />
                     </FormField>
                   </Row>
                   <Row>
-                    <FormField label="Postal Code" required error={errors[`prevEmployers_${i}_postalCode`]}>
+                    <FormField
+                      label="Postal Code"
+                      required
+                      error={errors[`prevEmployers_${i}_postalCode`]}
+                    >
                       <TextInput
                         type="text"
                         value={entry.postalCode}
-                        onChange={(e) => updateEmployer(i, "postalCode", e.target.value)}
+                        onChange={(e) =>
+                          updateEmployer(i, "postalCode", e.target.value)
+                        }
                         placeholder="e.g. M5V 3A8"
                         error={errors[`prevEmployers_${i}_postalCode`]}
                       />
                     </FormField>
-                    <FormField label="From" required error={errors[`prevEmployers_${i}_since`]}>
+                    <FormField
+                      label="From"
+                      required
+                      error={errors[`prevEmployers_${i}_since`]}
+                    >
                       <Row>
                         <SelectInput
                           value={entry.sinceMonth}
-                          onChange={(e) => updateEmployer(i, "sinceMonth", e.target.value)}
+                          onChange={(e) =>
+                            updateEmployer(i, "sinceMonth", e.target.value)
+                          }
                           error={errors[`prevEmployers_${i}_since`]}
                         >
                           <option value="">Month</option>
                           {MONTHS.map((m, mi) => (
-                            <option key={mi} value={String(mi + 1)}>{m}</option>
+                            <option key={mi} value={String(mi + 1)}>
+                              {m}
+                            </option>
                           ))}
                         </SelectInput>
                         <TextInput
                           type="number"
                           value={entry.sinceYear}
-                          onChange={(e) => updateEmployer(i, "sinceYear", e.target.value)}
+                          onChange={(e) =>
+                            updateEmployer(i, "sinceYear", e.target.value)
+                          }
                           placeholder="Year"
                           min="1950"
                           max={String(new Date().getFullYear())}
@@ -805,22 +994,31 @@ function Step2Employment({
                         />
                       </Row>
                     </FormField>
-                    <FormField label="Until" error={errors[`prevEmployers_${i}_until`]}>
+                    <FormField
+                      label="Until"
+                      error={errors[`prevEmployers_${i}_until`]}
+                    >
                       <Row>
                         <SelectInput
                           value={entry.untilMonth ?? ""}
-                          onChange={(e) => updateEmployer(i, "untilMonth", e.target.value)}
+                          onChange={(e) =>
+                            updateEmployer(i, "untilMonth", e.target.value)
+                          }
                           error={errors[`prevEmployers_${i}_until`]}
                         >
                           <option value="">Month</option>
                           {MONTHS.map((m, mi) => (
-                            <option key={mi} value={String(mi + 1)}>{m}</option>
+                            <option key={mi} value={String(mi + 1)}>
+                              {m}
+                            </option>
                           ))}
                         </SelectInput>
                         <TextInput
                           type="number"
                           value={entry.untilYear ?? ""}
-                          onChange={(e) => updateEmployer(i, "untilYear", e.target.value)}
+                          onChange={(e) =>
+                            updateEmployer(i, "untilYear", e.target.value)
+                          }
                           placeholder="Year"
                           min="1950"
                           max={String(new Date().getFullYear())}
@@ -853,12 +1051,15 @@ function Step2Employment({
                     marginBottom: "4px",
                   }}
                 >
-                  + Add{data.prevEmployers.length > 0 ? " another" : " a"} previous employer
+                  + Add{data.prevEmployers.length > 0 ? " another" : " a"}{" "}
+                  previous employer
                 </button>
               )}
 
               {errors.prevEmployers && (
-                <p style={{ fontSize: "13px", color: C.red, marginTop: "6px" }}>{errors.prevEmployers}</p>
+                <p style={{ fontSize: "13px", color: C.red, marginTop: "6px" }}>
+                  {errors.prevEmployers}
+                </p>
               )}
             </div>
           )}
@@ -1004,11 +1205,19 @@ function Step3Vehicle({
 }) {
   return (
     <div>
-      <h2 style={{ fontSize: "20px", fontWeight: 700, color: C.ink, marginBottom: "4px" }}>
+      <h2
+        style={{
+          fontSize: "20px",
+          fontWeight: 700,
+          color: C.ink,
+          marginBottom: "4px",
+        }}
+      >
         Vehicle & Loan
       </h2>
       <p style={{ color: C.muted, fontSize: "14px", marginBottom: "24px" }}>
-        Enter the VIN from the vehicle you're interested in. Loan preferences are optional.
+        Enter the VIN from the vehicle you're interested in. Loan preferences
+        are optional.
       </p>
 
       <FormField label="Vehicle VIN" required error={errors.vin}>
@@ -1021,7 +1230,8 @@ function Step3Vehicle({
           error={errors.vin}
         />
         <p style={{ fontSize: "12px", color: C.muted, marginTop: "4px" }}>
-          You can find the VIN on the vehicle window sticker, dashboard, or in the listing.
+          You can find the VIN on the vehicle window sticker, dashboard, or in
+          the listing.
         </p>
       </FormField>
 
@@ -1066,7 +1276,9 @@ function Step3Vehicle({
             lineHeight: "1.5",
           }}
         >
-          <strong style={{ color: C.ink }}>Driver's License <span style={{ color: C.brandRed }}>*</span> (required)</strong>
+          <strong style={{ color: C.ink }}>
+            Driver's License <span style={{ color: C.red }}>*</span> (required)
+          </strong>
           {" — "}
           Both front and back copies are required. Files are stored in an
           encrypted private bucket and never shared with third parties.
@@ -1109,12 +1321,27 @@ function Step4Review({
     ["Email", data.email],
     ["Phone", data.phone],
     ["Employment", data.employmentStatus],
-    ["VIN", data.vin || (data.vehicleYear || data.vehicleMake ? [data.vehicleYear, data.vehicleMake, data.vehicleModel].filter(Boolean).join(" ") : "—")],
+    [
+      "VIN",
+      data.vin ||
+        (data.vehicleYear || data.vehicleMake
+          ? [data.vehicleYear, data.vehicleMake, data.vehicleModel]
+              .filter(Boolean)
+              .join(" ")
+          : "—"),
+    ],
   ];
 
   return (
     <div>
-      <h2 style={{ fontSize: "20px", fontWeight: 700, color: C.ink, marginBottom: "4px" }}>
+      <h2
+        style={{
+          fontSize: "20px",
+          fontWeight: 700,
+          color: C.ink,
+          marginBottom: "4px",
+        }}
+      >
         Review & Submit
       </h2>
       <p style={{ color: C.muted, fontSize: "14px", marginBottom: "24px" }}>
@@ -1348,7 +1575,9 @@ export default function FinancingForm() {
         restored = saved.data ?? {};
         restoredStep = saved.step ?? 1;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // URL params override vehicle fields
     const params = new URLSearchParams(window.location.search);
@@ -1368,8 +1597,7 @@ export default function FinancingForm() {
       ...prev,
       ...restored,
       ...urlOverrides,
-      draftId:
-        (restored.draftId as string | undefined) || crypto.randomUUID(),
+      draftId: (restored.draftId as string | undefined) || crypto.randomUUID(),
     }));
     setStep(restoredStep);
   }, []);
@@ -1377,8 +1605,13 @@ export default function FinancingForm() {
   // Persist draft on every change
   useEffect(() => {
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ data: formData, step }));
-    } catch { /* ignore */ }
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ data: formData, step }),
+      );
+    } catch {
+      /* ignore */
+    }
   }, [formData, step]);
 
   const set = useCallback((field: keyof FormData, value: string | boolean) => {
@@ -1448,7 +1681,10 @@ export default function FinancingForm() {
 
       if (!put.ok) throw new Error("Upload to storage failed");
 
-      set(side === "front" ? "licenseFrontPath" : "licenseBackPath", storagePath);
+      set(
+        side === "front" ? "licenseFrontPath" : "licenseBackPath",
+        storagePath,
+      );
       setUpload({ uploading: false, error: null, filename: file.name });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
@@ -1484,7 +1720,7 @@ export default function FinancingForm() {
 
       if (res.status === 429) {
         setSubmitError(
-          "Too many submissions from your connection. Please try again in an hour."
+          "Too many submissions from your connection. Please try again in an hour.",
         );
         return;
       }
@@ -1494,7 +1730,7 @@ export default function FinancingForm() {
           setErrors(payload.errors);
         }
         setSubmitError(
-          payload.error || "Something went wrong. Please try again."
+          payload.error || "Something went wrong. Please try again.",
         );
         return;
       }
@@ -1502,7 +1738,9 @@ export default function FinancingForm() {
       // Success
       try {
         sessionStorage.removeItem(DRAFT_KEY);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       setApplicationId(payload.applicationId);
       setSubmitted(true);
       scrollTop();
@@ -1547,15 +1785,22 @@ export default function FinancingForm() {
           <>
             <ProgressStepper current={step} />
 
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              noValidate
-            >
+            <form onSubmit={(e) => e.preventDefault()} noValidate>
               {step === 1 && (
-                <Step1Personal data={formData} set={set} setData={setFormData} errors={errors} />
+                <Step1Personal
+                  data={formData}
+                  set={set}
+                  setData={setFormData}
+                  errors={errors}
+                />
               )}
               {step === 2 && (
-                <Step2Employment data={formData} set={set} setData={setFormData} errors={errors} />
+                <Step2Employment
+                  data={formData}
+                  set={set}
+                  setData={setFormData}
+                  errors={errors}
+                />
               )}
               {step === 3 && (
                 <Step3Vehicle
@@ -1632,14 +1877,31 @@ export default function FinancingForm() {
                   <button
                     type="submit"
                     onClick={handleSubmit}
-                    disabled={submitting || !formData.consentAccurate || !formData.consentPrivacy || !formData.licenseConsent}
+                    disabled={
+                      submitting ||
+                      !formData.consentAccurate ||
+                      !formData.consentPrivacy ||
+                      !formData.licenseConsent
+                    }
                     style={{
                       ...btnBase,
                       background: C.red,
                       color: C.white,
                       marginLeft: "auto",
-                      opacity: (submitting || !formData.consentAccurate || !formData.consentPrivacy || !formData.licenseConsent) ? 0.5 : 1,
-                      cursor: (submitting || !formData.consentAccurate || !formData.consentPrivacy || !formData.licenseConsent) ? "not-allowed" : "pointer",
+                      opacity:
+                        submitting ||
+                        !formData.consentAccurate ||
+                        !formData.consentPrivacy ||
+                        !formData.licenseConsent
+                          ? 0.5
+                          : 1,
+                      cursor:
+                        submitting ||
+                        !formData.consentAccurate ||
+                        !formData.consentPrivacy ||
+                        !formData.licenseConsent
+                          ? "not-allowed"
+                          : "pointer",
                     }}
                   >
                     {submitting ? "Submitting…" : "Submit Application"}
