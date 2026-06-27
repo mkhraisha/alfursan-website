@@ -310,7 +310,7 @@ describe("POST /api/finance/upload-url", () => {
       await POST({
         request: makeRequest({ ...VALID_BODY, side: "back", contentType: "image/png" }),
       } as never);
-      expect(createSignedUploadUrl).toHaveBeenCalledWith(`tmp/${VALID_UUID}/back.png`);
+      expect(createSignedUploadUrl).toHaveBeenCalledWith(`tmp/${VALID_UUID}/back.png`, { upsert: true });
     });
 
     it("constructs correct storage path for front/pdf", async () => {
@@ -319,7 +319,7 @@ describe("POST /api/finance/upload-url", () => {
       await POST({
         request: makeRequest({ ...VALID_BODY, side: "front", contentType: "application/pdf" }),
       } as never);
-      expect(createSignedUploadUrl).toHaveBeenCalledWith(`tmp/${VALID_UUID}/front.pdf`);
+      expect(createSignedUploadUrl).toHaveBeenCalledWith(`tmp/${VALID_UUID}/front.pdf`, { upsert: true });
     });
   });
 });
@@ -475,7 +475,7 @@ describe("POST /api/finance/upload-url — Phase 2 path", () => {
     const { client, createSignedUploadUrl } = makeP2SupabaseMock();
     (getAdminClient as Mock).mockReturnValue(client);
     await POST({ request: makeP2Request(VALID_P2_BODY) } as never);
-    expect(createSignedUploadUrl).toHaveBeenCalledWith(`phase2/${P2_APP_ID}/void_cheque.pdf`);
+    expect(createSignedUploadUrl).toHaveBeenCalledWith(`phase2/${P2_APP_ID}/void_cheque.pdf`, { upsert: true });
   });
 
   it("accepts proof_insurance docType", async () => {
