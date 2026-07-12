@@ -11,7 +11,7 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
   if (!can(adminRole!, "financing:export")) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 
@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
   if (!id) {
     return new Response(JSON.stringify({ error: "Missing id" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 
@@ -39,7 +39,7 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
   if (error || !app) {
     return new Response(JSON.stringify({ error: "Not found" }), {
       status: 404,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 
@@ -60,6 +60,7 @@ export const GET: APIRoute = async ({ locals, url, request }) => {
     headers: {
       "Content-Type": "application/json",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store",
     },
   });
 };
