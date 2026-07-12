@@ -1,0 +1,42 @@
+name: Daily Smoke Tests
+
+on:
+  schedule:
+    # 09:00 EST (13:00 UTC) — after overnight inactivity, catches Supabase cold starts
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Smoke — ${{ github.event_name == 'schedule' && 'scheduled' || 'manual' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      E2E_BASE_URL: https://alfursanauto.ca
+      # Auth tokens intentionally omitted — keeps all tests read-only
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
