@@ -17,8 +17,15 @@ export default function PopularMakes({ makes }: Props) {
   const [activeMake, setActiveMake] = useState(makes[0]?.make ?? "");
   const carouselRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLDivElement>(null);
+  const didMountRef = useRef(false);
 
   useEffect(() => {
+    // Skip on mount — the tab is off-screen below the fold at load time, so
+    // "nearest" would otherwise scroll the whole page down to reveal it.
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     activeTabRef.current?.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
   }, [activeMake]);
 

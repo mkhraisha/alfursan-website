@@ -216,6 +216,7 @@ function Row({
 }) {
   return (
     <div
+      className="ff-row"
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
@@ -1765,7 +1766,9 @@ export default function FinancingForm() {
   return (
     <>
       {/* Step label visibility: shown on wider screens */}
-      <style>{`.step-label { display: none } @media(min-width:500px){ .step-label { display: block } }`}</style>
+      <style>{`.step-label { display: none } @media(min-width:500px){ .step-label { display: block } }
+      /* Row() renders fixed N-column grids inline — collapse to 1 column on narrow screens so fields/placeholders don't get crushed */
+      @media(max-width:640px){ .ff-row { grid-template-columns: 1fr !important; } }`}</style>
 
       <div
         ref={topRef}

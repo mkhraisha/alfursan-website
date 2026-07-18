@@ -295,6 +295,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     ownership_status:      v.ownership_status ?? "",
     photography_status:    v.photography_status ?? "",
     garage_register_number: v.garage_register_number ?? "",
+    carfax_link:           v.carfax_link ?? "",
   });
   const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
   const [disclosures,   setDisclosures]   = useState(v.disclosures ?? "");
@@ -323,6 +324,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     fields.ownership_status      = form.ownership_status || null;
     fields.photography_status    = form.photography_status || null;
     fields.garage_register_number = form.garage_register_number || null;
+    fields.carfax_link           = form.carfax_link || null;
     await onSave(fields); setSaving(false);
   }
 
@@ -351,6 +353,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
         <div className="f-field"><label>Colour</label><input value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
         <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
         <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
+        <div className="f-field"><label>Carfax Link</label><input type="url" value={form.carfax_link} onChange={(e) => set("carfax_link", e.target.value)} placeholder="https://www.carfax.ca/..." /></div>
       </div>
 
       {daysOnLot !== null && (
@@ -510,9 +513,7 @@ function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; tota
 function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUrl: string; onSave: (f: Record<string, unknown>) => Promise<void>; show: (msg: string, ok: boolean) => void }) {
   const [images,    setImages]    = useState<string[]>(v.images_json ?? []);
   const [videos,    setVideos]    = useState<string[]>(v.videos_json ?? []);
-  const [carfax,    setCarfax]    = useState(v.carfax_link ?? "");
   const [uploading, setUploading] = useState(false);
-  const [saving,    setSaving]    = useState(false);
   const imgRef = useRef<HTMLInputElement>(null);
   const vidRef = useRef<HTMLInputElement>(null);
 
@@ -567,13 +568,6 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
     setUploading(false);
   }
 
-  async function saveCarfax(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true);
-    const result = await patchVehicle(v.vin, { carfax_link: carfax || null });
-    if (result.ok) show("Carfax link saved!", true); else show(result.error ?? "Save failed", false);
-    setSaving(false);
-  }
-
   // suppress unused-prop warning — onSave is part of the shared tab interface
   void onSave;
 
@@ -606,34 +600,41 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
       {/* Videos */}
       <div style={{ marginBottom: 28 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Videos ({videos.length})</h3>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {videos.map((path, i) => (
-            <div key={path} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8f9fb", padding: "6px 10px", borderRadius: 6, fontSize: 13 }}>
-              <span>Video {i + 1}</span>
-              <button type="button" className="btn-danger" onClick={async () => { const next = videos.filter((p) => p !== path); setVideos(next); await patchVehicle(v.vin, { videos_json: next }); }}>Remove</button>
+        <div className="media-grid">
+          {videos.map((path) => (
+            <div key={path} className="media-thumb media-thumb--video">
+              <video src={buildStorageUrl(supabaseUrl, "vehicle-images", path)} controls preload="metadata" />
+<button
+  type="button"
+  className="media-remove"
+  onClick={async () => {
+    const prev = videos;
+    const next = prev.filter((p) => p !== path);
+    setVideos(next);
+    const result = await patchVehicle(v.vin, { videos_json: next });
+    if (!result.ok) {
+      setVideos(prev);
+      show(result.error ?? "Save failed", false);
+    }
+  }}
+>
+  ×
+</button>
             </div>
           ))}
-          <label className={`btn-secondary${uploading ? " disabled" : ""}`} style={{ cursor: uploading ? "not-allowed" : "pointer" }}>
-            + Add Video
+          <label className={`media-add${uploading ? " media-add--loading" : ""}`}>
+            {uploading ? "Uploading…" : "+ Add Video"}
             <input ref={vidRef} type="file" accept="video/mp4,video/quicktime" multiple onChange={(e) => uploadVideo(e.target.files)} style={{ display: "none" }} />
           </label>
         </div>
       </div>
-
-      {/* Carfax */}
-      <form onSubmit={saveCarfax}>
-        <div className="f-field" style={{ maxWidth: 420 }}>
-          <label>Carfax Link</label>
-          <input type="url" value={carfax} onChange={(e) => setCarfax(e.target.value)} placeholder="https://www.carfax.ca/..." />
-        </div>
-        <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save Carfax Link"}</button></div>
-      </form>
 
       <style>{`
         .media-grid { display: flex; flex-wrap: wrap; gap: 10px; }
         .media-thumb { position: relative; width: 120px; height: 90px; border-radius: 6px; overflow: hidden; border: 1px solid #e4e7ec; }
         .media-thumb--featured { border: 2px solid #f59e0b; }
         .media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .media-thumb--video video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
         .media-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; border: none; cursor: pointer; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; }
         .media-featured-badge { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(245,158,11,0.9); color: #fff; font-size: 10px; font-weight: 700; text-align: center; padding: 3px 0; }
         .media-set-featured { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.65); color: #fff; font-size: 10px; font-weight: 600; text-align: center; padding: 4px 0; border: none; cursor: pointer; opacity: 0; transition: opacity 0.15s; }

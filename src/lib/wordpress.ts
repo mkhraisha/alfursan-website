@@ -22,6 +22,7 @@ export interface CarSummary {
   cylinders?: string;
   color?: string;
   doors?: string;
+  vin?: string;
   features: string[];
 }
 
@@ -47,6 +48,7 @@ interface WpCar {
   vehica_6666?: number[];
   vehica_12770?: number[];
   vehica_6670?: number[];
+  vehica_6671?: string;
 }
 
 interface TaxonomyTerm {
@@ -309,6 +311,7 @@ const mapCar = (car: WpCar, termMaps: VehicaTermMaps): CarSummary => {
     cylinders: getTermName(termMaps.cylinders, car.vehica_12974),
     color: getTermName(termMaps.color, car.vehica_6666),
     doors: getTermName(termMaps.doors, car.vehica_12770),
+    vin: car.vehica_6671,
     features: getTermNames(termMaps.features, car.vehica_6670),
   };
 };
@@ -396,6 +399,7 @@ const CAR_FIELDS = [
   "vehica_6666",
   "vehica_12770",
   "vehica_6670",
+  "vehica_6671",
 ].join(",");
 
 let carsInFlight: Promise<CarSummary[]> | null = null;

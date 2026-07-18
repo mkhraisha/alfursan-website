@@ -436,24 +436,112 @@ const cars = await getCars(100);
     }
   }
 
-  @media (max-width: 560px) {
+  /* ── Mobile: filter bar becomes a compact 2-column grid ── */
+  @media (max-width: 700px) {
+    .container {
+      padding: 1rem 16px 3rem;
+    }
+
+    :global(.filters) {
+      padding: 1rem;
+    }
+
+    :global(.filter-row),
+    :global(.extra-filters) {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    :global(.filter-row select),
+    :global(.filter-row input),
+    :global(.extra-filters select) {
+      flex: none;
+      width: 100%;
+      padding: 0.75rem 0.85rem;
+      font-size: 0.88rem;
+    }
+
+    :global(.filter-actions) {
+      grid-column: 1 / -1;
+      margin-left: 0;
+      justify-content: space-between;
+    }
+
+    :global(.results-header) {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  }
+
+  /* ── Mobile: inventory list becomes a stacked card grid ── */
+  @media (max-width: 640px) {
+    :global(.inventory-list) {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+      border: none;
+      border-radius: 0;
+      overflow: visible;
+      background: transparent;
+    }
+
     :global(.car-row) {
       flex-wrap: wrap;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    :global(.car-thumb-link) {
+      width: 100%;
+      flex-shrink: 0;
+    }
+
+    :global(.car-thumb),
+    :global(.car-thumb-placeholder) {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: 0;
+    }
+
+    :global(.car-details) {
+      width: 100%;
+      padding: 0.85rem 1rem 0.6rem;
+    }
+
+    :global(.car-title) {
+      font-size: 1rem;
     }
 
     :global(.car-price-col) {
       width: 100%;
-      text-align: left;
       min-width: 0;
+      text-align: left;
+      padding: 0.6rem 1rem 0.85rem;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    :global(.filter-row) {
-      flex-direction: column;
-      align-items: stretch;
+    :global(.car-price) {
+      margin: 0;
     }
+  }
 
-    :global(.filter-actions) {
-      margin-left: 0;
+  @media (max-width: 340px) {
+    :global(.filter-row),
+    :global(.extra-filters) {
+      grid-template-columns: 1fr;
     }
   }
 </style>
