@@ -50,7 +50,7 @@ function addSecurityHeaders(res: Response, isAdminRoute: boolean) {
 }
 
 export const onRequest = defineMiddleware(async ({ locals, request, url, redirect }, next) => {
-  const isAdminRoute = url.pathname.startsWith("/admin/");
+  const isAdminRoute = url.pathname === "/admin" || url.pathname.startsWith("/admin/");
 
   const isPublicPage =
     url.pathname === "/admin/" ||
