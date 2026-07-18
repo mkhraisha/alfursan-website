@@ -35,9 +35,17 @@ const SECURITY_HEADERS: Record<string, string> = {
   ].join("; "),
 };
 
-function addSecurityHeaders(res: Response) {
+function addSecurityHeaders(res: Response, isAdminRoute: boolean) {
   for (const [header, value] of Object.entries(SECURITY_HEADERS)) {
     res.headers.set(header, value);
+  }
+  // /admin/** responses (including redirects issued by this middleware) must
+  // never be cached — without this, Vercel's edge layer will heuristically
+  // cache a GET response that has no Cache-Control header, so an anonymous
+  // hit (e.g. the daily smoke test) can poison the cache with a login
+  // redirect that then gets served to a real, freshly-authenticated user.
+  if (isAdminRoute) {
+    res.headers.set("Cache-Control", "no-store");
   }
 }
 
@@ -52,7 +60,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (!isAdminRoute || isPublicPage) {
     const res = await next();
-    addSecurityHeaders(res);
+    addSecurityHeaders(res, isAdminRoute);
     return res;
   }
 
@@ -63,7 +71,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
     console.error("[middleware] Missing Supabase env vars");
     const r = redirect("/admin/");
-    addSecurityHeaders(r);
+    addSecurityHeaders(r, true);
     return r;
   }
 
@@ -80,7 +88,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
   if (!accessToken) {
     const r = redirect("/admin/?error=no_token");
-    addSecurityHeaders(r);
+    addSecurityHeaders(r, true);
     return r;
   }
 
@@ -103,7 +111,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     const rtMatch = cookieHeader.match(/(?:^|;\s*)sb-refresh-token=([^;]+)/);
     if (!rtMatch) {
       const r = redirect("/admin/?error=invalid_token");
-      addSecurityHeaders(r);
+      addSecurityHeaders(r, true);
       return r;
     }
 
@@ -115,7 +123,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     if (re || !rd.session) {
       console.error("[middleware] Refresh failed", re?.message);
       const r = redirect("/admin/?error=invalid_token");
-      addSecurityHeaders(r);
+      addSecurityHeaders(r, true);
       return r;
     }
 
@@ -123,7 +131,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     const revalidated = await anonClient.auth.getUser(rd.session.access_token);
     if (revalidated.error || !revalidated.data.user?.email) {
       const r = redirect("/admin/?error=invalid_token");
-      addSecurityHeaders(r);
+      addSecurityHeaders(r, true);
       return r;
     }
 
@@ -146,7 +154,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   if (profileError || !profile || !profile.is_active) {
     console.error("[middleware] user_profiles check failed", { profileError });
     const r = redirect("/admin/?error=unauthorized");
-    addSecurityHeaders(r);
+    addSecurityHeaders(r, true);
     return r;
   }
 
@@ -155,7 +163,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   locals.dealerUserId = profile.id as string;
 
   const res = await next();
-  addSecurityHeaders(res);
+  addSecurityHeaders(res, true);
 
   // ── Write rotated cookies if we refreshed ─────────────────────────────────
   if (refreshedSession) {
