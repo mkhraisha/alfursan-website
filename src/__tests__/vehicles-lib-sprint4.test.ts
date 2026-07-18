@@ -3,6 +3,7 @@ import {
   expenseCreateSchema,
   documentCreateSchema,
   commissionAssignSchema,
+  EXPENSE_CATEGORIES,
 } from "../lib/vehicles";
 
 // ── expenseCreateSchema ───────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ describe("expenseCreateSchema", () => {
   });
 
   it("accepts all valid categories", () => {
-    for (const cat of ["repair", "detailing", "parts", "gas", "other"] as const) {
+    for (const cat of EXPENSE_CATEGORIES) {
       expect(expenseCreateSchema.safeParse({ ...BASE, category: cat }).success).toBe(true);
     }
   });
