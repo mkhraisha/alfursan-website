@@ -1,8 +1,10 @@
 # Dealer Management System & CMS Migration — Design Document
 
-**Status:** Validated  
-**Date:** 2026-05-03  
+**Status:** Phase 1 shipped and in production use (Sprints 1-9 + 12 complete, see `docs/DMS_PHASE1_PLAN.md`). Phase 2 (CMS migration, Bill of Sale) not started.
+**Date:** 2026-05-03 (original design) — see `docs/DEALER_MANAGEMENT_DECISIONS.md` Decision 14 for the one significant post-launch amendment (role model).
 **Scope:** Phase 1 (Inventory Management, Application Management, Garage Register, CSV Import, User Management)
+
+> **Reading note:** this document captures the *original* pre-implementation plan. Where implementation diverged, an inline "**As built:**" note marks the actual behavior. For anything not called out, the original text below still holds. `docs/FEATURES.md` and the source (`src/lib/permissions.ts`, `src/lib/vehicles.ts`, `supabase/migrations/`) are the living source of truth if this document and the code ever disagree.
 
 ---
 
@@ -12,24 +14,24 @@
 
 **Core features:**
 
-- Inventory management (add, edit, view vehicles with purchase/sale prices)
-- Commission tracking (assign commission user, auto-calculate based on profit)
-- Document management (upload required docs: bill of sale, inspection, ownership picture)
-- Expense tracking (add expenses per vehicle with optional receipt upload)
-- Application management (view financing applications from website)
-- Bill of sale generation (generate wholesale, as-is, and retail bill of sale PDFs)
-- User management (admin can add/disable users, set commission percentages)
-- CSV import (bulk upload inventory from OpenLane)
-- Garage Register (track vehicle intake/outflow via `purchase_date` and `sale_date`)
-- Role-based access (admin: user management; sales: inventory, applications, commissions)
-- Audit logging (track all changes for compliance)
-- expenses add gas category
-- time on lot tracking
+- Inventory management (add, edit, view vehicles with purchase/sale prices) ✅ delivered
+- Commission tracking (assign commission user, auto-calculate based on profit) ✅ delivered
+- Document management (upload required docs: bill of sale, inspection, ownership picture) ✅ delivered
+- Expense tracking (add expenses per vehicle with optional receipt upload) ✅ delivered
+- Application management (view financing applications from website) ✅ delivered (pre-existing, extended)
+- Bill of sale generation (generate wholesale, as-is, and retail bill of sale PDFs) — **moved to Phase 2** (see Sprint 1 of `docs/DMS_PHASE2_PLAN.md`); not built yet
+- User management (admin can add/disable users, set commission percentages) ✅ delivered (role renamed to `manager`, see Decision 14)
+- CSV import (bulk upload inventory from OpenLane) ✅ delivered
+- Garage Register (track vehicle intake/outflow via `purchase_date` and `sale_date`) ✅ delivered, plus `purchased_from_name`/`purchased_from_address` (acquisition source) added later
+- Role-based access (admin: user management; sales: inventory, applications, commissions) ✅ delivered, as owner/manager/sales — see Decision 14
+- Audit logging (track all changes for compliance) ✅ delivered
+- expenses add gas category — **not done**; `vehicle_expenses.category` is still `repair | detailing | parts | other` (`src/lib/vehicles.ts`)
+- time on lot tracking ✅ delivered — `calcDaysOnLot()` in `src/lib/vehicles.ts`, shown as "Days on Lot" on the vehicle Basics tab (computed from `purchase_date`, not stored)
 
 **Database & Infrastructure:**
 
 - Vehicles table with VIN as primary key
-- User roles (admin, sales)
+- User roles — **as built:** `owner`, `manager`, `sales` (not `admin`, `sales` — see Decision 14 in `DEALER_MANAGEMENT_DECISIONS.md`)
 - Supabase RLS policies for role-based filtering
 - Document storage in Supabase Storage
 - Audit log integration
@@ -55,8 +57,8 @@
 - Comparable market pricing integration (pull market data to suggest competitive prices)
 - Car Gurus good pricing badge integration (show if price is good compared to market) on the main portal
 - Calendar and appointment management, reach out to customers
-- Engine Type
-- Sedan/Van/Coupe/Convertible
+- ~~Engine Type~~ ✅ delivered early — `vehicles.engine_type` (free text), added in `20260531000002_add_vehicle_fields.sql`
+- ~~Sedan/Van/Coupe/Convertible~~ ✅ delivered early — `vehicles.body_type` constrained to that exact enum in the same migration; also relevant: `advertised_price` was split into `advertised_price_cargurus` / `advertised_price_facebook` (`20260524000003_split_advertised_price.sql`), a CarGurus-adjacent pricing change not originally scoped anywhere
 - Stock Number (vehicle ID)
 - Addition to flat cost calculation of a flat manager fee (configurable)
 - Add general dealer expenses rather than per car
@@ -126,13 +128,17 @@ Two integrated features:
 
 **Vehicle Details:**
 
-- `make`, `model`, `trim`, `series`, `body_type`, `year` (strings)
+- `make`, `model`, `trim`, `series`, `year` (strings)
+- `body_type` — **as built:** constrained enum (`'sedan'`, `'van'`, `'coupe'`, `'convertible'`), not free text (`20260531000002_add_vehicle_fields.sql`)
 - `colour`, `odometer` (string, integer)
+- `engine_type` (string, nullable) — **added post-launch**, not in the original schema
+- `num_keys` (smallint, nullable, ≥ 0) — **added post-launch**, not in the original schema
 
 **Purchase Information:**
 
 - `purchase_date` (date)
 - `purchase_price` (decimal)
+- `purchased_from_name`, `purchased_from_address` (string, nullable — who the dealer acquired the vehicle from) — **added post-launch**, not in the original schema
 
 **Buyer/Seller Information:**
 
@@ -142,14 +148,14 @@ Two integrated features:
 **Pricing:**
 
 - `wholesale_price` (decimal)
-- `advertised_price` (decimal)
+- `advertised_price` — **as built:** split into `advertised_price_cargurus` and `advertised_price_facebook` (both decimal, nullable) rather than one column (`20260524000003_split_advertised_price.sql`). Only `advertised_price_cargurus` is exposed publicly (see RLS below).
 - `sale_price` (decimal, nullable — null until sold)
 - `sale_date` (date, nullable — null until sold)
 
 **Ownership & Status:**
 
 - `ownership_status` (enum: `'available'`, `'en_route'`, `'not_received'`)
-- `status` (enum: `'frontline_ready'`, `'in_deal'`, `'sold'`, `'on_lot_work_needed'`, `'pending_delivery'`, `'pending_pickup'`, `'bodyshop'`, `'mechanic_ssc'`, `'detailing_shop'`, `'mechanic_repairs'`, `'openlane_arbitration'`, `'sale_cancelled_by_arbitration'`, `'openlane_auction'`) -- we should allow multiple statuses
+- `status` — **as built:** single TEXT value, not an array (`20260524000002_status_single_value.sql` deliberately reversed the "allow multiple statuses" idea below — a vehicle now has exactly one status at a time). Enum: `'frontline_ready'`, `'in_deal'`, `'sold'`, `'on_lot_work_needed'`, `'pending_delivery'`, `'pending_pickup'`, `'bodyshop'`, `'mechanic_ssc'`, `'detailing_shop'`, `'mechanic_repairs'`, `'openlane_arbitration'`, `'sale_cancelled_by_arbitration'`, `'openlane_auction'`
 
 **Photography:**
 
@@ -158,6 +164,10 @@ Two integrated features:
 **Garage Register (Ontario):**
 
 - `garage_register_number` (string, nullable)
+
+**Computed, not stored:**
+
+- Days on lot — `calcDaysOnLot(purchase_date)` in `src/lib/vehicles.ts`, shown on the Basics tab. Corresponds to the "time on lot tracking" Phase 1 feature above.
 
 **Documents:**
 
@@ -219,7 +229,7 @@ Two integrated features:
 
 - `id` (uuid, primary key, foreign key to `auth.users.id` on delete cascade)
 - `email` (string, unique — mirrors `auth.users.email` for convenience)
-- `role` (enum: `'admin'`, `'sales'`)
+- `role` — **as built:** `'owner'`, `'manager'`, `'sales'` (not `'admin'`, `'sales'` — see `DEALER_MANAGEMENT_DECISIONS.md` Decision 14)
 - `commission_percentage` (decimal, e.g., 0.10 for 10%, nullable)
 - `is_active` (boolean, default: true)
 - `disabled_at` (timestamp, nullable)
@@ -230,18 +240,21 @@ Two integrated features:
 ### Computed Fields
 
 - `total_cost = purchase_price + SUM(vehicle_expenses.amount WHERE vin = vehicle.vin)`
-- `profit_loss = (sale_price ?? advertised_price) - total_cost`
-- `commission = IF(profit_loss >= 0, profit_loss × commission_user.commission_percentage, 150)`
+- `profit_loss` — **as built:** `sale_price - total_cost`, and only when the vehicle is actually sold. `calcProfitLoss()` (`src/lib/vehicles.ts`) returns `null` when `sale_price` is unset — it does **not** fall back to `advertised_price` for unsold inventory the way this formula originally specified. No speculative profit/loss is shown on unsold cars.
+- `commission = IF(profit_loss >= 0, profit_loss × commission_user.commission_percentage, 150)` — matches `calcCommission()` as built
+- `days_on_lot = today - purchase_date` — added post-launch, see the vehicles table section above
 
 ---
 
 ### Supabase RLS (Row-Level Security) Policies
 
+> **As built, this whole section works differently than planned below.** RLS on `vehicles`, `vehicle_expenses`, and `vehicle_documents` is a single blanket **"service role only"** policy each (`20260517000005_rls_and_storage.sql`) — Postgres itself does not distinguish `owner`/`manager`/`sales`/public at the row or column level. All reads and writes go through server-side API routes using the service-role client; role checks (`src/lib/permissions.ts`) and the public-field allowlist (`PUBLIC_COLUMNS` in `src/lib/vehicles.ts`) are enforced in **application code**, not in the database. This is a meaningful divergence from Decision 2's "Supabase RLS is purpose-built for this pattern" rationale — the pattern actually used is closer to Decision 2's rejected "Approach B" (API-layer field filtering) than the chosen "Approach A." The original per-role table below is preserved as the intent; treat "Admin/Sales role: X" as "the API layer permits X for that role," not as a Postgres policy.
+
 **For `vehicles` table:**
 
 - **Admin role:** SELECT/INSERT/UPDATE/DELETE all fields
 - **Sales role:** SELECT/INSERT/UPDATE/DELETE all fields
-- **Public role (unauthenticated):** SELECT only `[vin, make, model, trim, series, year, colour, odometer, advertised_price, images_json, videos_json, carfax_link]`
+- **Public role (unauthenticated):** SELECT only `[vin, make, model, trim, series, year, colour, odometer, advertised_price, images_json, videos_json, carfax_link]` — **as built:** `advertised_price_cargurus` (not `advertised_price`; `advertised_price_facebook` is never public), see `PUBLIC_COLUMNS` in `src/lib/vehicles.ts`
 
 **For `vehicle_expenses` table:**
 
@@ -303,7 +316,9 @@ Two integrated features:
 
 ### Role-Based Permissions (Phase 1)
 
-**Admin role:**
+> **As built**, this is a three-role model (`owner`/`manager`/`sales`, see Decision 14) and sales has narrower access than originally planned here — notably, sales can **not** CSV-import, delete vehicles, or edit pricing/media/financials (`vehicles:import`, `vehicles:delete`, `vehicles:pricing:write`, `vehicles:media:write` are `manager`-only in `src/lib/permissions.ts`). `docs/FEATURES.md`'s Role Matrix is the accurate, current reference — the two lists below are the original plan.
+
+**Admin role** *(as planned; as built, most of this maps to `manager` — see Decision 14):*
 
 - View/edit all vehicles
 - Upload/import cars (CSV)
@@ -311,7 +326,7 @@ Two integrated features:
 - Manage applications
 - Manage garage register
 
-**Sales role:**
+**Sales role** *(as planned — as built, narrower; see the note above):*
 
 - View/edit all vehicles
 - Upload/import cars (CSV)
@@ -450,6 +465,8 @@ _(Only difference: Admins manage users and commission percentages; Sales cannot)
 ---
 
 ## Section 3: API & Integration Design
+
+> **As built**, request/response shapes below are still broadly accurate, but two route paths changed during implementation: the users endpoints live at `/api/dealer/users` (not `/api/users`), and the upload endpoint is `/api/vehicles/upload-url` (not `/api/upload-url`). See `docs/FEATURES.md`'s API Routes table for the current, complete list of routes actually in the codebase.
 
 ### Single Vehicles Endpoint
 
@@ -892,14 +909,14 @@ Files stored under: /vehicles/{vin}/{filename}
 
 This design provides a unified dealer management and inventory system that:
 
-✅ Replaces WordPress with a maintainable Supabase backend  
-✅ Powers both internal operations and the public website from one source  
-✅ Handles core dealership workflows (inventory, applications, garage register, commissions)  
-✅ Scales to 5 users and 10-20 vehicles  
-✅ Maintains audit trail for compliance and accountability  
-✅ Enforces security via role-based access and Supabase RLS  
+⏳ Replaces WordPress with a maintainable Supabase backend — **not yet:** the `vehicles` table and admin panel are live, but `/search`, `/listing/[slug]`, and the homepage still read from WordPress via `src/lib/wordpress.ts`. This is Phase 2 Sprint 2 in `docs/DMS_PHASE2_PLAN.md`, not started.
+⏳ Powers both internal operations and the public website from one source — same caveat as above; today these are two separate sources (DMS for internal, WordPress for public)
+✅ Handles core dealership workflows (inventory, applications, garage register, commissions)
+✅ Scales to 5 users and 10-20 vehicles
+✅ Maintains audit trail for compliance and accountability
+✅ Enforces security via role-based access — **as built**, via application-layer checks (`src/lib/permissions.ts`) backed by service-role-only RLS, not per-role Postgres policies (see the RLS note in Section 1)
 ✅ Supports future Phase 2 features without major rework
 
 ---
 
-**Ready for implementation.**
+**Phase 1 implemented (see `docs/DMS_PHASE1_PLAN.md`). Phase 2 not started (see `docs/DMS_PHASE2_PLAN.md`).**

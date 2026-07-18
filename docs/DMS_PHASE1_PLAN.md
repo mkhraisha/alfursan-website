@@ -27,6 +27,7 @@
   - **Description:** Add `user_profiles` table with `id` (FK → `auth.users`), `email`, `role` (enum: `admin`, `sales`), `commission_percentage` (decimal, nullable), `is_active` (bool, default true), `disabled_at` (timestamptz, nullable), `created_at`, `updated_at`.
   - **Validation:** Table created, RLS applied, foreign key to `auth.users` on delete cascade.
   - **Test:** `supabase db reset` passes; `\d user_profiles` shows all columns.
+  - **As built (2026-05-31 amendment):** the `admin`/`sales` role pair was later consolidated into the pre-existing `owner`/`manager`/`sales` model — see `docs/DEALER_MANAGEMENT_DECISIONS.md` Decision 14. `role` is now constrained to those three values.
 
 - [x] **Seed existing admin_users into user_profiles**
   - **Description:** Migration step that copies existing `admin_users` rows into `user_profiles`, mapping `owner/manager` → `admin` and `staff` → `sales`.
@@ -247,6 +248,7 @@
   - **Description:** Checkboxes: Status (multi-select). Dropdowns: Ownership Status, Photography Status. Text: Garage Register Number.
   - **Validation:** Multi-select status saves as array. All dropdowns persist on save.
   - **Test:** Select 2 statuses; save; reload; both statuses shown.
+  - **As built (`20260524000002_status_single_value.sql`):** `status` was changed from an array to a single value shortly after this sprint — a vehicle now has exactly one status, chosen via a single-select dropdown, not multi-select checkboxes.
 
 - [x] **Tab: Documents**
   - **Description:** Fixed documents (5) — each with upload/view/replace via signed URL. Misc documents table with delete. "+ Add Document" button.
@@ -318,6 +320,19 @@
 
 ---
 
+## Post-Sprint-9 additions (not in the original plan)
+
+A handful of schema and UI changes shipped after Sprint 9 without a corresponding sprint entry here. Full detail lives in `docs/DEALER_MANAGEMENT_DESIGN.md`; summary:
+
+- **Role consolidation** (2026-05-31): `admin`/`sales` → `owner`/`manager`/`sales` (Decision 14)
+- **`status`** changed from multi-select array to single value (2026-05-24)
+- **`advertised_price`** split into `advertised_price_cargurus` / `advertised_price_facebook` (2026-05-24)
+- **New vehicle fields:** `purchased_from_name`, `purchased_from_address` (2026-05-24); `engine_type`, `num_keys`, constrained `body_type` enum (2026-05-31)
+- **Days on Lot** computed field added to the Basics tab (`calcDaysOnLot`) — delivers the "time on lot tracking" feature listed under Phase 1 in the design doc
+- **Still not done from the original Phase 1 feature list:** a `gas` expense category (`vehicle_expenses.category` remains `repair | detailing | parts | other`)
+
+---
+
 ## Sprint 12 — Tests
 
 - [x] **Unit tests: validation helpers**
@@ -363,7 +378,7 @@
 All of the following must be true before Phase 1 is considered done:
 
 - [x] `npm run build` passes with zero TypeScript errors
-- [x] `npm run test` passes with zero test failures — 538 tests across 26 test files
+- [x] `npm run test` passes with zero test failures — 616 tests across 30 test files as of this review (test suite has grown past Phase 1 scope since; treat the count as a point-in-time snapshot, not a target)
 - [x] All security tests pass (no sensitive data leakage, all write endpoints auth-gated)
 - [x] Dealer can log in, add a vehicle, upload images, add expenses, assign commission
 - [x] CSV import successfully imports a real OpenLane file

@@ -240,6 +240,23 @@
 
 ---
 
+## Decision 14: Role Model Consolidation (Post-Launch Amendment)
+
+**Date:** 2026-05-31 (`supabase/migrations/20260531000001_consolidate_user_roles.sql`)
+
+**What was decided:** Collapse the five role values that existed after Sprint 1 (`owner`, `manager`, `staff`, `admin`, `sales`) down to three canonical roles: `owner`, `manager`, `sales`. Legacy values are remapped, not deleted: `admin` → `manager`, `staff` → `sales`.
+
+**Context:** Decision 10 above planned two DMS-specific roles (`admin`, `sales`) layered onto the pre-existing financing-workflow roles (`owner`, `manager`, `staff`) inherited from `admin_users`. Sprint 1 implemented `user_profiles` with all five values live side by side (see the original migration comment: "Roles extended to include 'admin' and 'sales' (DMS) alongside existing 'owner', 'manager', 'staff'"). This produced two parallel role vocabularies for what is functionally one permission tier each.
+
+**Why this option:**
+- One permission tier shouldn't have two names (`admin`/`manager` and `staff`/`sales` each granted the same access in practice)
+- Simpler mental model for a 5-person team — three roles, not five
+- `src/lib/permissions.ts` only ever implemented `Role = "owner" | "manager" | "sales"` — the wider DB check constraint was legacy headroom, not an active code path
+
+**Current state of truth:** `src/lib/permissions.ts` (`Role` type + `PERMISSIONS` map) and the role matrix in `docs/FEATURES.md` are authoritative for what each of the three roles can do. Sections of `DEALER_MANAGEMENT_DESIGN.md` and `DMS_PHASE1_PLAN.md` that still describe the original two-role (`admin`/`sales`) DMS model predate this migration — read them as historical planning context, not current behavior.
+
+---
+
 ## Summary of Trade-Offs
 
 | Area | Decision | Trade-Off |
@@ -257,10 +274,12 @@
 | Audit | Unified table | One large audit table vs. distributed (query performance acceptable) |
 | Testing | Manual E2E | Fewer automated edge case tests (mitigated by unit/integration) |
 | Mobile | Phase 2 | Phase 1 not optimized for phone editing (acceptable) |
+| Roles | Consolidated to owner/manager/sales (Decision 14) | Two originally-planned DMS roles (`admin`/`sales`) folded into the pre-existing `owner`/`manager` vocabulary |
 
 All trade-offs are acceptable given team size (5 users), scale (10-20 cars), and timeline (MVP first, Phase 2 later).
 
 ---
 
-**Approved:** 2026-05-03  
-**Next Step:** Implementation setup and database migration
+**Approved:** 2026-05-03
+**Amended:** 2026-05-31 (Decision 14 — role consolidation)
+**Status as of this review:** Phase 1 shipped and in use; Phase 2 not started (see `docs/DMS_PHASE2_PLAN.md`)

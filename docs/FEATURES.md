@@ -65,7 +65,8 @@ E2E test coverage status is tracked alongside each feature.
 - Edit vehicle inline (PATCH `/api/vehicles/[vin]/`)
 - Delete vehicle (`manager`/`owner` only) (DELETE `/api/vehicles/[vin]/`)
 - CSV bulk import with column mapping + preview (`POST /api/vehicles/import`)
-- Per-vehicle computed fields: `expense_total`, `total_cost`, `profit_loss`, `commission` (`total_cost`/`profit_loss` visible to `manager`/`owner` only)
+- Per-vehicle computed fields: `expense_total`, `total_cost`, `profit_loss` (only once sold), `commission`, `days_on_lot` (`total_cost`/`profit_loss` visible to `manager`/`owner` only)
+- Separate advertised prices per platform: CarGurus and Facebook Marketplace (only the CarGurus price is exposed to the public API)
 
 ### Vehicle Expenses & Documents
 - Add/view/delete expenses (`/api/vehicles/[vin]/expenses/`)
