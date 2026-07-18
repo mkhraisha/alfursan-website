@@ -604,7 +604,22 @@ function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUr
           {videos.map((path) => (
             <div key={path} className="media-thumb media-thumb--video">
               <video src={buildStorageUrl(supabaseUrl, "vehicle-images", path)} controls preload="metadata" />
-              <button type="button" className="media-remove" onClick={async () => { const next = videos.filter((p) => p !== path); setVideos(next); await patchVehicle(v.vin, { videos_json: next }); }}>×</button>
+<button
+  type="button"
+  className="media-remove"
+  onClick={async () => {
+    const prev = videos;
+    const next = prev.filter((p) => p !== path);
+    setVideos(next);
+    const result = await patchVehicle(v.vin, { videos_json: next });
+    if (!result.ok) {
+      setVideos(prev);
+      show(result.error ?? "Save failed", false);
+    }
+  }}
+>
+  ×
+</button>
             </div>
           ))}
           <label className={`media-add${uploading ? " media-add--loading" : ""}`}>
