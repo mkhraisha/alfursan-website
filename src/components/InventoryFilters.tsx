@@ -9,6 +9,7 @@ type Props = {
 type Filters = {
   make: string;
   model: string;
+  vin: string;
   minPrice: string;
   maxPrice: string;
   maxMileage: string;
@@ -25,6 +26,7 @@ type Filters = {
 const EMPTY_FILTERS: Filters = {
   make: "",
   model: "",
+  vin: "",
   minPrice: "",
   maxPrice: "",
   maxMileage: "",
@@ -108,6 +110,107 @@ const SORT_OPTIONS = [
   { value: "mileage-desc", label: "Mileage: High to Low" },
 ];
 
+export function matchesFilters(
+  car: CarSummary,
+  activeFilters: Filters,
+  options?: { ignoreMake?: boolean; ignoreModel?: boolean },
+): boolean {
+  const maxPrice = parsePositiveInt(activeFilters.maxPrice);
+  const minPrice = parsePositiveInt(activeFilters.minPrice);
+  const maxMileage = parsePositiveInt(activeFilters.maxMileage);
+
+  if (
+    !options?.ignoreMake &&
+    activeFilters.make &&
+    car.make?.toLowerCase() !== activeFilters.make.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    !options?.ignoreModel &&
+    activeFilters.model &&
+    car.model?.toLowerCase() !== activeFilters.model.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.vin &&
+    !car.vin?.toLowerCase().includes(activeFilters.vin.trim().toLowerCase())
+  ) {
+    return false;
+  }
+
+  if (
+    typeof maxPrice === "number" &&
+    typeof car.price === "number" &&
+    car.price > maxPrice
+  ) {
+    return false;
+  }
+
+  if (
+    typeof minPrice === "number" &&
+    typeof car.price === "number" &&
+    car.price < minPrice
+  ) {
+    return false;
+  }
+
+  if (
+    typeof maxMileage === "number" &&
+    typeof car.mileageValue === "number" &&
+    car.mileageValue > maxMileage
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.condition &&
+    car.condition?.toLowerCase() !== activeFilters.condition.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.vehicleType &&
+    car.vehicleType?.toLowerCase() !== activeFilters.vehicleType.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.driveType &&
+    car.driveType?.toLowerCase() !== activeFilters.driveType.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.fuelType &&
+    car.fuelType?.toLowerCase() !== activeFilters.fuelType.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.transmission &&
+    car.transmission?.toLowerCase() !== activeFilters.transmission.toLowerCase()
+  ) {
+    return false;
+  }
+
+  if (
+    activeFilters.color &&
+    car.color?.toLowerCase() !== activeFilters.color.toLowerCase()
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 type OptionWithCount = {
   value: string;
   count: number;
@@ -139,6 +242,7 @@ const readFiltersFromUrl = (): Filters => {
   return {
     make: params.get("make") ?? "",
     model: params.get("model") ?? "",
+    vin: params.get("vin") ?? "",
     minPrice: params.get("minPrice") ?? "",
     maxPrice: params.get("maxPrice") ?? "",
     maxMileage: params.get("maxMileage") ?? "",
@@ -163,6 +267,9 @@ const writeFiltersToUrl = (filters: Filters): void => {
 
   if (filters.model) params.set("model", filters.model);
   else params.delete("model");
+
+  if (filters.vin) params.set("vin", filters.vin);
+  else params.delete("vin");
 
   if (filters.minPrice) params.set("minPrice", filters.minPrice);
   else params.delete("minPrice");
@@ -196,101 +303,6 @@ export default function InventoryFilters({ cars }: Props) {
   const [showMore, setShowMore] = useState(false);
   const resultsRef = useRef<HTMLElement | null>(null);
   const didMountRef = useRef(false);
-
-  const matchesFilters = (
-    car: CarSummary,
-    activeFilters: Filters,
-    options?: { ignoreMake?: boolean; ignoreModel?: boolean },
-  ): boolean => {
-    const maxPrice = parsePositiveInt(activeFilters.maxPrice);
-    const minPrice = parsePositiveInt(activeFilters.minPrice);
-    const maxMileage = parsePositiveInt(activeFilters.maxMileage);
-
-    if (
-      !options?.ignoreMake &&
-      activeFilters.make &&
-      car.make?.toLowerCase() !== activeFilters.make.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      !options?.ignoreModel &&
-      activeFilters.model &&
-      car.model?.toLowerCase() !== activeFilters.model.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      typeof maxPrice === "number" &&
-      typeof car.price === "number" &&
-      car.price > maxPrice
-    ) {
-      return false;
-    }
-
-    if (
-      typeof minPrice === "number" &&
-      typeof car.price === "number" &&
-      car.price < minPrice
-    ) {
-      return false;
-    }
-
-    if (
-      typeof maxMileage === "number" &&
-      typeof car.mileageValue === "number" &&
-      car.mileageValue > maxMileage
-    ) {
-      return false;
-    }
-
-    if (
-      activeFilters.condition &&
-      car.condition?.toLowerCase() !== activeFilters.condition.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      activeFilters.vehicleType &&
-      car.vehicleType?.toLowerCase() !== activeFilters.vehicleType.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      activeFilters.driveType &&
-      car.driveType?.toLowerCase() !== activeFilters.driveType.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      activeFilters.fuelType &&
-      car.fuelType?.toLowerCase() !== activeFilters.fuelType.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      activeFilters.transmission &&
-      car.transmission?.toLowerCase() !==
-        activeFilters.transmission.toLowerCase()
-    ) {
-      return false;
-    }
-
-    if (
-      activeFilters.color &&
-      car.color?.toLowerCase() !== activeFilters.color.toLowerCase()
-    ) {
-      return false;
-    }
-
-    return true;
-  };
 
   const buildCountOptions = (
     sourceCars: CarSummary[],
@@ -428,6 +440,7 @@ export default function InventoryFilters({ cars }: Props) {
       const didCriteriaChange =
         next.make !== current.make ||
         next.model !== current.model ||
+        next.vin !== current.vin ||
         next.minPrice !== current.minPrice ||
         next.maxPrice !== current.maxPrice ||
         next.maxMileage !== current.maxMileage ||
@@ -489,6 +502,15 @@ export default function InventoryFilters({ cars }: Props) {
               </option>
             ))}
           </select>
+
+          <input
+            type="text"
+            placeholder="Search by VIN"
+            value={filters.vin}
+            onChange={(e) =>
+              updateFilters((c) => ({ ...c, vin: e.target.value }))
+            }
+          />
 
           <input
             type="number"
