@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, EXPENSE_CATEGORIES } from "../../lib/vehicles";
 import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -84,7 +84,6 @@ const VALID_STATUSES = [
   "openlane_arbitration","sale_cancelled_by_arbitration","openlane_auction",
 ] as const;
 
-const EXPENSE_CATEGORIES = ["repair","detailing","parts","other"] as const;
 
 function fmtStatus(s: string) {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

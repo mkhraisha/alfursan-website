@@ -97,7 +97,7 @@ export const vehicleUpdateSchema = vehicleBaseSchema
 
 // ── Expense schemas ───────────────────────────────────────────────────────────
 
-export const EXPENSE_CATEGORIES = ["repair", "detailing", "parts", "other"] as const;
+export const EXPENSE_CATEGORIES = ["repair", "detailing", "parts", "gas", "other"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 export const expenseCreateSchema = z.object({

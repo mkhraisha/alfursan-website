@@ -23,7 +23,7 @@
 - Garage Register (track vehicle intake/outflow via `purchase_date` and `sale_date`)
 - Role-based access (admin: user management; sales: inventory, applications, commissions)
 - Audit logging (track all changes for compliance)
-- expenses add gas category
+- expenses add gas category ✅ delivered — `gas` added to `vehicle_expenses.category` (`20260718000001_add_gas_expense_category.sql`)
 - time on lot tracking
 
 **Database & Infrastructure:**
