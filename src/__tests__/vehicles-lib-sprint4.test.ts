@@ -15,7 +15,7 @@ describe("expenseCreateSchema", () => {
   });
 
   it("accepts all valid categories", () => {
-    for (const cat of ["repair", "detailing", "parts", "other"] as const) {
+    for (const cat of ["repair", "detailing", "parts", "gas", "other"] as const) {
       expect(expenseCreateSchema.safeParse({ ...BASE, category: cat }).success).toBe(true);
     }
   });

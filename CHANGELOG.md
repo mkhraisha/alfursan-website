@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.
+- `gas` expense category on vehicle expenses, alongside repair/detailing/parts/other.
 
 ### Changed
 
