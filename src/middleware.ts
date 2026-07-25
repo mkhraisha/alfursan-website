@@ -180,9 +180,10 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
       `sb-refresh-token=${encodeURIComponent(refreshedSession.refresh_token)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
     );
     if (refreshedSession.expires_at) {
+      // sb-token-exp is intentionally NOT HttpOnly — JS reads it to schedule proactive refresh.
       res.headers.append(
         "Set-Cookie",
-        `sb-token-exp=${refreshedSession.expires_at}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
+        `sb-token-exp=${refreshedSession.expires_at}${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
       );
     }
   }

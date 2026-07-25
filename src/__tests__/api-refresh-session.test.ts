@@ -163,13 +163,21 @@ describe("POST /api/admin/refresh-session", () => {
     expect(res.status).toBe(200);
   });
 
-  it("sb-token-exp cookie is HttpOnly (consistent with access and refresh cookies)", async () => {
-    const res  = await POST({ request: makeRequest(VALID_COOKIE) } as never);
-    const raw  = res.headers.get("Set-Cookie") ?? "";
-    // Locate the sb-token-exp segment — multiple Set-Cookie values may be joined
-    const segments = raw.split(/,\s*(?=[^\s;=]+=)/);
-    const tokenExpSegment = segments.find((s) => s.includes("sb-token-exp="));
+  it("sb-token-exp cookie is NOT HttpOnly — JS must be able to read it to schedule proactive refresh", async () => {
+    const res = await POST({ request: makeRequest(VALID_COOKIE) } as never);
+    const tokenExpSegment = res.headers
+      .getSetCookie()
+      .find((s) => s.startsWith("sb-token-exp="));
     expect(tokenExpSegment).toBeDefined();
-    expect(tokenExpSegment).toContain("HttpOnly");
+    expect(tokenExpSegment).not.toContain("HttpOnly");
+  });
+
+  it("sb-access-token and sb-refresh-token cookies remain HttpOnly", async () => {
+    const res = await POST({ request: makeRequest(VALID_COOKIE) } as never);
+    const setCookies = res.headers.getSetCookie();
+    const accessCookie  = setCookies.find((s) => s.startsWith("sb-access-token="));
+    const refreshCookie = setCookies.find((s) => s.startsWith("sb-refresh-token="));
+    expect(accessCookie).toContain("HttpOnly");
+    expect(refreshCookie).toContain("HttpOnly");
   });
 });

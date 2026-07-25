@@ -78,9 +78,10 @@ export const POST: APIRoute = async ({ request }) => {
     `sb-refresh-token=${encodeURIComponent(newRefreshToken)}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
   );
   if (expires_at) {
+    // sb-token-exp is intentionally NOT HttpOnly — JS reads it to schedule proactive refresh.
     headers.append(
       "Set-Cookie",
-      `sb-token-exp=${expires_at}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
+      `sb-token-exp=${expires_at}${secure}; SameSite=Lax; Path=/; Max-Age=2592000`
     );
   }
 
