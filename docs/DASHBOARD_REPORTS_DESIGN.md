@@ -75,14 +75,13 @@ CREATE TABLE business_expenses (
   expense_date      DATE NOT NULL,
   tax_amount        DECIMAL(10, 2) CHECK (tax_amount IS NULL OR tax_amount >= 0),
   tax_rate          DECIMAL(6, 5)  CHECK (tax_rate IS NULL OR tax_rate >= 0),
-  tax_type          TEXT CHECK (tax_type IS NULL OR tax_type IN ('HST_ON','HST_15','GST_ONLY','GST_PST_BC','GST_PST_SK','GST_PST_MB','GST_QST_QC','NONE')),
+  tax_type          TEXT CHECK (tax_type IS NULL OR tax_type IN ('HST_ON','HST_15','GST_ONLY','NONE')),
   receipt_file_path TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT business_expenses_tax_rate_matches_type CHECK (
     tax_type IS NULL OR tax_rate IS NULL OR tax_rate = CASE tax_type
       WHEN 'HST_ON' THEN 0.13 WHEN 'HST_15' THEN 0.15 WHEN 'GST_ONLY' THEN 0.05
-      WHEN 'GST_PST_BC' THEN 0.12 WHEN 'GST_PST_SK' THEN 0.11 WHEN 'GST_PST_MB' THEN 0.12
-      WHEN 'GST_QST_QC' THEN 0.14975 WHEN 'NONE' THEN 0
+      WHEN 'NONE' THEN 0
     END
   )
 );
@@ -93,7 +92,7 @@ CREATE TABLE business_expenses (
 ALTER TABLE vehicles
   ADD COLUMN tax_amount DECIMAL(10, 2) CHECK (tax_amount IS NULL OR tax_amount >= 0),
   ADD COLUMN tax_rate   DECIMAL(6, 5)  CHECK (tax_rate IS NULL OR tax_rate >= 0),
-  ADD COLUMN tax_type   TEXT CHECK (tax_type IS NULL OR tax_type IN ('HST_ON','HST_15','GST_ONLY','GST_PST_BC','GST_PST_SK','GST_PST_MB','GST_QST_QC','NONE'));
+  ADD COLUMN tax_type   TEXT CHECK (tax_type IS NULL OR tax_type IN ('HST_ON','HST_15','GST_ONLY','NONE'));
 -- same tax_rate/tax_type consistency constraint as vehicle_expenses/business_expenses
 
 -- One-time backfill for existing sold vehicles:
@@ -132,7 +131,7 @@ Two new stat cards, visible to all roles with `vehicles:read` (no financials gat
 ### 4.5 Overhead & Business Expense Management
 
 - `/admin/settings/overhead/` — CRUD list for `overhead_expenses` (category dropdown, description, amount, start/end date). Gated by `overhead:manage`.
-- `/admin/inventory/business-expenses/` (or a similar top-level location) — CRUD list for `business_expenses` (date, vendor, category, description, amount, tax type). Gated by `business_expenses:manage`.
+- `/admin/expenses/business-expenses/` — CRUD list for `business_expenses` (date, vendor, category, description, amount, tax type) with optional receipt/document upload (`receipt_file_path`). Gated by `business_expenses:manage`.
 
 ### 4.6 Profitability Report (`/admin/reports/profitability/`)
 
@@ -156,7 +155,7 @@ Net Profit = Σ(vehicle gross P/L for vehicles sold that month)
 
 - Date-range picker, defaulting to the current fiscal year (May 1 – Apr 30) via a new `getFiscalYearDateRange()` helper in `src/lib/vehicles.ts`.
 - Combines three sources into one date-sorted table:
-  - `vehicle_expenses` (Type: Expense, Vendor: — none today, may need a vendor column added if required — see Open Items)
+  - `vehicle_expenses` (Type: Expense, Vendor column populated from `vehicle_expenses.vendor`)
   - `business_expenses` (Type: Expense, Vendor column populated)
   - `vehicles` sales where `sale_date` in range (Type: Sale, Customer: `purchaser_name`)
 - Columns: Date | Type | Vendor/Customer | Description | Pre-tax Amount | Tax Type | Tax Collected.
@@ -167,9 +166,7 @@ Net Profit = Σ(vehicle gross P/L for vehicles sold that month)
 
 ## 5. Open Items / Follow-ups (non-blocking)
 
-- `vehicle_expenses` has no `vendor` column today — for the HST report's expense rows coming from per-vehicle expenses, either add a `vendor` column to `vehicle_expenses` (matching `business_expenses`) or fall back to blank/description-only for those rows. Recommend adding the column for consistency, but flagging since it wasn't explicitly discussed.
-- Exact placement of the `business_expenses` management page (under `/admin/inventory/` vs. a new top-level `/admin/expenses/`) is a minor routing choice, not a design blocker.
-- Whether `overhead_expenses`/`business_expenses` need document/receipt upload wired into the same Supabase Storage bucket pattern as `vehicle_expenses` (`receipt_file_path` column is included in the schema above, assuming yes for consistency).
+- None currently.
 
 ---
 

@@ -23,6 +23,9 @@ const PERMISSIONS: Record<string, Role[]> = {
   // ── Reports ───────────────────────────────────────────────────────────────
   "reports:read": ["manager"],          // monthly sales / P&L report
 
+  // ── Business expenses ─────────────────────────────────────────────────────
+  "business_expenses:manage": ["manager"], // create/update/delete business expenses
+
   // ── Commission ────────────────────────────────────────────────────────────
   "commission:assign": ["manager", "sales"],
 

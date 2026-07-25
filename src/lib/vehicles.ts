@@ -107,10 +107,6 @@ export const TAX_TYPES = [
   { code: "HST_ON",     label: "HST (Ontario) — 13%",              rate: 0.13 },
   { code: "HST_15",     label: "HST (NB / NL / NS / PE) — 15%",    rate: 0.15 },
   { code: "GST_ONLY",   label: "GST only (AB/NT/NU/YT) — 5%",      rate: 0.05 },
-  { code: "GST_PST_BC", label: "GST + PST (BC) — 12%",             rate: 0.12 },
-  { code: "GST_PST_SK", label: "GST + PST (SK) — 11%",             rate: 0.11 },
-  { code: "GST_PST_MB", label: "GST + PST (MB) — 12%",             rate: 0.12 },
-  { code: "GST_QST_QC", label: "GST + QST (Quebec) — 14.975%",     rate: 0.14975 },
   { code: "NONE",       label: "No Tax / Exempt",                  rate: 0 },
 ] as const;
 export type TaxTypeCode = (typeof TAX_TYPES)[number]["code"];
@@ -150,6 +146,47 @@ export const expenseCreateSchema = expenseBaseSchema.refine(
 export const expenseUpdateSchema = z.object({
   reimbursed: z.boolean(),
 });
+
+// ── Business expense schemas ─────────────────────────────────────────────────
+
+export const BUSINESS_EXPENSE_CATEGORIES = ["gas", "transportation", "supplies", "marketing", "other"] as const;
+export type BusinessExpenseCategory = (typeof BUSINESS_EXPENSE_CATEGORIES)[number];
+
+const businessExpenseBaseSchema = z.object({
+  category:          z.enum(BUSINESS_EXPENSE_CATEGORIES),
+  description:       z.string().min(1, "Description is required"),
+  amount:            z.number().refine((n) => n !== 0, "Amount cannot be zero"),
+  vendor:            z.string().optional(),
+  expense_date:      isoDate,
+  tax_amount:        z.number().min(0).optional(),
+  tax_type:          z.enum(TAX_TYPES.map((t) => t.code) as [TaxTypeCode, ...TaxTypeCode[]]).optional(),
+  tax_rate:          z.number().min(0).optional(),
+  receipt_file_path: z.string().optional(),
+});
+
+export const businessExpenseCreateSchema = businessExpenseBaseSchema.refine(
+  (v) => {
+    if (v.tax_type === undefined || v.tax_rate === undefined) return true;
+    const expected = rateForTaxType(v.tax_type);
+    return expected === undefined || Math.abs(v.tax_rate - expected) < 1e-6;
+  },
+  { message: "tax_rate does not match the rate for the selected tax_type", path: ["tax_rate"] }
+);
+
+export const businessExpenseUpdateSchema = businessExpenseBaseSchema
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, {
+    message: "At least one field must be provided",
+    path: [],
+  })
+  .refine(
+    (v) => {
+      if (v.tax_type === undefined || v.tax_rate === undefined) return true;
+      const expected = rateForTaxType(v.tax_type);
+      return expected === undefined || Math.abs(v.tax_rate - expected) < 1e-6;
+    },
+    { message: "tax_rate does not match the rate for the selected tax_type", path: ["tax_rate"] }
+  );
 
 // ── Document schemas ──────────────────────────────────────────────────────────
 

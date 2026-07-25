@@ -141,9 +141,10 @@ export default function AllExpenses({ expenses: initial }: Props) {
       <div className="ae-header">
         <div>
           <h1>All Expenses</h1>
-          <p>Every expense across inventory — vehicle-linked and general admin/business costs.</p>
+          <p>Every expense linked to inventory vehicles.</p>
         </div>
         <div className="ae-header-actions">
+          <a href="/admin/expenses/business-expenses/" className="ae-btn">Business Expenses</a>
           <a href="/admin/inventory/import-expenses" className="ae-btn">Import Expenses</a>
         </div>
       </div>
