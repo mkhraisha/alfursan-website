@@ -14,6 +14,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- `/admin/reports/` is now a report-type picker instead of landing directly on the monthly breakdown; the existing sold-vehicle/revenue/P&L report moved to `/admin/reports/sales/`. Sets up the page to list additional report types later.
+- Admin **Dashboard**: moved the New/Reviewing/Approved/Declined application status tiles to the **Applications** tab (they now sit above the status filter tabs there). The dashboard keeps Recent Applications and gains two new tiles — Units Sold This Month, and P/L This Month (the latter only shown to roles with `vehicles:financials:read`) — both linking to the new Sales Report.
 - Redesigned the search page for mobile: the filter bar collapses into a 2-column grid, and inventory results switch from horizontal rows to stacked cards with a full-width image.
 - Moved the Carfax link field from the admin vehicle Media tab to the Basics tab, alongside the rest of the vehicle's identifying details.
 - Admin finance application view: replaced the raw storage-path fallback (shown when a signed document URL fails to generate) with a plain retry message, and surfaced the Phase 2 token/expiry in the Activity tab so it stays visible after the application status changes.

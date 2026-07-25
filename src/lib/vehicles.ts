@@ -180,6 +180,23 @@ export function calcCommission(
   return Number((profitLoss * commissionPct).toFixed(2));
 }
 
+/**
+ * Compute the [start, end) date range (YYYY-MM-DD) for the calendar month
+ * containing `now`. `end` is the first day of the following month, so a
+ * `sale_date >= start AND sale_date < end` filter captures the whole month
+ * regardless of how many days it has, including the December → January
+ * year rollover.
+ */
+export function getMonthDateRange(now: Date): { start: string; end: string } {
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed
+  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const nextYear = month === 11 ? year + 1 : year;
+  const nextMonth = month === 11 ? 0 : month + 1;
+  const end = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`;
+  return { start, end };
+}
+
 // ── Reports ────────────────────────────────────────────────────────────────────
 
 export type SoldVehicle = {
