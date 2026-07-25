@@ -40,6 +40,10 @@ describe("can() — owner role", () => {
     expect(can("owner", "vehicles:import")).toBe(true);
   });
 
+  it("allows reports:read", () => {
+    expect(can("owner", "reports:read")).toBe(true);
+  });
+
   it("allows financing:delete (owner-only)", () => {
     expect(can("owner", "financing:delete")).toBe(true);
   });
@@ -110,6 +114,10 @@ describe("can() — manager role", () => {
 
   it("allows financing:export", () => {
     expect(can("manager", "financing:export")).toBe(true);
+  });
+
+  it("allows reports:read", () => {
+    expect(can("manager", "reports:read")).toBe(true);
   });
 
   it("denies financing:delete (owner only)", () => {
@@ -192,6 +200,10 @@ describe("can() — sales role (Sales Representative)", () => {
     expect(can("sales", "financing:export")).toBe(false);
   });
 
+  it("denies reports:read (cannot view profit/loss reports)", () => {
+    expect(can("sales", "reports:read")).toBe(false);
+  });
+
   it("denies unknown permissions", () => {
     expect(can("sales", "nonexistent:action")).toBe(false);
   });
@@ -207,5 +219,6 @@ describe("can() — undefined role", () => {
     expect(can(undefined, "vehicles:financials:read")).toBe(false);
     expect(can(undefined, "dealer:users:manage")).toBe(false);
     expect(can(undefined, "financing:read")).toBe(false);
+    expect(can(undefined, "reports:read")).toBe(false);
   });
 });

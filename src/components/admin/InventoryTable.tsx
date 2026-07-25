@@ -14,6 +14,8 @@ export type VehicleListItem = {
   photography_status: string | null;
   advertised_price_cargurus: number | null;
   advertised_price_facebook: number | null;
+  purchase_date: string | null;
+  sale_date: string | null;
   purchase_price: number | null;
   sale_price: number | null;
   expense_total: number;
@@ -23,11 +25,56 @@ export type VehicleListItem = {
 type SortKey = "vin" | "make" | "year" | "advertised_price_cargurus" | "total_cost" | "profit_loss";
 type SortDir = "asc" | "desc";
 
+export type InventoryFilters = {
+  status: string;
+  ownership: string;
+  photography: string;
+  minPrice: string;
+  maxPrice: string;
+  minYear: string;
+  maxYear: string;
+  purchaseDateFrom: string;
+  purchaseDateTo: string;
+  saleDateFrom: string;
+  saleDateTo: string;
+};
+
+export const EMPTY_INVENTORY_FILTERS: InventoryFilters = {
+  status: "", ownership: "", photography: "",
+  minPrice: "", maxPrice: "", minYear: "", maxYear: "",
+  purchaseDateFrom: "", purchaseDateTo: "", saleDateFrom: "", saleDateTo: "",
+};
+
+/**
+ * Pure filter predicate — extracted so it can be unit tested without a DOM.
+ * Date fields (purchase_date/sale_date) are ISO "YYYY-MM-DD" strings, so
+ * lexicographic comparison is equivalent to chronological comparison.
+ */
+export function matchesInventoryFilters(v: VehicleListItem, f: InventoryFilters): boolean {
+  if (f.status      && v.status !== f.status)                                       return false;
+  if (f.ownership    && v.ownership_status !== f.ownership)                          return false;
+  if (f.photography  && v.photography_status !== f.photography)                      return false;
+  if (f.minPrice     && (v.advertised_price_cargurus ?? 0) < parseFloat(f.minPrice))  return false;
+  if (f.maxPrice     && (v.advertised_price_cargurus ?? 0) > parseFloat(f.maxPrice))  return false;
+  if (f.minYear      && v.year < parseInt(f.minYear, 10))                            return false;
+  if (f.maxYear      && v.year > parseInt(f.maxYear, 10))                            return false;
+  if (f.purchaseDateFrom && (!v.purchase_date || v.purchase_date < f.purchaseDateFrom)) return false;
+  if (f.purchaseDateTo   && (!v.purchase_date || v.purchase_date > f.purchaseDateTo))   return false;
+  if (f.saleDateFrom     && (!v.sale_date || v.sale_date < f.saleDateFrom))             return false;
+  if (f.saleDateTo       && (!v.sale_date || v.sale_date > f.saleDateTo))               return false;
+  return true;
+}
+
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 function fmt(n: number | null, prefix = "$") {
   if (n === null) return "—";
   return `${prefix}${Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function fmtDate(d: string | null) {
+  if (!d) return "—";
+  return new Date(`${d}T00:00:00`).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function fmtStatus(s: string) {
@@ -97,21 +144,23 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   const [filterMaxPrice,    setFilterMaxPrice]    = useState<string>("");
   const [filterMinYear,     setFilterMinYear]     = useState<string>("");
   const [filterMaxYear,     setFilterMaxYear]     = useState<string>("");
+  const [filterPurchaseFrom, setFilterPurchaseFrom] = useState<string>("");
+  const [filterPurchaseTo,   setFilterPurchaseTo]   = useState<string>("");
+  const [filterSaleFrom,     setFilterSaleFrom]     = useState<string>("");
+  const [filterSaleTo,       setFilterSaleTo]       = useState<string>("");
 
   const rows = useMemo(() => vehicles.map(computeRow), [vehicles]);
 
+  const filters: InventoryFilters = {
+    status: filterStatus, ownership: filterOwnership, photography: filterPhotography,
+    minPrice: filterMinPrice, maxPrice: filterMaxPrice, minYear: filterMinYear, maxYear: filterMaxYear,
+    purchaseDateFrom: filterPurchaseFrom, purchaseDateTo: filterPurchaseTo,
+    saleDateFrom: filterSaleFrom, saleDateTo: filterSaleTo,
+  };
+
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (filterStatus      && r.status !== filterStatus)                                   return false;
-      if (filterOwnership   && r.ownership_status   !== filterOwnership)                   return false;
-      if (filterPhotography && r.photography_status !== filterPhotography)                  return false;
-      if (filterMinPrice    && (r.advertised_price_cargurus ?? 0) < parseFloat(filterMinPrice))  return false;
-      if (filterMaxPrice    && (r.advertised_price_cargurus ?? 0) > parseFloat(filterMaxPrice))  return false;
-      if (filterMinYear     && r.year < parseInt(filterMinYear))                            return false;
-      if (filterMaxYear     && r.year > parseInt(filterMaxYear))                            return false;
-      return true;
-    });
-  }, [rows, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear]);
+    return rows.filter((r) => matchesInventoryFilters(r, filters));
+  }, [rows, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear, filterPurchaseFrom, filterPurchaseTo, filterSaleFrom, filterSaleTo]);
 
   const sorted = useMemo(() => {
     const cmp = (a: typeof filtered[0], b: typeof filtered[0]) => {
@@ -152,6 +201,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   function clearFilters() {
     setFilterStatus(""); setFilterOwnership(""); setFilterPhotography("");
     setFilterMinPrice(""); setFilterMaxPrice(""); setFilterMinYear(""); setFilterMaxYear("");
+    setFilterPurchaseFrom(""); setFilterPurchaseTo(""); setFilterSaleFrom(""); setFilterSaleTo("");
     setPage(1);
   }
 
@@ -175,7 +225,10 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
     }
   }
 
-  const hasFilters = filterStatus || filterOwnership || filterPhotography || filterMinPrice || filterMaxPrice || filterMinYear || filterMaxYear;
+  const hasFilters = Boolean(
+    filterStatus || filterOwnership || filterPhotography || filterMinPrice || filterMaxPrice ||
+    filterMinYear || filterMaxYear || filterPurchaseFrom || filterPurchaseTo || filterSaleFrom || filterSaleTo
+  );
 
   return (
     <div className="inv-wrap">
@@ -213,6 +266,18 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         <input type="number" placeholder="Max Price" value={filterMaxPrice} onChange={(e) => { setFilterMaxPrice(e.target.value); setPage(1); }} />
         <input type="number" placeholder="Min Year"  value={filterMinYear}  onChange={(e) => { setFilterMinYear(e.target.value);  setPage(1); }} />
         <input type="number" placeholder="Max Year"  value={filterMaxYear}  onChange={(e) => { setFilterMaxYear(e.target.value);  setPage(1); }} />
+        <label className="inv-filter-date">
+          <span>Purchased</span>
+          <input type="date" value={filterPurchaseFrom} onChange={(e) => { setFilterPurchaseFrom(e.target.value); setPage(1); }} />
+          <span>to</span>
+          <input type="date" value={filterPurchaseTo}   onChange={(e) => { setFilterPurchaseTo(e.target.value);   setPage(1); }} />
+        </label>
+        <label className="inv-filter-date">
+          <span>Sold</span>
+          <input type="date" value={filterSaleFrom} onChange={(e) => { setFilterSaleFrom(e.target.value); setPage(1); }} />
+          <span>to</span>
+          <input type="date" value={filterSaleTo}   onChange={(e) => { setFilterSaleTo(e.target.value);   setPage(1); }} />
+        </label>
         {hasFilters && <button type="button" className="btn btn--ghost" onClick={clearFilters}>Clear</button>}
       </div>
 
@@ -227,6 +292,8 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
               <th>Status</th>
               <th>Ownership</th>
               <th>Photos</th>
+              <th>Purchased</th>
+              <th>Sold</th>
               <th onClick={() => toggleSort("advertised_price_cargurus")} className="sortable">Listed Price{sortArrow("advertised_price_cargurus")}</th>
               <th onClick={() => toggleSort("total_cost")}       className="sortable">Total Cost{sortArrow("total_cost")}</th>
               <th onClick={() => toggleSort("profit_loss")}      className="sortable">P/L{sortArrow("profit_loss")}</th>
@@ -236,7 +303,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
           </thead>
           <tbody>
             {paginated.length === 0 && (
-              <tr><td colSpan={11} className="inv-empty">No vehicles match the current filters.</td></tr>
+              <tr><td colSpan={13} className="inv-empty">No vehicles match the current filters.</td></tr>
             )}
             {paginated.map((v) => {
               const plColor = v.profitLoss === null ? "#6b7280" : v.profitLoss >= 0 ? "#1a7f4b" : "#b92111";
@@ -264,6 +331,8 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
                   </td>
                   <td><span className="dim">{v.ownership_status ? OWNERSHIP_LABELS[v.ownership_status] ?? v.ownership_status : "—"}</span></td>
                   <td><span className="dim">{v.photography_status ? PHOTO_LABELS[v.photography_status] ?? v.photography_status : "—"}</span></td>
+                  <td><span className="dim">{fmtDate(v.purchase_date)}</span></td>
+                  <td><span className="dim">{fmtDate(v.sale_date)}</span></td>
                   <td className="num">
                     <div>{v.advertised_price_cargurus != null ? <><span style={{fontSize:10,color:"#99a1b2",fontWeight:600}}>CG </span>{fmt(v.advertised_price_cargurus)}</> : "—"}</div>
                     {v.advertised_price_facebook != null && <div style={{fontSize:12,color:"#64748b"}}><span style={{fontSize:10,color:"#99a1b2",fontWeight:600}}>FB </span>{fmt(v.advertised_price_facebook)}</div>}
@@ -335,6 +404,12 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         }
         .inv-filters select { min-width: 140px; }
         .inv-filters input  { width: 110px; }
+
+        .inv-filter-date {
+          display: flex; align-items: center; gap: 6px;
+          font-size: 12px; color: #99a1b2; font-weight: 600;
+        }
+        .inv-filter-date input[type="date"] { width: 132px; }
 
         .inv-table-wrap { background: #fff; border: 1px solid #e4e7ec; border-radius: 8px; overflow: auto; }
         .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
