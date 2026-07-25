@@ -1,0 +1,30 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../../layouts/AdminLayout.astro";
+import BusinessExpenses from "../../../../components/admin/BusinessExpenses";
+import type { BusinessExpenseRow } from "../../../../components/admin/BusinessExpenses";
+import { getAdminClient } from "../../../../lib/supabase-admin";
+import { can } from "../../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+if (!can(adminRole, "business_expenses:manage")) {
+  return Astro.redirect("/admin/?error=unauthorized");
+}
+
+const db = getAdminClient();
+const { data, error } = await db
+  .from("business_expenses")
+  .select("id, category, vendor, description, amount, expense_date, tax_amount, tax_type, tax_rate, receipt_file_path, created_at, updated_at")
+  .order("expense_date", { ascending: false })
+  .order("created_at", { ascending: false });
+
+if (error) console.error("[admin/expenses/business-expenses]", error);
+
+const expenses = (data ?? []) as unknown as BusinessExpenseRow[];
+const supabaseUrl = import.meta.env.SUPABASE_URL ?? "";
+---
+
+<AdminLayout title="Business Expenses" activeNav="expenses">
+  <BusinessExpenses expenses={expenses} supabaseUrl={supabaseUrl} client:load />
+</AdminLayout>

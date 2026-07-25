@@ -120,6 +120,10 @@ describe("can() — manager role", () => {
     expect(can("manager", "reports:read")).toBe(true);
   });
 
+  it("allows business_expenses:manage", () => {
+    expect(can("manager", "business_expenses:manage")).toBe(true);
+  });
+
   it("denies financing:delete (owner only)", () => {
     expect(can("manager", "financing:delete")).toBe(false);
   });
@@ -202,6 +206,10 @@ describe("can() — sales role (Sales Representative)", () => {
 
   it("denies reports:read (cannot view profit/loss reports)", () => {
     expect(can("sales", "reports:read")).toBe(false);
+  });
+
+  it("denies business_expenses:manage", () => {
+    expect(can("sales", "business_expenses:manage")).toBe(false);
   });
 
   it("denies unknown permissions", () => {

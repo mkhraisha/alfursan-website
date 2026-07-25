@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   expenseCreateSchema,
+  businessExpenseCreateSchema,
   expenseUpdateSchema,
   documentCreateSchema,
   commissionAssignSchema,
   vehicleCreateSchema,
   EXPENSE_CATEGORIES,
+  BUSINESS_EXPENSE_CATEGORIES,
   TAX_TYPES,
   DEFAULT_TAX_TYPE,
   DEFAULT_TAX_RATE,
@@ -43,6 +45,37 @@ describe("expenseCreateSchema", () => {
 
   it("accepts a valid expense", () => {
     expect(expenseCreateSchema.safeParse(BASE).success).toBe(true);
+  });
+
+  // ── businessExpenseCreateSchema ──────────────────────────────────────────────
+
+  describe("businessExpenseCreateSchema", () => {
+    const BASE = { category: "gas", description: "Fuel run", amount: 120, expense_date: "2026-07-25" };
+
+    it("accepts a valid business expense", () => {
+      expect(businessExpenseCreateSchema.safeParse(BASE).success).toBe(true);
+    });
+
+    it("requires expense_date", () => {
+      expect(businessExpenseCreateSchema.safeParse({ category: "gas", description: "Fuel run", amount: 120 }).success).toBe(false);
+    });
+
+    it("accepts all valid business categories", () => {
+      for (const cat of BUSINESS_EXPENSE_CATEGORIES) {
+        expect(businessExpenseCreateSchema.safeParse({ ...BASE, category: cat }).success).toBe(true);
+      }
+    });
+
+    it("accepts optional receipt_file_path", () => {
+      expect(
+        businessExpenseCreateSchema.safeParse({ ...BASE, receipt_file_path: "business-expenses/receipt.pdf" }).success
+      ).toBe(true);
+    });
+
+    it("rejects a tax_rate that does not match the selected tax_type", () => {
+      const result = businessExpenseCreateSchema.safeParse({ ...BASE, tax_type: "HST_ON", tax_rate: 0.05 });
+      expect(result.success).toBe(false);
+    });
   });
 
   it("accepts all valid categories", () => {
