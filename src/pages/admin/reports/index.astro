@@ -1,0 +1,89 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { can } from "../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+if (!can(adminRole, "reports:read")) {
+  return Astro.redirect("/admin/?error=unauthorized");
+}
+
+const REPORT_TYPES = [
+  {
+    id: "sales",
+    label: "Sales Report",
+    description: "Units sold, revenue, and profit / loss broken down by month.",
+    href: "/admin/reports/sales/",
+    icon: "◫",
+  },
+];
+---
+
+<AdminLayout title="Reports" activeNav="reports">
+  <div class="page-header">
+    <h1>Reports</h1>
+    <p>Select a report to view</p>
+  </div>
+
+  <div class="report-grid">
+    {REPORT_TYPES.map((report) => (
+      <a href={report.href} class="report-card">
+        <span class="report-card__icon">{report.icon}</span>
+        <span class="report-card__body">
+          <span class="report-card__label">{report.label}</span>
+          <span class="report-card__desc">{report.description}</span>
+        </span>
+        <span class="report-card__arrow">→</span>
+      </a>
+    ))}
+  </div>
+</AdminLayout>
+
+<style>
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
+  .page-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
+
+  .report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .report-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px 22px;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .report-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    border-color: #d7dbe3;
+  }
+  .report-card__icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #f0f2f5;
+    color: #B92111;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .report-card__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .report-card__label { font-size: 15px; font-weight: 700; color: #1a1d23; }
+  .report-card__desc { font-size: 13px; color: #99a1b2; }
+  .report-card__arrow { color: #B92111; font-weight: 600; flex-shrink: 0; }
+</style>

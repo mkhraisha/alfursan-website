@@ -223,3 +223,78 @@ export function calcCommission(
   if (profitLoss < 0) return 150;
   return Number((profitLoss * commissionPct).toFixed(2));
 }
+
+/**
+ * Compute the [start, end) date range (YYYY-MM-DD) for the calendar month
+ * containing `now`. `end` is the first day of the following month, so a
+ * `sale_date >= start AND sale_date < end` filter captures the whole month
+ * regardless of how many days it has, including the December → January
+ * year rollover.
+ */
+export function getMonthDateRange(now: Date): { start: string; end: string } {
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-indexed
+  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const nextYear = month === 11 ? year + 1 : year;
+  const nextMonth = month === 11 ? 0 : month + 1;
+  const end = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`;
+  return { start, end };
+}
+
+// ── Reports ────────────────────────────────────────────────────────────────────
+
+export type SoldVehicle = {
+  sale_date: string; // YYYY-MM-DD, must be non-null — filter before calling
+  sale_price: number | null;
+  purchase_price: number | null;
+  expense_total: number;
+};
+
+export type MonthlySales = {
+  month: string; // YYYY-MM
+  unitsSold: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfitLoss: number;
+};
+
+/**
+ * Groups sold vehicles by the month of sale_date and sums revenue, cost, and
+ * profit/loss per month. A vehicle whose profit/loss can't be computed (e.g.
+ * missing purchase_price) contributes 0 to totalCost/totalProfitLoss for its
+ * month but still counts toward unitsSold and totalRevenue.
+ * Returned months are sorted most-recent-first.
+ */
+export function aggregateMonthlySales(vehicles: SoldVehicle[]): MonthlySales[] {
+  const byMonth = new Map<string, MonthlySales>();
+
+  for (const v of vehicles) {
+    const month = v.sale_date.slice(0, 7);
+    const totalCost  = calcTotalCost(v.purchase_price, v.expense_total) ?? 0;
+    const profitLoss = calcProfitLoss(v.sale_price, calcTotalCost(v.purchase_price, v.expense_total)) ?? 0;
+
+    const existing = byMonth.get(month) ?? {
+      month,
+      unitsSold: 0,
+      totalRevenue: 0,
+      totalCost: 0,
+      totalProfitLoss: 0,
+    };
+
+    existing.unitsSold += 1;
+    existing.totalRevenue += v.sale_price ?? 0;
+    existing.totalCost += totalCost;
+    existing.totalProfitLoss += profitLoss;
+
+    byMonth.set(month, existing);
+  }
+
+  return Array.from(byMonth.values())
+    .map((m) => ({
+      ...m,
+      totalRevenue:    Number(m.totalRevenue.toFixed(2)),
+      totalCost:       Number(m.totalCost.toFixed(2)),
+      totalProfitLoss: Number(m.totalProfitLoss.toFixed(2)),
+    }))
+    .sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0));
+}

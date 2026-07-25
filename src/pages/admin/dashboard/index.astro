@@ -5,32 +5,44 @@ import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
 import { can } from "../../../lib/permissions";
 import { formatStatusLabel } from "../../../lib/status-labels";
+import { aggregateMonthlySales, getMonthDateRange, type SoldVehicle } from "../../../lib/vehicles";
 const { adminRole } = Astro.locals;
+const canSeeFinancials = can(adminRole, "vehicles:financials:read");
 
 const supabase = getAdminClient();
 
-// Fetch status counts in parallel
-const [newRes, reviewingRes, approvedRes, declinedRes, recentRes] =
-  await Promise.all([
-    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "new"),
-    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "reviewing"),
-    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "approved"),
-    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "declined"),
-    supabase
-      .from("applications")
-      .select("id, full_name, email, status, created_at, vin")
-      .order("created_at", { ascending: false })
-      .limit(5),
-  ]);
+const { start: monthStart, end: monthEnd } = getMonthDateRange(new Date());
 
-const counts = {
-  new: newRes.count ?? 0,
-  reviewing: reviewingRes.count ?? 0,
-  approved: approvedRes.count ?? 0,
-  declined: declinedRes.count ?? 0,
-};
+const [recentRes, soldRes] = await Promise.all([
+  supabase
+    .from("applications")
+    .select("id, full_name, email, status, created_at, vin")
+    .order("created_at", { ascending: false })
+    .limit(5),
+  supabase
+    .from("vehicles")
+    .select("sale_date, sale_price, purchase_price, vehicle_expenses(amount)")
+    .gte("sale_date", monthStart)
+    .lt("sale_date", monthEnd),
+]);
 
 const recent = recentRes.data ?? [];
+
+const soldThisMonth: SoldVehicle[] = (soldRes.data ?? []).map((v: Record<string, unknown>) => {
+  const expenseRows = (v.vehicle_expenses as { amount: number }[] | null) ?? [];
+  const expenseTotal = expenseRows.reduce((s, e) => s + Number(e.amount), 0);
+  return {
+    sale_date: v.sale_date as string,
+    sale_price: (v.sale_price as number | null) ?? null,
+    purchase_price: (v.purchase_price as number | null) ?? null,
+    expense_total: expenseTotal,
+  };
+});
+
+const monthTotals = aggregateMonthlySales(soldThisMonth)[0] ?? {
+  unitsSold: 0,
+  totalProfitLoss: 0,
+};
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", {
@@ -38,6 +50,10 @@ function fmt(iso: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function fmtMoney(n: number) {
+  return `$${Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 const statusColor: Record<string, string> = {
@@ -51,26 +67,23 @@ const statusColor: Record<string, string> = {
 <AdminLayout title="Dashboard" activeNav="dashboard">
   <div class="page-header">
     <h1>Dashboard</h1>
-    <p>Financing applications overview</p>
+    <p>Dealership overview</p>
   </div>
 
   <!-- Stat cards -->
   <div class="stat-grid">
-    {
-      [
-        { label: "New", value: counts.new, color: "#3b82f6", href: "/admin/applications/?status=new" },
-        { label: "Reviewing", value: counts.reviewing, color: "#f59e0b", href: "/admin/applications/?status=reviewing" },
-        { label: "Approved", value: counts.approved, color: "#1a7f4b", href: "/admin/applications/?status=approved" },
-        { label: "Declined", value: counts.declined, color: "#B92111", href: "/admin/applications/?status=declined" },
-      ].map((card) => (
-        <a href={card.href} class="stat-card">
-          <span class="stat-card__label">{card.label}</span>
-          <span class="stat-card__value" style={`color: ${card.color}`}>
-            {card.value}
-          </span>
-        </a>
-      ))
-    }
+    <a href="/admin/reports/sales/" class="stat-card">
+      <span class="stat-card__label">Units Sold This Month</span>
+      <span class="stat-card__value" style="color:#1a1d23">{monthTotals.unitsSold}</span>
+    </a>
+    {canSeeFinancials && (
+      <a href="/admin/reports/sales/" class="stat-card">
+        <span class="stat-card__label">P/L This Month</span>
+        <span class="stat-card__value" style={`color:${monthTotals.totalProfitLoss >= 0 ? "#1a7f4b" : "#b92111"}`}>
+          {monthTotals.totalProfitLoss < 0 ? "-" : ""}{fmtMoney(monthTotals.totalProfitLoss)}
+        </span>
+      </a>
+    )}
   </div>
 
   <!-- Recent applications -->

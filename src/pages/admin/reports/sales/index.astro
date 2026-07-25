@@ -1,0 +1,190 @@
+---
+export const prerender = false;
+
+import AdminLayout from "../../../../layouts/AdminLayout.astro";
+import { getAdminClient } from "../../../../lib/supabase-admin";
+import { can } from "../../../../lib/permissions";
+import { aggregateMonthlySales, type SoldVehicle } from "../../../../lib/vehicles";
+
+const { adminRole } = Astro.locals;
+if (!can(adminRole, "reports:read")) {
+  return Astro.redirect("/admin/?error=unauthorized");
+}
+
+const db = getAdminClient();
+
+const { data: rawVehicles } = await db
+  .from("vehicles")
+  .select("sale_date, sale_price, purchase_price, vehicle_expenses(amount)")
+  .not("sale_date", "is", null)
+  .order("sale_date", { ascending: false });
+
+const soldVehicles: SoldVehicle[] = (rawVehicles ?? []).map((v: Record<string, unknown>) => {
+  const expenseRows = (v.vehicle_expenses as { amount: number }[] | null) ?? [];
+  const expenseTotal = expenseRows.reduce((s, e) => s + Number(e.amount), 0);
+  return {
+    sale_date:      v.sale_date as string,
+    sale_price:     (v.sale_price as number | null) ?? null,
+    purchase_price: (v.purchase_price as number | null) ?? null,
+    expense_total:  expenseTotal,
+  };
+});
+
+const monthly = aggregateMonthlySales(soldVehicles);
+
+const totals = monthly.reduce(
+  (acc, m) => ({
+    unitsSold: acc.unitsSold + m.unitsSold,
+    totalRevenue: acc.totalRevenue + m.totalRevenue,
+    totalProfitLoss: acc.totalProfitLoss + m.totalProfitLoss,
+  }),
+  { unitsSold: 0, totalRevenue: 0, totalProfitLoss: 0 }
+);
+
+function fmtMoney(n: number) {
+  return `$${Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function fmtMonth(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("en-CA", { year: "numeric", month: "long" });
+}
+---
+
+<AdminLayout title="Sales Report" activeNav="reports">
+  <div class="page-header">
+    <div>
+      <a href="/admin/reports/" class="back-link">← Reports</a>
+      <h1>Sales Report</h1>
+      <p>Sales by month, including total profit / loss</p>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <span class="stat-card__label">Units Sold</span>
+      <span class="stat-card__value" style="color:#1a1d23">{totals.unitsSold}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__label">Total Revenue</span>
+      <span class="stat-card__value" style="color:#1a1d23">{fmtMoney(totals.totalRevenue)}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__label">Total P/L</span>
+      <span class="stat-card__value" style={`color:${totals.totalProfitLoss >= 0 ? "#1a7f4b" : "#b92111"}`}>
+        {totals.totalProfitLoss < 0 ? "-" : ""}{fmtMoney(totals.totalProfitLoss)}
+      </span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section__header">
+      <h2>Sales by Month</h2>
+    </div>
+
+    {monthly.length === 0 ? (
+      <div class="empty">No sold vehicles yet.</div>
+    ) : (
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Units Sold</th>
+              <th>Revenue</th>
+              <th>Total Cost</th>
+              <th>P/L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthly.map((m) => (
+              <tr>
+                <td><strong>{fmtMonth(m.month)}</strong></td>
+                <td>{m.unitsSold}</td>
+                <td>{fmtMoney(m.totalRevenue)}</td>
+                <td>{fmtMoney(m.totalCost)}</td>
+                <td style={`color:${m.totalProfitLoss >= 0 ? "#1a7f4b" : "#b92111"}; font-weight:600`}>
+                  {m.totalProfitLoss < 0 ? "-" : ""}{fmtMoney(m.totalProfitLoss)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</AdminLayout>
+
+<style>
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; margin-top: 6px; }
+  .page-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
+  .back-link { font-size: 13px; color: #B92111; font-weight: 500; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px 24px;
+  }
+  .stat-card__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .stat-card__value { font-size: 36px; font-weight: 800; }
+
+  .section {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  .section__header h2 { font-size: 16px; font-weight: 700; color: #1a1d23; }
+
+  .empty { padding: 24px 20px; color: #99a1b2; font-size: 14px; }
+
+  .table-wrap { overflow-x: auto; }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e4e7ec;
+  }
+  .table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f2f5;
+    color: #1a1d23;
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+  }
+  .table tr:last-child td { border-bottom: none; }
+  .table tr:hover td { background: #f7f9fd; }
+</style>

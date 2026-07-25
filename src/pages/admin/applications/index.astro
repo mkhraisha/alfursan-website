@@ -28,7 +28,21 @@ let query = supabase
 
 if (activeStatus) query = query.eq("status", activeStatus);
 
-const { data: apps, count, error } = await query;
+const [{ data: apps, count, error }, newRes, reviewingRes, approvedRes, declinedRes] =
+  await Promise.all([
+    query,
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "new"),
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "reviewing"),
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    supabase.from("applications").select("id", { count: "exact", head: true }).eq("status", "declined"),
+  ]);
+
+const statCounts = {
+  new: newRes.count ?? 0,
+  reviewing: reviewingRes.count ?? 0,
+  approved: approvedRes.count ?? 0,
+  declined: declinedRes.count ?? 0,
+};
 
 const total = count ?? 0;
 const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -71,6 +85,25 @@ const statusColor: Record<string, string> = {
       <h1>Applications</h1>
       <p>{total} total{activeStatus ? ` · filtered: ${activeStatus}` : ""}</p>
     </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stat-grid">
+    {
+      [
+        { label: "New", value: statCounts.new, color: "#3b82f6", status: "new" },
+        { label: "Reviewing", value: statCounts.reviewing, color: "#f59e0b", status: "reviewing" },
+        { label: "Approved", value: statCounts.approved, color: "#1a7f4b", status: "approved" },
+        { label: "Declined", value: statCounts.declined, color: "#B92111", status: "declined" },
+      ].map((card) => (
+        <a href={filterUrl(card.status)} class="stat-card">
+          <span class="stat-card__label">{card.label}</span>
+          <span class="stat-card__value" style={`color: ${card.color}`}>
+            {card.value}
+          </span>
+        </a>
+      ))
+    }
   </div>
 
   <!-- Status filter tabs -->
@@ -176,6 +209,32 @@ const statusColor: Record<string, string> = {
   }
   .page-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
   .page-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px 24px;
+    display: block;
+    transition: box-shadow 0.15s;
+  }
+  .stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+  .stat-card__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #99a1b2;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .stat-card__value { font-size: 36px; font-weight: 800; }
 
   .filter-tabs {
     display: flex;
