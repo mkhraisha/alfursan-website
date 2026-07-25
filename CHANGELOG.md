@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Updated dependencies to their latest compatible versions within the current major: astro 6.3.1 → 6.4.8 (fixes high-severity XSS/SSRF advisories), @supabase/supabase-js, resend, playwright, react/react-dom, @types/react, @sentry/astro, @astrojs/sitemap, vitest, @vitest/coverage-v8. Left `astro`, `@astrojs/react`, `@astrojs/vercel`, and `typescript` major versions untouched (6→7, 5→6, 10→11, 6→7 respectively) — those are coupled breaking changes that need a dedicated migration pass.
+- Migrated the coupled Astro major versions: `astro` 6.4.8 → 7.1.3, `@astrojs/react` 5.0.4 → 6.0.1, `@astrojs/vercel` 10.0.6 → 11.0.3. No config or code changes were required — the Vercel ISR adapter config, `client:load` hydration directives, and middleware all continued to work unchanged. Removed the now-unused `uuid` entry from `package.json` `overrides` (no longer a transitive dependency of the updated adapter stack). `typescript` stays on 6 for now — that migration is deferred to a separate pass.
+- Updated the remaining outdated dependencies to latest: @fontsource-variable/mulish, @fontsource/bebas-neue, @sentry/astro, @supabase/supabase-js, playwright (+ reinstalled browser binaries), react/react-dom, resend. `typescript` was left on 6.0.3 — `@astrojs/check` (the project's type-checking tool) still only supports `typescript ^5 || ^6`, and Astro 7.1.3 itself still pins `typescript ^6.0.3` in its own tooling, so a TS 7 bump isn't viable yet at the ecosystem level.
 
 ### Fixed
 
