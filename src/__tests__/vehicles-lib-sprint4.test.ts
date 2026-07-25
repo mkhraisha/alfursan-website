@@ -87,6 +87,28 @@ describe("expenseCreateSchema", () => {
     expect(expenseCreateSchema.safeParse({ ...BASE, tax_amount: -5 }).success).toBe(false);
   });
 
+  it("rejects a tax_rate that doesn't match the selected tax_type (drift protection)", () => {
+    const result = expenseCreateSchema.safeParse({ ...BASE, tax_type: "HST_ON", tax_rate: 0.05 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.tax_rate?.[0]).toMatch(/does not match/);
+    }
+  });
+
+  it("accepts tax_type with no tax_rate given", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, tax_type: "GST_ONLY" }).success).toBe(true);
+  });
+
+  it("accepts tax_rate with no tax_type given", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, tax_rate: 0.05 }).success).toBe(true);
+  });
+
+  it("accepts every tax_type paired with its own canonical rate", () => {
+    for (const t of TAX_TYPES) {
+      expect(expenseCreateSchema.safeParse({ ...BASE, tax_type: t.code, tax_rate: t.rate }).success).toBe(true);
+    }
+  });
+
   it("rejects empty description", () => {
     expect(expenseCreateSchema.safeParse({ ...BASE, description: "" }).success).toBe(false);
   });

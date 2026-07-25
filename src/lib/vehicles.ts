@@ -123,7 +123,7 @@ export function rateForTaxType(code: string): number | undefined {
   return TAX_TYPES.find((t) => t.code === code)?.rate;
 }
 
-export const expenseCreateSchema = z.object({
+const expenseBaseSchema = z.object({
   category:          z.enum(EXPENSE_CATEGORIES),
   description:       z.string().min(1, "Description is required"),
   // Negative amounts represent refunds/credits/adjustments that reduce total cost.
@@ -134,9 +134,18 @@ export const expenseCreateSchema = z.object({
   expense_date:      isoDate.optional(),
   tax_amount:        z.number().min(0).optional(),
   tax_type:          z.enum(TAX_TYPES.map((t) => t.code) as [TaxTypeCode, ...TaxTypeCode[]]).optional(),
-  // Fraction, e.g. 0.13 for 13% HST — kept in sync with tax_type.
+  // Fraction, e.g. 0.13 for 13% HST — must match tax_type's canonical rate (see refine below).
   tax_rate:          z.number().min(0).optional(),
 });
+
+export const expenseCreateSchema = expenseBaseSchema.refine(
+  (v) => {
+    if (v.tax_type === undefined || v.tax_rate === undefined) return true;
+    const expected = rateForTaxType(v.tax_type);
+    return expected === undefined || Math.abs(v.tax_rate - expected) < 1e-6;
+  },
+  { message: "tax_rate does not match the rate for the selected tax_type", path: ["tax_rate"] }
+);
 
 export const expenseUpdateSchema = z.object({
   reimbursed: z.boolean(),
