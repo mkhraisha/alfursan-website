@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 - CSV bulk import for vehicle expenses (`/admin/inventory/import-expenses`) — each row is matched to an existing vehicle by VIN; unmatched VINs are reported and skipped.
 - `reimbursed` checkbox on vehicle expense line items, toggleable from the Expenses tab.
 - `admin` expense category, alongside repair/cleaning/parts/gas/other.
+- `vendor` and `expense_date` fields on vehicle expenses — mappable in the expense CSV importer and editable on the per-vehicle Expenses tab.
+- General (non-vehicle) expenses — expense CSV rows with no VIN now import as standalone records instead of being rejected, for admin/business costs that don't relate to a specific car.
+- "All Expenses" page (`/admin/inventory/expenses`) — a searchable, filterable list of every expense (vehicle-linked and general) with a reimbursed toggle and running total.
 
 ### Changed
 
@@ -20,6 +23,8 @@ All notable changes to this project will be documented in this file.
 - Moved the Carfax link field from the admin vehicle Media tab to the Basics tab, alongside the rest of the vehicle's identifying details.
 - Renamed the `detailing` expense category to `cleaning` (existing expense rows were migrated).
 - The vehicle CSV importer now auto-maps a generic "Advertised Price" column to the CarGurus price field, and a "Notes" column to Internal Notes, by default.
+- Vehicle expense amounts can now be negative, to record refunds/credits/adjustments that reduce total cost (previously only positive amounts were allowed).
+- The expense CSV importer's "Car" column mapping now extracts the VIN from a combined "VIN (Year Make Model)" cell instead of requiring a bare VIN.
 - Admin finance application view: replaced the raw storage-path fallback (shown when a signed document URL fails to generate) with a plain retry message, and surfaced the Phase 2 token/expiry in the Activity tab so it stays visible after the application status changes.
 
 ### Changed

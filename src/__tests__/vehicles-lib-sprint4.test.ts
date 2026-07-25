@@ -31,8 +31,20 @@ describe("expenseCreateSchema", () => {
     expect(expenseCreateSchema.safeParse({ ...BASE, amount: 0 }).success).toBe(false);
   });
 
-  it("rejects amount < 0", () => {
-    expect(expenseCreateSchema.safeParse({ ...BASE, amount: -1 }).success).toBe(false);
+  it("accepts a negative amount (refund/credit/adjustment)", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, amount: -1 }).success).toBe(true);
+  });
+
+  it("accepts optional vendor", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, vendor: "Divine Motors" }).success).toBe(true);
+  });
+
+  it("accepts optional expense_date", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, expense_date: "2025-09-13" }).success).toBe(true);
+  });
+
+  it("rejects a malformed expense_date", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, expense_date: "9/13/2025" }).success).toBe(false);
   });
 
   it("rejects empty description", () => {

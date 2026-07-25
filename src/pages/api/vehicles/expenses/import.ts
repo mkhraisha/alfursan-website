@@ -8,8 +8,9 @@ export const prerender = false;
  *   mapping  — JSON string: { "CSV Column Name": "expense_field", ... }
  *   preview  — optional "true" to return parsed rows without inserting
  *
- * Each row must map to an existing vehicle by VIN. Rows referencing an
- * unknown VIN are reported as errors and skipped.
+ * Rows with a VIN are matched to an existing vehicle — an unknown VIN is
+ * reported as an error and skipped. Rows with no VIN are imported as
+ * general (non-vehicle) expenses, e.g. admin/business costs.
  *
  * Returns:
  *   { created, failed, errors: [{ row, vin?, error }] }
@@ -61,11 +62,11 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const mappedFields = new Set(Object.values(mapping));
-  const REQUIRED = ["vin", "category", "description", "amount"];
+  const REQUIRED = ["category", "description", "amount"];
   const missing = REQUIRED.filter((f) => !mappedFields.has(f));
   if (missing.length > 0) {
     return json({
-      error: `Missing required mapping(s): ${missing.join(", ")}. VIN, Category, Description, and Amount must all be mapped.`,
+      error: `Missing required mapping(s): ${missing.join(", ")}. Category, Description, and Amount must all be mapped.`,
     }, 422);
   }
 
@@ -76,18 +77,13 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "CSV file is empty or has no data rows" }, 422);
   }
 
-  const valid: Array<{ rowIndex: number; vin: string; data: Record<string, unknown> }> = [];
+  const valid: Array<{ rowIndex: number; vin: string | null; data: Record<string, unknown> }> = [];
   const errors: RowError[] = [];
 
   rows.forEach((row, idx) => {
     const rowNum = idx + 2; // 1-indexed + header row
     const mapped = applyExpenseMapping(row, mapping);
-    const vin = typeof mapped.vin === "string" ? mapped.vin : "";
-
-    if (!vin) {
-      errors.push({ row: rowNum, column: "vin", error: "VIN is required" });
-      return;
-    }
+    const vin = typeof mapped.vin === "string" && mapped.vin ? mapped.vin : null;
 
     const { vin: _vin, ...expenseFields } = mapped;
     const parsed = expenseCreateSchema.safeParse(expenseFields);
@@ -100,7 +96,7 @@ export const POST: APIRoute = async ({ request }) => {
       const firstMsg   = (fieldErrors[firstField as keyof typeof fieldErrors] ?? [])[0];
       errors.push({
         row: rowNum,
-        vin,
+        vin: vin ?? undefined,
         column: firstField ?? undefined,
         error: firstMsg ?? "Validation failed",
       });
@@ -109,16 +105,17 @@ export const POST: APIRoute = async ({ request }) => {
 
   const db = getAdminClient();
 
-  // Confirm every referenced VIN actually exists before inserting
-  const distinctVins = Array.from(new Set(valid.map((r) => r.vin)));
+  // Confirm every referenced VIN actually exists before inserting (rows with no VIN
+  // are general expenses and skip this check entirely)
+  const distinctVins = Array.from(new Set(valid.map((r) => r.vin).filter((v): v is string => v !== null)));
   const { data: existingVehicles } = distinctVins.length > 0
     ? await db.from("vehicles").select("vin").in("vin", distinctVins)
     : { data: [] as { vin: string }[] };
   const knownVins = new Set((existingVehicles ?? []).map((v) => v.vin));
 
-  const matched: Array<{ rowIndex: number; vin: string; data: Record<string, unknown> }> = [];
+  const matched: Array<{ rowIndex: number; vin: string | null; data: Record<string, unknown> }> = [];
   for (const r of valid) {
-    if (knownVins.has(r.vin)) {
+    if (r.vin === null || knownVins.has(r.vin)) {
       matched.push(r);
     } else {
       errors.push({ row: r.rowIndex, vin: r.vin, column: "vin", error: `No vehicle found with VIN ${r.vin}` });
@@ -127,7 +124,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (isPreview) {
     return json({
-      preview: matched.slice(0, 10).map((r) => ({ vin: r.vin, ...r.data })),
+      preview: matched.slice(0, 10).map((r) => ({ vin: r.vin ?? "— General —", ...r.data })),
       total_rows: rows.length,
       valid_count: matched.length,
       error_count: errors.length,
@@ -145,7 +142,7 @@ export const POST: APIRoute = async ({ request }) => {
   for (const { rowIndex, vin, data } of matched) {
     const { error } = await db.from("vehicle_expenses").insert({ vin, ...data });
     if (error) {
-      insertErrors.push({ row: rowIndex, vin, error: error.message });
+      insertErrors.push({ row: rowIndex, vin: vin ?? undefined, error: error.message });
     } else {
       created++;
     }

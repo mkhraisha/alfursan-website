@@ -35,7 +35,7 @@ export default function ExpenseCSVImport() {
   const [error,     setError]     = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const REQUIRED_FIELDS = ["vin", "category", "description", "amount"];
+  const REQUIRED_FIELDS = ["category", "description", "amount"];
   const hasAllRequired = REQUIRED_FIELDS.every((f) => Object.values(mapping).includes(f));
 
   // ── Step 1: File selection ──────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export default function ExpenseCSVImport() {
 
   async function fetchPreview() {
     if (!file) return;
-    if (!hasAllRequired) { setError("You must map VIN, Category, Description, and Amount."); return; }
+    if (!hasAllRequired) { setError("You must map Category, Description, and Amount."); return; }
     setError(null);
     setLoading(true);
 
@@ -119,7 +119,7 @@ export default function ExpenseCSVImport() {
       <div className="ci-header">
         <a href="/admin/inventory/" className="back-link">← Inventory</a>
         <h1>Import Expenses from CSV</h1>
-        <p>Bulk-import expense line items. Each row must reference a VIN already in inventory.</p>
+        <p>Bulk-import expense line items. Rows with a VIN are linked to that vehicle; rows with no VIN are imported as general (non-vehicle) expenses.</p>
       </div>
 
       <Stepper current={step} />
@@ -270,7 +270,7 @@ function StepMap({ headers, mapping, setMapping, onBack, onNext, loading, hasAll
     <div>
       <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>
         Map each CSV column to an expense field. Unmapped columns will be skipped.
-        <strong style={{ color: "#1a1d23" }}> VIN, Category, Description, and Amount must all be mapped.</strong>
+        <strong style={{ color: "#1a1d23" }}> Category, Description, and Amount must all be mapped.</strong> VIN is optional — rows with no VIN import as general expenses.
       </p>
       <div style={{ overflow: "auto", maxHeight: 420 }}>
         <table className="map-table">
@@ -364,7 +364,7 @@ function StepConfirm({ preview, onBack, onConfirm, loading }: { preview: Preview
       <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
       <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1a1d23", marginBottom: 8 }}>Ready to Import</h2>
       <p style={{ color: "#6b7280", fontSize: 15, marginBottom: 8 }}>
-        <strong style={{ color: "#1a7f4b" }}>{preview.valid_count} valid expense{preview.valid_count !== 1 ? "s" : ""}</strong> will be added to their matching vehicles.
+        <strong style={{ color: "#1a7f4b" }}>{preview.valid_count} valid expense{preview.valid_count !== 1 ? "s" : ""}</strong> will be imported — linked to a vehicle where a VIN matched, general otherwise.
       </p>
       {preview.error_count > 0 && (
         <p style={{ color: "#b92111", fontSize: 14, marginBottom: 8 }}>

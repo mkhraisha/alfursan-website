@@ -104,9 +104,12 @@ export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 export const expenseCreateSchema = z.object({
   category:          z.enum(EXPENSE_CATEGORIES),
   description:       z.string().min(1, "Description is required"),
-  amount:            z.number().positive("Amount must be greater than 0"),
+  // Negative amounts represent refunds/credits/adjustments that reduce total cost.
+  amount:            z.number().refine((n) => n !== 0, "Amount cannot be zero"),
   receipt_file_path: z.string().optional(),
   reimbursed:        z.boolean().optional(),
+  vendor:            z.string().optional(),
+  expense_date:      isoDate.optional(),
 });
 
 export const expenseUpdateSchema = z.object({

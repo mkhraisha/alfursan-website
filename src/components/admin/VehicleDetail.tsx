@@ -53,6 +53,8 @@ export type VehicleExpense = {
   amount: number;
   receipt_file_path: string | null;
   reimbursed: boolean;
+  vendor: string | null;
+  expense_date: string | null;
   created_at: string;
 };
 
@@ -783,7 +785,7 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
 // ── Expenses Tab ──────────────────────────────────────────────────────────────
 
 function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: string; expenses: VehicleExpense[]; totalCost: number | null; setExpenses: React.Dispatch<React.SetStateAction<VehicleExpense[]>>; show: (msg: string, ok: boolean) => void }) {
-  const [form, setForm]   = useState({ category: "repair" as string, description: "", amount: "" });
+  const [form, setForm]   = useState({ category: "repair" as string, description: "", amount: "", vendor: "", expense_date: "" });
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding]  = useState(false);
 
@@ -791,11 +793,17 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
     if (!form.description || !form.amount) return;
     setAdding(true);
     try {
-      const res = await fetch(`/api/vehicles/${vin}/expenses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category: form.category, description: form.description, amount: parseFloat(form.amount) }) });
+      const res = await fetch(`/api/vehicles/${vin}/expenses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        category: form.category,
+        description: form.description,
+        amount: parseFloat(form.amount),
+        vendor: form.vendor || undefined,
+        expense_date: form.expense_date || undefined,
+      }) });
       if (res.ok || res.status === 201) {
         const newExp = await res.json() as VehicleExpense;
         setExpenses((e) => [...e, newExp]);
-        setForm({ category: "repair", description: "", amount: "" });
+        setForm({ category: "repair", description: "", amount: "", vendor: "", expense_date: "" });
         setShowAdd(false);
         show("Expense added!", true);
       } else {
@@ -850,7 +858,9 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
               </select>
             </div>
             <div className="f-field"><label>Description *</label><input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe the expense" /></div>
-            <div className="f-field"><label>Amount ($) *</label><input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} min="0.01" step="0.01" /></div>
+            <div className="f-field"><label>Amount ($) *</label><input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} step="0.01" placeholder="Negative for refunds/credits" /></div>
+            <div className="f-field"><label>Vendor</label><input value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))} placeholder="Who was paid" /></div>
+            <div className="f-field"><label>Date</label><input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} /></div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className="btn-save" onClick={addExpense} disabled={adding || !form.description || !form.amount}>{adding ? "Adding…" : "Add Expense"}</button>
@@ -862,11 +872,13 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
       {expenses.length > 0 ? (
         <div style={{ background: "#fff", border: "1px solid #e4e7ec", borderRadius: 8, overflow: "auto", marginBottom: 12 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr>{["Category","Description","Amount","Reimbursed","Actions"].map((h) => <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#99a1b2", borderBottom: "1px solid #e4e7ec" }}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Date","Category","Vendor","Description","Amount","Reimbursed","Actions"].map((h) => <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#99a1b2", borderBottom: "1px solid #e4e7ec" }}>{h}</th>)}</tr></thead>
             <tbody>
               {expenses.map((exp) => (
                 <tr key={exp.id}>
+                  <td style={{ padding: "10px 14px", color: "#374151", whiteSpace: "nowrap" }}>{exp.expense_date ? new Date(exp.expense_date).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—"}</td>
                   <td style={{ padding: "10px 14px", fontWeight: 600 }}>{fmtStatus(exp.category)}</td>
+                  <td style={{ padding: "10px 14px", color: "#374151" }}>{exp.vendor ?? "—"}</td>
                   <td style={{ padding: "10px 14px", color: "#374151" }}>{exp.description}</td>
                   <td style={{ padding: "10px 14px", fontVariantNumeric: "tabular-nums" }}>{fmt(exp.amount)}</td>
                   <td style={{ padding: "10px 14px" }}>
