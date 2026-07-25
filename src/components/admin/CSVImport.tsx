@@ -1,5 +1,6 @@
 import { useState, useRef, Fragment } from "react";
 import { resolveAutoMapping } from "../../lib/csv-mapping";
+import { parseApiResponse } from "../../lib/api/parseApiResponse";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -66,21 +67,6 @@ export default function CSVImport() {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  async function parseApiResponse<T>(res: Response): Promise<{ data: T | null; error?: string }> {
-    const contentType = res.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      const data = await res.json() as T & { error?: string };
-      return { data, error: (data as { error?: string }).error };
-    }
-
-    const text = await res.text();
-    const cleaned = text.replace(/\s+/g, " ").trim();
-    return {
-      data: null,
-      error: cleaned ? `Request failed (${res.status}): ${cleaned.slice(0, 180)}` : `Request failed (${res.status})`,
-    };
-  }
 
   // ── Step 1: File selection ──────────────────────────────────────────────────
 

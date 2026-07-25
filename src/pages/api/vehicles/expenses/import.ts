@@ -39,11 +39,11 @@ type RowError = { row: number; vin?: string; column?: string; error: string };
 
 function isMultipartFile(value: FormDataEntryValue | null): value is File {
   if (!value || typeof value === "string") return false;
-  if (typeof File !== "undefined") return value instanceof File;
   return typeof (value as { text?: unknown }).text === "function";
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  let isPreview = false;
   try {
     const user = await getRequestUser(request);
     if (!user) return json({ error: "Unauthorized" }, 401);
@@ -58,7 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     const file       = formData.get("file");
     const mappingRaw = formData.get("mapping");
-    const isPreview  = formData.get("preview") === "true";
+    isPreview  = formData.get("preview") === "true";
 
     if (!isMultipartFile(file)) return json({ error: "Missing file field" }, 400);
     if (!mappingRaw || typeof mappingRaw !== "string") return json({ error: "Missing mapping field" }, 400);
@@ -168,6 +168,6 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ created, failed: insertErrors.length, errors: insertErrors });
   } catch (error) {
     console.error("[POST /api/vehicles/expenses/import] Unhandled error", error);
-    return json({ error: "Import preview failed on server. Check function logs for details." }, 500);
+    return json({ error: `Import ${isPreview ? "preview" : "operation"} failed on server. Check function logs for details.` }, 500);
   }
 };

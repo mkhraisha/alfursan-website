@@ -9,7 +9,12 @@
 export const prerender = false;
 
 const next = Astro.url.searchParams.get("next");
-const location = next && next.startsWith("/admin/") ? next : "/admin/";
+const isSafeNext =
+  next !== null &&
+  next.startsWith("/admin/") &&
+  !next.includes("..") &&
+  !/[\r\n]/.test(next);
+const location = isSafeNext ? next : "/admin/";
 
 const headers = new Headers({ Location: location });
 headers.append("Set-Cookie", "sb-access-token=;  HttpOnly; SameSite=Lax; Path=/; Max-Age=0");

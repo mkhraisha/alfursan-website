@@ -50,5 +50,9 @@
   "overrides": {
     "path-to-regexp": "6.3.0",
     "yaml": "2.8.3"
+  },
+  "allowScripts": {
+    "@sentry/cli@2.58.5": true,
+    "esbuild@0.28.1": true
   }
 }
