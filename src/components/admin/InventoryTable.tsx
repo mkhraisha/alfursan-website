@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { calcTotalCost, calcProfitLoss, calcCommission } from "../../lib/vehicles";
 import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
-import AllExpenses, { type AllExpensesRow } from "./AllExpenses";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,10 +157,7 @@ export const INVENTORY_EXPORT_COLUMNS: CSVColumn<InventoryRow>[] = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-type Tab = "vehicles" | "expenses";
-
-export default function InventoryTable({ vehicles, expenses }: { vehicles: VehicleListItem[]; expenses?: AllExpensesRow[] }) {
-  const [tab, setTab] = useState<Tab>("vehicles");
+export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem[] }) {
   const [sortKey, setSortKey] = useState<SortKey>("vin");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page,    setPage]    = useState(1);
@@ -278,40 +274,18 @@ export default function InventoryTable({ vehicles, expenses }: { vehicles: Vehic
       <div className="inv-header">
         <div>
           <h1 className="inv-title">Inventory</h1>
-          {tab === "vehicles" && (
-            <p className="inv-sub">{filtered.length} vehicle{filtered.length !== 1 ? "s" : ""}{hasFilters ? " (filtered)" : ""}</p>
-          )}
+          <p className="inv-sub">{filtered.length} vehicle{filtered.length !== 1 ? "s" : ""}{hasFilters ? " (filtered)" : ""}</p>
         </div>
         <div className="inv-header-actions">
-          {tab === "vehicles" ? (
-            <>
-              <button type="button" className="btn btn--ghost" onClick={handleExportCSV} disabled={sorted.length === 0}>
-                Export CSV
-              </button>
-              <a href="/admin/inventory/import" className="btn btn--ghost">CSV Import</a>
-              <a href="/admin/inventory/new" className="btn btn--primary">+ Add Vehicle</a>
-            </>
-          ) : (
-            <a href="/admin/inventory/import-expenses" className="btn btn--ghost">Import Expenses</a>
-          )}
+          <button type="button" className="btn btn--ghost" onClick={handleExportCSV} disabled={sorted.length === 0}>
+            Export CSV
+          </button>
+          <a href="/admin/inventory/import" className="btn btn--ghost">CSV Import</a>
+          <a href="/admin/inventory/import-expenses" className="btn btn--ghost">Import Expenses</a>
+          <a href="/admin/inventory/new" className="btn btn--primary">+ Add Vehicle</a>
         </div>
       </div>
 
-      {expenses !== undefined && (
-        <div className="inv-tabs">
-          <button type="button" className={`inv-tab${tab === "vehicles" ? " inv-tab--active" : ""}`} onClick={() => setTab("vehicles")}>
-            Vehicles
-          </button>
-          <button type="button" className={`inv-tab${tab === "expenses" ? " inv-tab--active" : ""}`} onClick={() => setTab("expenses")}>
-            Expenses
-          </button>
-        </div>
-      )}
-
-      {tab === "expenses" ? (
-        <AllExpenses expenses={expenses ?? []} />
-      ) : (
-        <>
       {/* Filters */}
       <div className="inv-filters">
         <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
@@ -437,8 +411,6 @@ export default function InventoryTable({ vehicles, expenses }: { vehicles: Vehic
           <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</button>
         </nav>
       )}
-        </>
-      )}
 
       <style>{`
         .inv-wrap { font-family: 'Inter', sans-serif; }
@@ -454,15 +426,6 @@ export default function InventoryTable({ vehicles, expenses }: { vehicles: Vehic
         .inv-title  { font-size: 24px; font-weight: 800; color: #1a1d23; }
         .inv-sub    { font-size: 13px; color: #99a1b2; margin-top: 3px; }
         .inv-header-actions { display: flex; gap: 8px; }
-
-        .inv-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid #e4e7ec; }
-        .inv-tab {
-          padding: 9px 16px; border: none; background: none; cursor: pointer;
-          font-size: 14px; font-weight: 600; color: #99a1b2;
-          border-bottom: 2px solid transparent; margin-bottom: -1px;
-        }
-        .inv-tab:hover { color: #1a1d23; }
-        .inv-tab--active { color: #b92111; border-bottom-color: #b92111; }
 
         .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; border: none; }
         .btn--primary { background: #b92111; color: #fff; }

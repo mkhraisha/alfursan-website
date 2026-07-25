@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TAX_TYPES } from "../../lib/vehicles";
+import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
 
 export type AllExpensesRow = {
   id: string;
@@ -36,6 +37,20 @@ function fmtCategory(s: string) {
 
 type ReimbursedFilter = "all" | "reimbursed" | "unreimbursed";
 
+export const EXPENSE_EXPORT_COLUMNS: CSVColumn<AllExpensesRow>[] = [
+  { key: "date", label: "Date", value: (e) => e.expense_date ?? e.created_at },
+  { key: "vin", label: "VIN", value: (e) => e.vin },
+  { key: "vehicle", label: "Vehicle", value: (e) => (e.vehicles ? `${e.vehicles.year} ${e.vehicles.make} ${e.vehicles.model}` : null) },
+  { key: "category", label: "Category", value: (e) => fmtCategory(e.category) },
+  { key: "vendor", label: "Vendor", value: (e) => e.vendor },
+  { key: "description", label: "Description", value: (e) => e.description },
+  { key: "amount", label: "Amount", value: (e) => e.amount },
+  { key: "tax_type", label: "Tax Type", value: (e) => (e.tax_type ? TAX_TYPES.find((t) => t.code === e.tax_type)?.label ?? e.tax_type : null) },
+  { key: "tax_amount", label: "Tax Amount", value: (e) => e.tax_amount },
+  { key: "total", label: "Total", value: (e) => e.amount + Number(e.tax_amount ?? 0) },
+  { key: "reimbursed", label: "Reimbursed", value: (e) => (e.reimbursed ? "Yes" : "No") },
+];
+
 export default function AllExpenses({ expenses: initial }: Props) {
   const [expenses, setExpenses] = useState<AllExpensesRow[]>(initial);
   const [search, setSearch] = useState("");
@@ -69,6 +84,11 @@ export default function AllExpenses({ expenses: initial }: Props) {
     }
   }
 
+  function handleExportCSV() {
+    const csv = toCSV(filtered, EXPENSE_EXPORT_COLUMNS);
+    downloadCSV(`expenses-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  }
+
   return (
     <div>
       <style>{`
@@ -88,6 +108,12 @@ export default function AllExpenses({ expenses: initial }: Props) {
           font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
         }
         .ae-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
+        .ae-btn {
+          padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: 600;
+          cursor: pointer; border: 1px solid #e4e7ec; background: #fff; color: #1a1d23;
+        }
+        .ae-btn:hover { background: #f8f9fb; }
+        .ae-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .ae-section { background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden; }
         .ae-wrap { overflow-x: auto; }
@@ -128,6 +154,9 @@ export default function AllExpenses({ expenses: initial }: Props) {
           <option value="unreimbursed">Not reimbursed</option>
         </select>
         <span className="ae-count">{filtered.length} {filtered.length === 1 ? "expense" : "expenses"}</span>
+        <button type="button" className="ae-btn" onClick={handleExportCSV} disabled={filtered.length === 0}>
+          Export CSV
+        </button>
       </div>
 
       <div className="ae-section">

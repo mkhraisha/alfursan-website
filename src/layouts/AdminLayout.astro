@@ -10,7 +10,7 @@ import { can } from "../lib/permissions";
 
 interface Props {
   title: string;
-  activeNav?: "dashboard" | "applications" | "inventory" | "garage" | "reports" | "users";
+  activeNav?: "dashboard" | "applications" | "inventory" | "expenses" | "garage" | "reports" | "users";
 }
 
 const { title, activeNav } = Astro.props;
@@ -20,6 +20,9 @@ const nav = [
   { id: "dashboard",    label: "Dashboard",       href: "/admin/dashboard/",    icon: "◈" },
   { id: "applications", label: "Applications",    href: "/admin/applications/", icon: "◻" },
   { id: "inventory",    label: "Inventory",       href: "/admin/inventory/",    icon: "◉" },
+  ...(can(adminRole, "vehicles:financials:read")
+    ? [{ id: "expenses", label: "Expenses", href: "/admin/expenses/", icon: "◐" }]
+    : []),
   { id: "garage",       label: "Garage Register", href: "/admin/garage/",       icon: "◧" },
   ...(can(adminRole, "reports:read")
     ? [{ id: "reports", label: "Reports", href: "/admin/reports/", icon: "◫" }]
