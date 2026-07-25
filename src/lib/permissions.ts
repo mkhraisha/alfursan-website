@@ -20,6 +20,9 @@ const PERMISSIONS: Record<string, Role[]> = {
   "vehicles:delete":           ["manager"],
   "vehicles:import":           ["manager"],          // CSV bulk import
 
+  // ── Reports ───────────────────────────────────────────────────────────────
+  "reports:read": ["manager"],          // monthly sales / P&L report
+
   // ── Commission ────────────────────────────────────────────────────────────
   "commission:assign": ["manager", "sales"],
 

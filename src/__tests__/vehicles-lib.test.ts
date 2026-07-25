@@ -7,7 +7,9 @@ import {
   calcProfitLoss,
   calcCommission,
   calcDaysOnLot,
+  aggregateMonthlySales,
   BODY_TYPES,
+  type SoldVehicle,
 } from "../lib/vehicles";
 
 // ── VIN validation ────────────────────────────────────────────────────────────
@@ -286,6 +288,67 @@ describe("calcDaysOnLot", () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     expect(calcDaysOnLot(tomorrow.toISOString().slice(0, 10))).toBe(0);
+  });
+});
+
+// ── aggregateMonthlySales ─────────────────────────────────────────────────────
+
+function sold(overrides: Partial<SoldVehicle>): SoldVehicle {
+  return {
+    sale_date: "2026-06-15",
+    sale_price: 20_000,
+    purchase_price: 15_000,
+    expense_total: 0,
+    ...overrides,
+  };
+}
+
+describe("aggregateMonthlySales", () => {
+  it("returns an empty array for no vehicles", () => {
+    expect(aggregateMonthlySales([])).toEqual([]);
+  });
+
+  it("groups a single sale into its month", () => {
+    const result = aggregateMonthlySales([sold({})]);
+    expect(result).toEqual([
+      { month: "2026-06", unitsSold: 1, totalRevenue: 20_000, totalCost: 15_000, totalProfitLoss: 5_000 },
+    ]);
+  });
+
+  it("sums multiple sales within the same month", () => {
+    const result = aggregateMonthlySales([
+      sold({ sale_date: "2026-06-01", sale_price: 20_000, purchase_price: 15_000 }),
+      sold({ sale_date: "2026-06-28", sale_price: 12_000, purchase_price: 9_000, expense_total: 500 }),
+    ]);
+    expect(result).toEqual([
+      { month: "2026-06", unitsSold: 2, totalRevenue: 32_000, totalCost: 24_500, totalProfitLoss: 7_500 },
+    ]);
+  });
+
+  it("splits sales in different months and sorts most-recent-first", () => {
+    const result = aggregateMonthlySales([
+      sold({ sale_date: "2026-05-10", sale_price: 10_000, purchase_price: 8_000 }),
+      sold({ sale_date: "2026-06-10", sale_price: 20_000, purchase_price: 15_000 }),
+    ]);
+    expect(result.map((m) => m.month)).toEqual(["2026-06", "2026-05"]);
+  });
+
+  it("includes a sale with unknown purchase_price in unitsSold/revenue but treats its P/L as 0", () => {
+    const result = aggregateMonthlySales([sold({ purchase_price: null, sale_price: 20_000 })]);
+    expect(result[0]).toEqual({
+      month: "2026-06", unitsSold: 1, totalRevenue: 20_000, totalCost: 0, totalProfitLoss: 0,
+    });
+  });
+
+  it("accounts for expenses when computing total cost and P/L", () => {
+    const result = aggregateMonthlySales([sold({ purchase_price: 10_000, expense_total: 2_000, sale_price: 15_000 })]);
+    expect(result[0].totalCost).toBe(12_000);
+    expect(result[0].totalProfitLoss).toBe(3_000);
+  });
+
+  it("reports a loss month with a negative totalProfitLoss", () => {
+    const result = aggregateMonthlySales([sold({ purchase_price: 20_000, sale_price: 15_000 })]);
+    expect(result[0].totalProfitLoss).toBe(-5_000);
   });
 });
 
