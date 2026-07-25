@@ -92,9 +92,10 @@ export default function AllExpenses({ expenses: initial }: Props) {
   return (
     <div>
       <style>{`
-        .ae-header { margin-bottom: 20px; }
+        .ae-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
         .ae-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
         .ae-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
+        .ae-header-actions { display: flex; gap: 8px; }
 
         .ae-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
         .ae-search {
@@ -109,8 +110,10 @@ export default function AllExpenses({ expenses: initial }: Props) {
         }
         .ae-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
         .ae-btn {
+          display: inline-flex; align-items: center;
           padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: 600;
           cursor: pointer; border: 1px solid #e4e7ec; background: #fff; color: #1a1d23;
+          text-decoration: none;
         }
         .ae-btn:hover { background: #f8f9fb; }
         .ae-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -136,8 +139,13 @@ export default function AllExpenses({ expenses: initial }: Props) {
       `}</style>
 
       <div className="ae-header">
-        <h1>All Expenses</h1>
-        <p>Every expense across inventory — vehicle-linked and general admin/business costs.</p>
+        <div>
+          <h1>All Expenses</h1>
+          <p>Every expense across inventory — vehicle-linked and general admin/business costs.</p>
+        </div>
+        <div className="ae-header-actions">
+          <a href="/admin/inventory/import-expenses" className="ae-btn">Import Expenses</a>
+        </div>
       </div>
 
       <div className="ae-toolbar">
