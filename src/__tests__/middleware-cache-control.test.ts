@@ -74,7 +74,7 @@ describe("admin middleware — Cache-Control", () => {
   it("sets no-store on the token-missing redirect", async () => {
     const res = await onRequest(makeContext("/admin/dashboard/"), next);
     expect(res.status).toBe(302);
-    expect(res.headers.get("Location")).toBe("/admin/?error=no_token");
+    expect(res.headers.get("Location")).toBe("/admin/signout/?next=/admin/?error=no_token");
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 

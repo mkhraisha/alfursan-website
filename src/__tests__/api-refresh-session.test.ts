@@ -62,6 +62,16 @@ describe("POST /api/admin/refresh-session", () => {
     expect(res.status).toBe(403);
   });
 
+  it("allows canonical same-origin requests across www/non-www host variants", async () => {
+    const res = await POST({
+      request: makeRequest(VALID_COOKIE, {
+        Origin: "https://www.alfursanauto.ca",
+        Host:   "alfursanauto.ca",
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+  });
+
   it("returns 401 when sb-refresh-token cookie is absent", async () => {
     const res = await POST({ request: makeRequest("") } as never);
     expect(res.status).toBe(401);

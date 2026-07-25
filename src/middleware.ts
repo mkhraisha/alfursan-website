@@ -87,7 +87,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   }
 
   if (!accessToken) {
-    const r = redirect("/admin/?error=no_token");
+    const r = redirect("/admin/signout/?next=/admin/?error=no_token");
     addSecurityHeaders(r, true);
     return r;
   }
@@ -110,7 +110,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
   if (userError || !user?.email) {
     const rtMatch = cookieHeader.match(/(?:^|;\s*)sb-refresh-token=([^;]+)/);
     if (!rtMatch) {
-      const r = redirect("/admin/?error=invalid_token");
+      const r = redirect("/admin/signout/?next=/admin/?error=invalid_token");
       addSecurityHeaders(r, true);
       return r;
     }
@@ -122,7 +122,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
 
     if (re || !rd.session) {
       console.error("[middleware] Refresh failed", re?.message);
-      const r = redirect("/admin/?error=invalid_token");
+      const r = redirect("/admin/signout/?next=/admin/?error=invalid_token");
       addSecurityHeaders(r, true);
       return r;
     }
@@ -130,7 +130,7 @@ export const onRequest = defineMiddleware(async ({ locals, request, url, redirec
     // Re-validate with the new access token
     const revalidated = await anonClient.auth.getUser(rd.session.access_token);
     if (revalidated.error || !revalidated.data.user?.email) {
-      const r = redirect("/admin/?error=invalid_token");
+      const r = redirect("/admin/signout/?next=/admin/?error=invalid_token");
       addSecurityHeaders(r, true);
       return r;
     }

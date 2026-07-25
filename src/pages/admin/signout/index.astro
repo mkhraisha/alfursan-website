@@ -8,7 +8,15 @@
  */
 export const prerender = false;
 
-const headers = new Headers({ Location: "/admin/" });
+const next = Astro.url.searchParams.get("next");
+const isSafeNext =
+  next !== null &&
+  next.startsWith("/admin/") &&
+  !next.includes("..") &&
+  !/[\r\n]/.test(next);
+const location = isSafeNext ? next : "/admin/";
+
+const headers = new Headers({ Location: location });
 headers.append("Set-Cookie", "sb-access-token=;  HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
 headers.append("Set-Cookie", "sb-refresh-token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
 headers.append("Set-Cookie", "sb-token-exp=;             SameSite=Lax; Path=/; Max-Age=0");

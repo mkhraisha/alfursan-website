@@ -1,6 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from "astro";
+import { isSameOriginRequest } from "../../../lib/origin";
 
 /**
  * POST /api/admin/set-session
@@ -13,21 +14,11 @@ import type { APIRoute } from "astro";
 export const POST: APIRoute = async ({ request }) => {
   // Reject cross-origin requests — this endpoint should only be called from
   // our own callback page.
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (origin && host) {
-    let originHost: string | null = null;
-    try {
-      originHost = new URL(origin).host;
-    } catch {
-      // Invalid origin — fail closed
-    }
-    if (originHost !== host) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  if (!isSameOriginRequest(request)) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   let body: { token?: unknown; expiresIn?: unknown; refreshToken?: unknown; expiresAt?: unknown };

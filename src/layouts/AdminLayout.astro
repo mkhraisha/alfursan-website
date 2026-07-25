@@ -294,7 +294,7 @@ const nav = [
           const res = await fetch("/api/admin/refresh-session", { method: "POST" });
           if (!res.ok) {
             // Refresh token is also expired — redirect to login cleanly.
-            window.location.href = "/admin/?error=session_expired";
+            window.location.href = "/admin/signout/?next=/admin/?error=session_expired";
           }
         } catch {
           // Network error — don't redirect, just retry next interval.

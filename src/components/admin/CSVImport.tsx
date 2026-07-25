@@ -1,5 +1,6 @@
 import { useState, useRef, Fragment } from "react";
 import { resolveAutoMapping } from "../../lib/csv-mapping";
+import { parseApiResponse } from "../../lib/api/parseApiResponse";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -104,12 +105,12 @@ export default function CSVImport() {
 
     try {
       const res  = await fetch("/api/vehicles/import", { method: "POST", body: fd });
-      const data = await res.json() as PreviewResult & { error?: string };
-      if (!res.ok) { setError(data.error ?? "Preview failed"); return; }
+      const { data, error } = await parseApiResponse<PreviewResult>(res);
+      if (!res.ok || !data) { setError(error ?? "Preview failed"); return; }
       setPreview(data);
       setStep(3);
-    } catch {
-      setError("Network error");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setLoading(false);
     }
@@ -128,12 +129,12 @@ export default function CSVImport() {
 
     try {
       const res  = await fetch("/api/vehicles/import", { method: "POST", body: fd });
-      const data = await res.json() as ImportResult & { error?: string };
-      if (!res.ok) { setError(data.error ?? "Import failed"); return; }
+      const { data, error } = await parseApiResponse<ImportResult>(res);
+      if (!res.ok || !data) { setError(error ?? "Import failed"); return; }
       setResult(data);
       setStep(5);
-    } catch {
-      setError("Network error");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setLoading(false);
     }
