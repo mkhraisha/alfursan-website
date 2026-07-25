@@ -61,6 +61,7 @@ const vehicleBaseSchema = z.object({
   garage_register_number:  z.string().optional(),
   purchased_from_name:     z.string().optional(),
   purchased_from_address:  z.string().optional(),
+  lead_source:      z.string().optional(),
   carfax_link:      z.string().url().optional().nullable(),
   internal_notes:   z.string().optional(),
   disclosures:      z.string().optional(),
@@ -97,7 +98,7 @@ export const vehicleUpdateSchema = vehicleBaseSchema
 
 // ── Expense schemas ───────────────────────────────────────────────────────────
 
-export const EXPENSE_CATEGORIES = ["repair", "detailing", "parts", "gas", "other"] as const;
+export const EXPENSE_CATEGORIES = ["repair", "cleaning", "parts", "gas", "admin", "other"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 export const expenseCreateSchema = z.object({
@@ -105,6 +106,11 @@ export const expenseCreateSchema = z.object({
   description:       z.string().min(1, "Description is required"),
   amount:            z.number().positive("Amount must be greater than 0"),
   receipt_file_path: z.string().optional(),
+  reimbursed:        z.boolean().optional(),
+});
+
+export const expenseUpdateSchema = z.object({
+  reimbursed: z.boolean(),
 });
 
 // ── Document schemas ──────────────────────────────────────────────────────────

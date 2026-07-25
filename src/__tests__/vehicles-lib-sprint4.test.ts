@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   expenseCreateSchema,
+  expenseUpdateSchema,
   documentCreateSchema,
   commissionAssignSchema,
+  vehicleCreateSchema,
   EXPENSE_CATEGORIES,
 } from "../lib/vehicles";
 
@@ -45,6 +47,54 @@ describe("expenseCreateSchema", () => {
 
   it("accepts without receipt_file_path", () => {
     expect(expenseCreateSchema.safeParse(BASE).success).toBe(true);
+  });
+
+  it("accepts optional reimbursed flag", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, reimbursed: true }).success).toBe(true);
+  });
+
+  it("accepts without reimbursed (defaults handled by DB)", () => {
+    expect(expenseCreateSchema.safeParse(BASE).success).toBe(true);
+  });
+
+  it("includes 'cleaning' and 'admin', not 'detailing'", () => {
+    expect(EXPENSE_CATEGORIES).toContain("cleaning");
+    expect(EXPENSE_CATEGORIES).toContain("admin");
+    expect(EXPENSE_CATEGORIES).not.toContain("detailing");
+  });
+});
+
+// ── expenseUpdateSchema ───────────────────────────────────────────────────────
+
+describe("expenseUpdateSchema", () => {
+  it("accepts reimbursed: true", () => {
+    expect(expenseUpdateSchema.safeParse({ reimbursed: true }).success).toBe(true);
+  });
+
+  it("accepts reimbursed: false", () => {
+    expect(expenseUpdateSchema.safeParse({ reimbursed: false }).success).toBe(true);
+  });
+
+  it("rejects missing reimbursed", () => {
+    expect(expenseUpdateSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("rejects non-boolean reimbursed", () => {
+    expect(expenseUpdateSchema.safeParse({ reimbursed: "yes" }).success).toBe(false);
+  });
+});
+
+// ── vehicleCreateSchema — lead_source ─────────────────────────────────────────
+
+describe("vehicleCreateSchema lead_source", () => {
+  const BASE_VEHICLE = { vin: "1HGCM82633A123456", make: "Honda", model: "Accord", year: 2020, body_type: "sedan" };
+
+  it("accepts a vehicle with lead_source", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, lead_source: "CarGurus" }).success).toBe(true);
+  });
+
+  it("accepts a vehicle without lead_source", () => {
+    expect(vehicleCreateSchema.safeParse(BASE_VEHICLE).success).toBe(true);
   });
 });
 

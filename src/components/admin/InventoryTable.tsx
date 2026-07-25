@@ -191,6 +191,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         </div>
         <div className="inv-header-actions">
           <a href="/admin/inventory/import" className="btn btn--ghost">CSV Import</a>
+          <a href="/admin/inventory/import-expenses" className="btn btn--ghost">Import Expenses</a>
           <a href="/admin/inventory/new" className="btn btn--primary">+ Add Vehicle</a>
         </div>
       </div>

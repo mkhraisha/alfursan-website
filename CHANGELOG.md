@@ -9,11 +9,17 @@ All notable changes to this project will be documented in this file.
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.
 - `gas` expense category on vehicle expenses, alongside repair/detailing/parts/other.
+- `lead_source` field on vehicles — mappable in the vehicle CSV importer and editable on the Purchase tab.
+- CSV bulk import for vehicle expenses (`/admin/inventory/import-expenses`) — each row is matched to an existing vehicle by VIN; unmatched VINs are reported and skipped.
+- `reimbursed` checkbox on vehicle expense line items, toggleable from the Expenses tab.
+- `admin` expense category, alongside repair/cleaning/parts/gas/other.
 
 ### Changed
 
 - Redesigned the search page for mobile: the filter bar collapses into a 2-column grid, and inventory results switch from horizontal rows to stacked cards with a full-width image.
 - Moved the Carfax link field from the admin vehicle Media tab to the Basics tab, alongside the rest of the vehicle's identifying details.
+- Renamed the `detailing` expense category to `cleaning` (existing expense rows were migrated).
+- The vehicle CSV importer now auto-maps a generic "Advertised Price" column to the CarGurus price field, and a "Notes" column to Internal Notes, by default.
 - Admin finance application view: replaced the raw storage-path fallback (shown when a signed document URL fails to generate) with a plain retry message, and surfaced the Phase 2 token/expiry in the Activity tab so it stays visible after the application status changes.
 
 ### Changed

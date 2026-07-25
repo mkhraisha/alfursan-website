@@ -17,7 +17,7 @@ const db = getAdminClient();
 
 const [vehicleRes, expensesRes, docsRes, usersRes] = await Promise.all([
   db.from("vehicles").select("*").eq("vin", vin).single(),
-  db.from("vehicle_expenses").select("id, category, description, amount, receipt_file_path, created_at").eq("vin", vin).order("created_at", { ascending: true }),
+  db.from("vehicle_expenses").select("id, category, description, amount, receipt_file_path, reimbursed, created_at").eq("vin", vin).order("created_at", { ascending: true }),
   db.from("vehicle_documents").select("id, document_type, file_path, description, created_at").eq("vin", vin).order("created_at", { ascending: true }),
   db.from("user_profiles").select(canSeeFinancials ? "id, email, commission_percentage" : "id, email").eq("is_active", true).order("email", { ascending: true }),
 ]);

@@ -1,0 +1,15 @@
+---
+export const prerender = false;
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ExpenseCSVImport from "../../../components/admin/ExpenseCSVImport";
+import { can } from "../../../lib/permissions";
+
+const { adminRole } = Astro.locals;
+if (!can(adminRole, "vehicles:import")) {
+  return Astro.redirect("/admin/?error=unauthorized");
+}
+---
+
+<AdminLayout title="Import Expenses" activeNav="inventory">
+  <ExpenseCSVImport client:load />
+</AdminLayout>

@@ -40,6 +40,7 @@ export type VehicleFull = {
   images_json: string[];
   videos_json: string[];
   carfax_link: string | null;
+  lead_source: string | null;
   internal_notes: string | null;
   disclosures: string | null;
   days_on_lot?: number | null;
@@ -51,6 +52,7 @@ export type VehicleExpense = {
   description: string;
   amount: number;
   receipt_file_path: string | null;
+  reimbursed: boolean;
   created_at: string;
 };
 
@@ -436,7 +438,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
 // ── Purchase Tab ──────────────────────────────────────────────────────────────
 
 function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
-  const [form, setForm] = useState({ purchase_date: v.purchase_date ?? "", purchase_price: v.purchase_price != null ? v.purchase_price.toLocaleString("en-CA") : "", purchased_from_name: v.purchased_from_name ?? "", purchased_from_address: v.purchased_from_address ?? "", purchaser_name: v.purchaser_name ?? "", purchaser_address: v.purchaser_address ?? "" });
+  const [form, setForm] = useState({ purchase_date: v.purchase_date ?? "", purchase_price: v.purchase_price != null ? v.purchase_price.toLocaleString("en-CA") : "", purchased_from_name: v.purchased_from_name ?? "", purchased_from_address: v.purchased_from_address ?? "", lead_source: v.lead_source ?? "", purchaser_name: v.purchaser_name ?? "", purchaser_address: v.purchaser_address ?? "" });
   const [saving, setSaving] = useState(false);
 
   function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
@@ -448,6 +450,7 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
     if (form.purchase_price)        fields.purchase_price        = parseFloat(form.purchase_price.replace(/,/g, ""));
     if (form.purchased_from_name)   fields.purchased_from_name   = form.purchased_from_name;
     if (form.purchased_from_address) fields.purchased_from_address = form.purchased_from_address;
+    fields.lead_source              = form.lead_source || null;
     if (form.purchaser_name)        fields.purchaser_name        = form.purchaser_name;
     if (form.purchaser_address)     fields.purchaser_address     = form.purchaser_address;
     await onSave(fields); setSaving(false);
@@ -459,6 +462,7 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
       <div className="f-grid">
         <div className="f-field"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} max={today} /></div>
         <div className="f-field"><label>Purchase Price (CAD)</label><input type="text" inputMode="decimal" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" /></div>
+        <div className="f-field"><label>Lead Source</label><input value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)} placeholder="e.g. CarGurus, Facebook, Referral" /></div>
         <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Name</label><input value={form.purchased_from_name} onChange={(e) => set("purchased_from_name", e.target.value)} placeholder="Previous owner or auction house" /></div>
         <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Address</label><input value={form.purchased_from_address} onChange={(e) => set("purchased_from_address", e.target.value)} placeholder="Street address, city, province" /></div>
         <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Name</label><input value={form.purchaser_name} onChange={(e) => set("purchaser_name", e.target.value)} placeholder="Buyer's full name" /></div>
@@ -816,6 +820,19 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
     }
   }
 
+  async function toggleReimbursed(id: string, reimbursed: boolean) {
+    setExpenses((e) => e.map((exp) => (exp.id === id ? { ...exp, reimbursed } : exp)));
+    const res = await fetch(`/api/vehicles/${vin}/expenses/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reimbursed }),
+    });
+    if (!res.ok) {
+      setExpenses((e) => e.map((exp) => (exp.id === id ? { ...exp, reimbursed: !reimbursed } : exp)));
+      show("Failed to update reimbursed status", false);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -845,13 +862,21 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
       {expenses.length > 0 ? (
         <div style={{ background: "#fff", border: "1px solid #e4e7ec", borderRadius: 8, overflow: "auto", marginBottom: 12 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr>{["Category","Description","Amount","Actions"].map((h) => <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#99a1b2", borderBottom: "1px solid #e4e7ec" }}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Category","Description","Amount","Reimbursed","Actions"].map((h) => <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#99a1b2", borderBottom: "1px solid #e4e7ec" }}>{h}</th>)}</tr></thead>
             <tbody>
               {expenses.map((exp) => (
                 <tr key={exp.id}>
                   <td style={{ padding: "10px 14px", fontWeight: 600 }}>{fmtStatus(exp.category)}</td>
                   <td style={{ padding: "10px 14px", color: "#374151" }}>{exp.description}</td>
                   <td style={{ padding: "10px 14px", fontVariantNumeric: "tabular-nums" }}>{fmt(exp.amount)}</td>
+                  <td style={{ padding: "10px 14px" }}>
+                    <input
+                      type="checkbox"
+                      checked={exp.reimbursed}
+                      onChange={(e) => toggleReimbursed(exp.id, e.target.checked)}
+                      aria-label={`Mark ${exp.description} as reimbursed`}
+                    />
+                  </td>
                   <td style={{ padding: "10px 14px" }}><button type="button" className="btn-danger" onClick={() => deleteExpense(exp.id)}>Delete</button></td>
                 </tr>
               ))}
