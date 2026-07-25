@@ -8,6 +8,7 @@ import {
   calcCommission,
   calcDaysOnLot,
   aggregateMonthlySales,
+  getMonthDateRange,
   BODY_TYPES,
   type SoldVehicle,
 } from "../lib/vehicles";
@@ -349,6 +350,33 @@ describe("aggregateMonthlySales", () => {
   it("reports a loss month with a negative totalProfitLoss", () => {
     const result = aggregateMonthlySales([sold({ purchase_price: 20_000, sale_price: 15_000 })]);
     expect(result[0].totalProfitLoss).toBe(-5_000);
+  });
+});
+
+// ── getMonthDateRange ─────────────────────────────────────────────────────────
+
+describe("getMonthDateRange", () => {
+  it("returns the first day of the month as start", () => {
+    expect(getMonthDateRange(new Date(2026, 5, 15)).start).toBe("2026-06-01");
+  });
+
+  it("returns the first day of the following month as end", () => {
+    expect(getMonthDateRange(new Date(2026, 5, 15)).end).toBe("2026-07-01");
+  });
+
+  it("rolls over into January of the next year for December", () => {
+    expect(getMonthDateRange(new Date(2026, 11, 1))).toEqual({
+      start: "2026-12-01",
+      end: "2027-01-01",
+    });
+  });
+
+  it("is unaffected by which day of the month `now` falls on", () => {
+    expect(getMonthDateRange(new Date(2026, 1, 1))).toEqual(getMonthDateRange(new Date(2026, 1, 28)));
+  });
+
+  it("pads single-digit months with a leading zero", () => {
+    expect(getMonthDateRange(new Date(2026, 0, 5)).start).toBe("2026-01-01");
   });
 });
 
