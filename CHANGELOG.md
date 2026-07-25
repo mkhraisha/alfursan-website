@@ -15,7 +15,8 @@ All notable changes to this project will be documented in this file.
 - `admin` expense category, alongside repair/cleaning/parts/gas/other.
 - `vendor` and `expense_date` fields on vehicle expenses — mappable in the expense CSV importer and editable on the per-vehicle Expenses tab.
 - General (non-vehicle) expenses — expense CSV rows with no VIN now import as standalone records instead of being rejected, for admin/business costs that don't relate to a specific car.
-- "All Expenses" page (`/admin/inventory/expenses`) — a searchable, filterable list of every expense (vehicle-linked and general) with a reimbursed toggle and running total.
+- "All Expenses" page (`/admin/expenses/`) — a searchable, filterable list of every expense (vehicle-linked and general) with a reimbursed toggle and running total. Its own top-level nav item, gated by `vehicles:financials:read`.
+- **Export CSV** button on the Expenses page — exports all expenses matching the current search/reimbursed filter.
 - Canadian sales tax tracking on vehicle expenses: `tax_type` (HST Ontario/15%, GST only, GST+PST by province, GST+QST Quebec, or exempt), `tax_rate`, and `tax_amount`. The expense CSV importer defaults to Ontario HST (13%) when a row has no tax type/rate mapped, and auto-maps an "HST" column to `tax_amount`. The manual Add Expense form has a tax type dropdown (defaulting to HST 13%) that auto-computes the tax amount from the entered amount. Total cost calculations now include tax.
 - Purchase-date and sale-date range filters on the admin Inventory table, plus a "Purchased"/"Sold" column showing each vehicle's dates.
 - New admin **Reports** tab (`/admin/reports/`) showing sold-vehicle counts, revenue, and total profit/loss grouped by month. Gated by a new `reports:read` permission (manager/owner only, matching the existing profit/loss visibility rule).
@@ -24,8 +25,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Admin **Inventory**: "All Expenses" is now a tab on the Inventory page (alongside Vehicles) instead of a separate page reached via a button; the standalone `/admin/inventory/expenses` route has been removed.
-- Admin **Inventory**: the Vehicles tab's status filter now defaults to hiding sold vehicles ("All (Not Sold)"). Select "All Statuses" or "Sold" from the dropdown to see sold vehicles again.
+- Expenses moved from a button on the admin Inventory page to its own top-level nav item ("Expenses", `/admin/expenses/`) alongside Inventory/Garage Register/Reports; the old `/admin/inventory/expenses` route has been removed.
+- Admin **Inventory**: the status filter now defaults to hiding sold vehicles ("All (Not Sold)"). Select "All Statuses" or "Sold" from the dropdown to see sold vehicles again.
 - `/admin/reports/` is now a report-type picker instead of landing directly on the monthly breakdown; the existing sold-vehicle/revenue/P&L report moved to `/admin/reports/sales/`. Sets up the page to list additional report types later.
 - Admin **Dashboard**: moved the New/Reviewing/Approved/Declined application status tiles to the **Applications** tab (they now sit above the status filter tabs there). The dashboard keeps Recent Applications and gains two new tiles — Units Sold This Month, and P/L This Month (the latter only shown to roles with `vehicles:financials:read`) — both linking to the new Sales Report.
 - Redesigned the search page for mobile: the filter bar collapses into a 2-column grid, and inventory results switch from horizontal rows to stacked cards with a full-width image.
