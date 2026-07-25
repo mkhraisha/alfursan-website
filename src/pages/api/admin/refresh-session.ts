@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { createClient } from "@supabase/supabase-js";
+import { isSameOriginRequest } from "../../../lib/origin";
 
 /**
  * POST /api/admin/refresh-session
@@ -25,18 +26,8 @@ function json(body: unknown, status = 200) {
 
 export const POST: APIRoute = async ({ request }) => {
   // Same-origin only
-  const origin = request.headers.get("origin");
-  const host   = request.headers.get("host");
-  if (origin && host) {
-    let originHost: string | null = null;
-    try {
-      originHost = new URL(origin).host;
-    } catch {
-      // Invalid origin — fail closed
-    }
-    if (originHost !== host) {
-      return json({ error: "Forbidden" }, 403);
-    }
+  if (!isSameOriginRequest(request)) {
+    return json({ error: "Forbidden" }, 403);
   }
 
   const cookieHeader = request.headers.get("cookie") ?? "";

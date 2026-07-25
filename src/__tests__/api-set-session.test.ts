@@ -30,6 +30,15 @@ describe("POST /api/admin/set-session", () => {
     expect(res.status).toBe(403);
   });
 
+  it("allows canonical same-origin requests across www/non-www host variants", async () => {
+    const req = makeRequest(
+      { token: "very-long-valid-token", expiresIn: 1800 },
+      { Origin: "https://www.alfursanauto.ca", Host: "alfursanauto.ca" }
+    );
+    const res = await POST({ request: req } as never);
+    expect(res.status).toBe(200);
+  });
+
   it("returns 400 for malformed JSON", async () => {
     const req = new Request("https://alfursanauto.ca/api/admin/set-session", {
       method: "POST",

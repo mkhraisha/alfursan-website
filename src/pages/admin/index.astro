@@ -167,34 +167,47 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       import { createClient } from "@supabase/supabase-js";
 
       const config = document.getElementById("supabase-config") as HTMLElement;
-      const supabase = createClient(config.dataset.url!, config.dataset.key!);
+      const supabaseUrl = config.dataset.url ?? "";
+      const supabaseKey = config.dataset.key ?? "";
+      const hasSupabaseConfig = !!supabaseUrl && !!supabaseKey;
+      const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : null;
 
       const form = document.getElementById("signin-form") as HTMLFormElement;
       const btn = document.getElementById("submit-btn") as HTMLButtonElement;
       const msg = document.getElementById("message") as HTMLElement;
 
+      if (!hasSupabaseConfig) {
+        msg.textContent = "Admin auth is not configured on this environment.";
+        msg.className = "msg-error";
+        btn.disabled = true;
+      }
+
       // If middleware bounced us back with an error, clear the stale session
       // so we don't loop: /admin/ → dashboard → middleware rejects → /admin/ → ...
       const urlError = new URLSearchParams(window.location.search).get("error");
-      if (urlError) {
+      if (urlError && supabase) {
         await supabase.auth.signOut();
         document.cookie = "sb-access-token=; path=/; max-age=0; SameSite=Lax";
         if (urlError === "unauthorized") {
           msg.textContent = "Your account is not authorised to access the admin dashboard.";
           msg.className = "msg-error";
-        } else if (urlError === "invalid_token") {
+        } else if (urlError === "invalid_token" || urlError === "session_expired") {
           msg.textContent = "Your session expired. Please sign in again.";
+          msg.className = "msg-error";
+        } else if (urlError === "no_token") {
+          msg.textContent = "Please sign in to continue.";
           msg.className = "msg-error";
         }
       } else {
         // No error — if there's already a valid session, go straight to dashboard
-        supabase.auth.getSession().then(({ data }) => {
+        supabase?.auth.getSession().then(({ data }) => {
           if (data?.session) window.location.replace("/admin/dashboard/");
         });
       }
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        if (!supabase) return;
         const email = (
           document.getElementById("email") as HTMLInputElement
         ).value.trim();

@@ -47,41 +47,68 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       import { createClient } from "@supabase/supabase-js";
 
       const config = document.getElementById("supabase-config") as HTMLElement;
-      const supabase = createClient(config.dataset.url!, config.dataset.key!);
+      const supabaseUrl = config.dataset.url ?? "";
+      const supabaseKey = config.dataset.key ?? "";
       const msg = document.getElementById("msg") as HTMLElement;
 
-      // If there's no token hash at all, bail out immediately.
-      if (!window.location.hash.includes("access_token")) {
-        msg.innerHTML = '<strong style="color:#B92111">Sign-in failed.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
+      if (!supabaseUrl || !supabaseKey) {
+        msg.innerHTML = '<strong style="color:#B92111">Sign-in unavailable.</strong><br>Supabase auth config is missing.';
       } else {
-        // Supabase auto-processes the hash and fires SIGNED_IN when done.
-        // Using onAuthStateChange avoids the race condition with getSession().
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        let done = false;
+
+        async function completeSignIn(session: {
+          access_token: string;
+          expires_in?: number;
+          refresh_token?: string | null;
+          expires_at?: number;
+        }) {
+          if (done) return;
+          done = true;
+          const res = await fetch("/api/admin/set-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: session.access_token,
+              expiresIn: session.expires_in ?? 28800,
+              refreshToken: session.refresh_token ?? undefined,
+              expiresAt: session.expires_at,
+            }),
+          });
+          if (!res.ok) {
+            msg.innerHTML = '<strong style="color:#B92111">Sign-in error.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
+            return;
+          }
+          window.location.replace("/admin/dashboard/");
+        }
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === "SIGNED_IN" && session) {
+          if (event === "SIGNED_IN" && session?.access_token) {
             subscription.unsubscribe();
-            // Store the token via a server-side endpoint so it can be HttpOnly.
-            const res = await fetch("/api/admin/set-session", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                token:        session.access_token,
-                expiresIn:    session.expires_in ?? 28800,
-                refreshToken: session.refresh_token,
-                expiresAt:    session.expires_at,
-              }),
-            });
-            if (!res.ok) {
-              msg.innerHTML = '<strong style="color:#B92111">Sign-in error.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
-              return;
-            }
-            window.location.replace("/admin/dashboard/");
+            await completeSignIn(session);
           }
         });
 
-        // Safety timeout in case the event never fires.
+        // Fallback for cases where SIGNED_IN event is delayed/missed.
+        queueMicrotask(async () => {
+          if (done) return;
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.access_token) {
+            subscription.unsubscribe();
+            await completeSignIn(data.session);
+          }
+        });
+
+        // Safety timeout in case sign-in never materializes.
         setTimeout(() => {
+          if (done) return;
+          subscription.unsubscribe();
+          if (!window.location.hash.includes("access_token")) {
+            msg.innerHTML = '<strong style="color:#B92111">Sign-in failed.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
+            return;
+          }
           msg.innerHTML = '<strong style="color:#B92111">Sign-in timed out.</strong><br><a href="/admin/" style="color:#B92111">Try again</a>';
-        }, 10_000);
+        }, 12_000);
       }
     </script>
   </body>
