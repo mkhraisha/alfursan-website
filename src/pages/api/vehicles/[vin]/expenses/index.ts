@@ -23,7 +23,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   const { data, error } = await db
     .from("vehicle_expenses")
-    .select("id, category, description, amount, receipt_file_path, created_at")
+    .select("id, category, description, amount, receipt_file_path, reimbursed, vendor, expense_date, tax_amount, tax_type, tax_rate, created_at")
     .eq("vin", vin)
     .order("created_at", { ascending: false });
 
@@ -58,7 +58,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   const { data, error } = await db
     .from("vehicle_expenses")
     .insert({ vin, ...parsed.data })
-    .select("id, category, description, amount, receipt_file_path, created_at")
+    .select("id, category, description, amount, receipt_file_path, reimbursed, vendor, expense_date, tax_amount, tax_type, tax_rate, created_at")
     .single();
 
   if (error) {

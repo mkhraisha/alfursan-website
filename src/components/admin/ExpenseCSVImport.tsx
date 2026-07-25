@@ -1,40 +1,8 @@
 import { useState, useRef, Fragment } from "react";
 import { resolveAutoMapping } from "../../lib/csv-mapping";
+import { EXPENSE_IMPORT_FIELDS } from "../../lib/expense-import";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const VEHICLE_FIELDS: { value: string; label: string }[] = [
-  { value: "",                   label: "— Skip —" },
-  { value: "vin",                label: "VIN" },
-  { value: "make",               label: "Make" },
-  { value: "model",              label: "Model" },
-  { value: "year",               label: "Year" },
-  { value: "trim",               label: "Trim" },
-  { value: "series",             label: "Series" },
-  { value: "body_type",          label: "Body Type" },
-  { value: "colour",             label: "Colour" },
-  { value: "odometer",           label: "Odometer (km)" },
-  { value: "purchase_date",      label: "Purchase Date (YYYY-MM-DD)" },
-  { value: "purchase_price",     label: "Purchase Price ($)" },
-  { value: "wholesale_price",    label: "Wholesale Price ($)" },
-  { value: "advertised_price_cargurus", label: "Advertised Price — CarGurus ($)" },
-  { value: "advertised_price_facebook", label: "Advertised Price — Facebook ($)" },
-  { value: "sale_price",         label: "Sale Price ($)" },
-  { value: "sale_date",          label: "Sale Date (YYYY-MM-DD)" },
-  { value: "ownership_status",   label: "Ownership Status" },
-  { value: "status",             label: "Status" },
-  { value: "photography_status", label: "Photography Status" },
-  { value: "purchased_from_name",    label: "Purchased From — Name" },
-  { value: "purchased_from_address", label: "Purchased From — Address" },
-  { value: "purchaser_name",     label: "Purchaser Name" },
-  { value: "purchaser_address",  label: "Purchaser Address" },
-  { value: "lead_source",        label: "Lead Source" },
-  { value: "engine_type",        label: "Engine Type" },
-  { value: "num_keys",           label: "Number of Keys" },
-  { value: "disclosures",        label: "Disclosures" },
-  { value: "internal_notes",     label: "Internal Notes" },
-  { value: "carfax_link",        label: "Carfax Link" },
-];
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -56,7 +24,7 @@ type ImportResult = {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function CSVImport() {
+export default function ExpenseCSVImport() {
   const [step,      setStep]      = useState<Step>(1);
   const [file,      setFile]      = useState<File | null>(null);
   const [headers,   setHeaders]   = useState<string[]>([]);
@@ -66,6 +34,9 @@ export default function CSVImport() {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const REQUIRED_FIELDS = ["category", "description", "amount"];
+  const hasAllRequired = REQUIRED_FIELDS.every((f) => Object.values(mapping).includes(f));
 
   // ── Step 1: File selection ──────────────────────────────────────────────────
 
@@ -78,22 +49,18 @@ export default function CSVImport() {
     setError(null);
     setFile(f);
 
-    // Parse headers client-side for the mapping step
     const text = await f.text();
     const firstLine = text.split(/\r?\n/)[0] ?? "";
     const cols = parseCSVRow(firstLine);
     setHeaders(cols.map((h) => h.trim()).filter(Boolean));
-
-    // Auto-detect obvious mapping (advertised price defaults to CarGurus, notes -> internal notes)
-    setMapping(resolveAutoMapping(cols, VEHICLE_FIELDS));
+    setMapping(resolveAutoMapping(cols, EXPENSE_IMPORT_FIELDS));
   }
 
   // ── Step 2 → 3: Build mapping + fetch preview ───────────────────────────────
 
   async function fetchPreview() {
     if (!file) return;
-    const hasMappedVin = Object.values(mapping).includes("vin");
-    if (!hasMappedVin) { setError("You must map at least one column to VIN."); return; }
+    if (!hasAllRequired) { setError("You must map Category, Description, and Amount."); return; }
     setError(null);
     setLoading(true);
 
@@ -103,7 +70,7 @@ export default function CSVImport() {
     fd.append("preview", "true");
 
     try {
-      const res  = await fetch("/api/vehicles/import", { method: "POST", body: fd });
+      const res  = await fetch("/api/vehicles/expenses/import", { method: "POST", body: fd });
       const data = await res.json() as PreviewResult & { error?: string };
       if (!res.ok) { setError(data.error ?? "Preview failed"); return; }
       setPreview(data);
@@ -127,7 +94,7 @@ export default function CSVImport() {
     fd.append("mapping", JSON.stringify(mapping));
 
     try {
-      const res  = await fetch("/api/vehicles/import", { method: "POST", body: fd });
+      const res  = await fetch("/api/vehicles/expenses/import", { method: "POST", body: fd });
       const data = await res.json() as ImportResult & { error?: string };
       if (!res.ok) { setError(data.error ?? "Import failed"); return; }
       setResult(data);
@@ -151,8 +118,8 @@ export default function CSVImport() {
     <div className="ci-wrap">
       <div className="ci-header">
         <a href="/admin/inventory/" className="back-link">← Inventory</a>
-        <h1>Import from CSV</h1>
-        <p>Bulk-import vehicles from an OpenLane or custom CSV file. Need to import expenses instead? <a href="/admin/inventory/import-expenses/" style={{ color: "#b92111" }}>Import Expenses →</a></p>
+        <h1>Import Expenses from CSV</h1>
+        <p>Bulk-import expense line items. Rows with a VIN are linked to that vehicle; rows with no VIN are imported as general (non-vehicle) expenses.</p>
       </div>
 
       <Stepper current={step} />
@@ -161,7 +128,7 @@ export default function CSVImport() {
 
       <div className="ci-card">
         {step === 1 && <StepUpload fileRef={fileRef} onFile={onFileChange} file={file} onNext={() => { if (file) setStep(2); }} />}
-        {step === 2 && <StepMap headers={headers} mapping={mapping} setMapping={setMapping} onBack={() => setStep(1)} onNext={fetchPreview} loading={loading} />}
+        {step === 2 && <StepMap headers={headers} mapping={mapping} setMapping={setMapping} onBack={() => setStep(1)} onNext={fetchPreview} loading={loading} hasAllRequired={hasAllRequired} />}
         {step === 3 && preview && <StepPreview preview={preview} onBack={() => setStep(2)} onNext={() => setStep(4)} />}
         {step === 4 && preview && <StepConfirm preview={preview} onBack={() => setStep(3)} onConfirm={runImport} loading={loading} />}
         {step === 5 && result  && <StepSummary result={result} onReset={reset} />}
@@ -297,17 +264,17 @@ function StepUpload({ fileRef, onFile, file, onNext }: { fileRef: React.RefObjec
   );
 }
 
-function StepMap({ headers, mapping, setMapping, onBack, onNext, loading }: { headers: string[]; mapping: Record<string, string>; setMapping: React.Dispatch<React.SetStateAction<Record<string, string>>>; onBack: () => void; onNext: () => void; loading: boolean }) {
+function StepMap({ headers, mapping, setMapping, onBack, onNext, loading, hasAllRequired }: { headers: string[]; mapping: Record<string, string>; setMapping: React.Dispatch<React.SetStateAction<Record<string, string>>>; onBack: () => void; onNext: () => void; loading: boolean; hasAllRequired: boolean }) {
   const mappedCount = Object.values(mapping).filter(Boolean).length;
   return (
     <div>
       <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>
-        Map each CSV column to a vehicle field. Unmapped columns will be skipped.
-        <strong style={{ color: "#1a1d23" }}> VIN must be mapped.</strong>
+        Map each CSV column to an expense field. Unmapped columns will be skipped.
+        <strong style={{ color: "#1a1d23" }}> Category, Description, and Amount must all be mapped.</strong> VIN is optional — rows with no VIN import as general expenses.
       </p>
       <div style={{ overflow: "auto", maxHeight: 420 }}>
         <table className="map-table">
-          <thead><tr><th>CSV Column</th><th>→ Vehicle Field</th></tr></thead>
+          <thead><tr><th>CSV Column</th><th>→ Expense Field</th></tr></thead>
           <tbody>
             {headers.map((h) => (
               <tr key={h}>
@@ -318,7 +285,7 @@ function StepMap({ headers, mapping, setMapping, onBack, onNext, loading }: { he
                     value={mapping[h] ?? ""}
                     onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value }))}
                   >
-                    {VEHICLE_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    {EXPENSE_IMPORT_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
                 </td>
               </tr>
@@ -329,7 +296,7 @@ function StepMap({ headers, mapping, setMapping, onBack, onNext, loading }: { he
       <p style={{ fontSize: 12, color: "#99a1b2", marginTop: 10 }}>{mappedCount} of {headers.length} columns mapped</p>
       <div className="step-actions">
         <button type="button" className="btn btn--ghost" onClick={onBack}>← Back</button>
-        <button type="button" className="btn btn--primary" onClick={onNext} disabled={loading || !Object.values(mapping).includes("vin")}>
+        <button type="button" className="btn btn--primary" onClick={onNext} disabled={loading || !hasAllRequired}>
           {loading ? "Loading preview…" : "Preview →"}
         </button>
       </div>
@@ -397,14 +364,14 @@ function StepConfirm({ preview, onBack, onConfirm, loading }: { preview: Preview
       <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
       <h2 style={{ fontSize: 20, fontWeight: 800, color: "#1a1d23", marginBottom: 8 }}>Ready to Import</h2>
       <p style={{ color: "#6b7280", fontSize: 15, marginBottom: 8 }}>
-        <strong style={{ color: "#1a7f4b" }}>{preview.valid_count} valid vehicle{preview.valid_count !== 1 ? "s" : ""}</strong> will be added to inventory.
+        <strong style={{ color: "#1a7f4b" }}>{preview.valid_count} valid expense{preview.valid_count !== 1 ? "s" : ""}</strong> will be imported — linked to a vehicle where a VIN matched, general otherwise.
       </p>
       {preview.error_count > 0 && (
         <p style={{ color: "#b92111", fontSize: 14, marginBottom: 8 }}>
           {preview.error_count} invalid row{preview.error_count !== 1 ? "s" : ""} will be skipped.
         </p>
       )}
-      <p style={{ color: "#99a1b2", fontSize: 13 }}>Duplicate VINs will be flagged in the summary and skipped.</p>
+      <p style={{ color: "#99a1b2", fontSize: 13 }}>Rows referencing an unknown VIN will be flagged in the summary and skipped.</p>
       <div className="step-actions" style={{ justifyContent: "center", marginTop: 28 }}>
         <button type="button" className="btn btn--ghost" onClick={onBack} disabled={loading}>← Back</button>
         <button type="button" className="btn btn--green" onClick={onConfirm} disabled={loading}>

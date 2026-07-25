@@ -9,6 +9,14 @@ All notable changes to this project will be documented in this file.
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.
 - `gas` expense category on vehicle expenses, alongside repair/detailing/parts/other.
+- `lead_source` field on vehicles — mappable in the vehicle CSV importer and editable on the Purchase tab.
+- CSV bulk import for vehicle expenses (`/admin/inventory/import-expenses`) — each row is matched to an existing vehicle by VIN; unmatched VINs are reported and skipped.
+- `reimbursed` checkbox on vehicle expense line items, toggleable from the Expenses tab.
+- `admin` expense category, alongside repair/cleaning/parts/gas/other.
+- `vendor` and `expense_date` fields on vehicle expenses — mappable in the expense CSV importer and editable on the per-vehicle Expenses tab.
+- General (non-vehicle) expenses — expense CSV rows with no VIN now import as standalone records instead of being rejected, for admin/business costs that don't relate to a specific car.
+- "All Expenses" page (`/admin/inventory/expenses`) — a searchable, filterable list of every expense (vehicle-linked and general) with a reimbursed toggle and running total.
+- Canadian sales tax tracking on vehicle expenses: `tax_type` (HST Ontario/15%, GST only, GST+PST by province, GST+QST Quebec, or exempt), `tax_rate`, and `tax_amount`. The expense CSV importer defaults to Ontario HST (13%) when a row has no tax type/rate mapped, and auto-maps an "HST" column to `tax_amount`. The manual Add Expense form has a tax type dropdown (defaulting to HST 13%) that auto-computes the tax amount from the entered amount. Total cost calculations now include tax.
 - Purchase-date and sale-date range filters on the admin Inventory table, plus a "Purchased"/"Sold" column showing each vehicle's dates.
 - New admin **Reports** tab (`/admin/reports/`) showing sold-vehicle counts, revenue, and total profit/loss grouped by month. Gated by a new `reports:read` permission (manager/owner only, matching the existing profit/loss visibility rule).
 - **Export CSV** button on the admin Inventory table — exports all vehicles matching the currently applied filters (not just the current page).
@@ -20,6 +28,10 @@ All notable changes to this project will be documented in this file.
 - Admin **Dashboard**: moved the New/Reviewing/Approved/Declined application status tiles to the **Applications** tab (they now sit above the status filter tabs there). The dashboard keeps Recent Applications and gains two new tiles — Units Sold This Month, and P/L This Month (the latter only shown to roles with `vehicles:financials:read`) — both linking to the new Sales Report.
 - Redesigned the search page for mobile: the filter bar collapses into a 2-column grid, and inventory results switch from horizontal rows to stacked cards with a full-width image.
 - Moved the Carfax link field from the admin vehicle Media tab to the Basics tab, alongside the rest of the vehicle's identifying details.
+- Renamed the `detailing` expense category to `cleaning` (existing expense rows were migrated).
+- The vehicle CSV importer now auto-maps a generic "Advertised Price" column to the CarGurus price field, and a "Notes" column to Internal Notes, by default.
+- Vehicle expense amounts can now be negative, to record refunds/credits/adjustments that reduce total cost (previously only positive amounts were allowed).
+- The expense CSV importer's "Car" column mapping now extracts the VIN from a combined "VIN (Year Make Model)" cell instead of requiring a bare VIN.
 - Admin finance application view: replaced the raw storage-path fallback (shown when a signed document URL fails to generate) with a plain retry message, and surfaced the Phase 2 token/expiry in the Activity tab so it stays visible after the application status changes.
 
 ### Changed
