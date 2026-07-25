@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   matchesInventoryFilters,
   EMPTY_INVENTORY_FILTERS,
+  STATUS_NOT_SOLD,
   type VehicleListItem,
 } from "../components/admin/InventoryTable";
 
@@ -112,6 +113,23 @@ describe("matchesInventoryFilters — sale date range", () => {
   it("does not exclude an unsold vehicle when no sale-date filter is set", () => {
     const v = makeVehicle({ sale_date: null });
     expect(matchesInventoryFilters(v, EMPTY_INVENTORY_FILTERS)).toBe(true);
+  });
+});
+
+describe("matchesInventoryFilters — STATUS_NOT_SOLD (default inventory view)", () => {
+  it("excludes sold vehicles", () => {
+    const v = makeVehicle({ status: "sold" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, status: STATUS_NOT_SOLD })).toBe(false);
+  });
+
+  it("includes non-sold vehicles regardless of their status", () => {
+    const v = makeVehicle({ status: "in_deal" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, status: STATUS_NOT_SOLD })).toBe(true);
+  });
+
+  it("includes vehicles with no status set", () => {
+    const v = makeVehicle({ status: null });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, status: STATUS_NOT_SOLD })).toBe(true);
   });
 });
 

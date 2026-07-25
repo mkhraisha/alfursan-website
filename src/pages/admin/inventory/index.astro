@@ -6,6 +6,7 @@ import { getAdminClient } from "../../../lib/supabase-admin";
 import { can } from "../../../lib/permissions";
 import InventoryTable from "../../../components/admin/InventoryTable";
 import type { VehicleListItem } from "../../../components/admin/InventoryTable";
+import type { AllExpensesRow } from "../../../components/admin/AllExpenses";
 
 const db = getAdminClient();
 const { adminRole } = Astro.locals;
@@ -43,8 +44,20 @@ const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, u
     commission_percentage: canSeeFinancials ? commissionUser?.commission_percentage ?? null : null,
   };
 });
+
+let expenses: AllExpensesRow[] | undefined;
+if (canSeeFinancials) {
+  const { data: rawExpenses, error: expensesError } = await db
+    .from("vehicle_expenses")
+    .select("id, vin, category, description, amount, vendor, expense_date, reimbursed, tax_amount, tax_type, tax_rate, created_at, vehicles(make, model, year)")
+    .order("expense_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (expensesError) console.error("[admin/inventory]", expensesError);
+  expenses = (rawExpenses ?? []) as unknown as AllExpensesRow[];
+}
 ---
 
 <AdminLayout title="Inventory" activeNav="inventory">
-  <InventoryTable vehicles={vehicles} client:load />
+  <InventoryTable vehicles={vehicles} expenses={expenses} client:load />
 </AdminLayout>
