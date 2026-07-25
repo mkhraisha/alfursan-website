@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 - `gas` expense category on vehicle expenses, alongside repair/detailing/parts/other.
 - Purchase-date and sale-date range filters on the admin Inventory table, plus a "Purchased"/"Sold" column showing each vehicle's dates.
 - New admin **Reports** tab (`/admin/reports/`) showing sold-vehicle counts, revenue, and total profit/loss grouped by month. Gated by a new `reports:read` permission (manager/owner only, matching the existing profit/loss visibility rule).
+- **Export CSV** button on the admin Inventory table — exports all vehicles matching the currently applied filters (not just the current page).
+- **Export CSV** button on the admin Garage Register — exports all vehicles matching the current search.
 
 ### Changed
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { calcTotalCost, calcProfitLoss, calcCommission } from "../../lib/vehicles";
+import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,29 @@ function computeRow(v: VehicleListItem) {
   return { ...v, totalCost, profitLoss, commission };
 }
 
+type InventoryRow = ReturnType<typeof computeRow>;
+
+export const INVENTORY_EXPORT_COLUMNS: CSVColumn<InventoryRow>[] = [
+  { key: "vin", label: "VIN", value: (r) => r.vin },
+  { key: "make", label: "Make", value: (r) => r.make },
+  { key: "model", label: "Model", value: (r) => r.model },
+  { key: "year", label: "Year", value: (r) => r.year },
+  { key: "trim", label: "Trim", value: (r) => r.trim },
+  { key: "status", label: "Status", value: (r) => (r.status ? fmtStatus(r.status) : null) },
+  { key: "ownership", label: "Ownership", value: (r) => (r.ownership_status ? OWNERSHIP_LABELS[r.ownership_status] ?? r.ownership_status : null) },
+  { key: "photography", label: "Photography", value: (r) => (r.photography_status ? PHOTO_LABELS[r.photography_status] ?? r.photography_status : null) },
+  { key: "purchase_date", label: "Purchase Date", value: (r) => r.purchase_date },
+  { key: "sale_date", label: "Sale Date", value: (r) => r.sale_date },
+  { key: "listed_price_cargurus", label: "Listed Price (CarGurus)", value: (r) => r.advertised_price_cargurus },
+  { key: "listed_price_facebook", label: "Listed Price (Facebook)", value: (r) => r.advertised_price_facebook },
+  { key: "purchase_price", label: "Purchase Price", value: (r) => r.purchase_price },
+  { key: "expense_total", label: "Expense Total", value: (r) => r.expense_total },
+  { key: "total_cost", label: "Total Cost", value: (r) => r.totalCost },
+  { key: "sale_price", label: "Sale Price", value: (r) => r.sale_price },
+  { key: "profit_loss", label: "Profit / Loss", value: (r) => r.profitLoss },
+  { key: "commission", label: "Commission", value: (r) => r.commission },
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem[] }) {
@@ -230,6 +254,11 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
     filterMinYear || filterMaxYear || filterPurchaseFrom || filterPurchaseTo || filterSaleFrom || filterSaleTo
   );
 
+  function handleExportCSV() {
+    const csv = toCSV(sorted, INVENTORY_EXPORT_COLUMNS);
+    downloadCSV(`inventory-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  }
+
   return (
     <div className="inv-wrap">
       {toast && (
@@ -243,6 +272,9 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
           <p className="inv-sub">{filtered.length} vehicle{filtered.length !== 1 ? "s" : ""}{hasFilters ? " (filtered)" : ""}</p>
         </div>
         <div className="inv-header-actions">
+          <button type="button" className="btn btn--ghost" onClick={handleExportCSV} disabled={sorted.length === 0}>
+            Export CSV
+          </button>
           <a href="/admin/inventory/import" className="btn btn--ghost">CSV Import</a>
           <a href="/admin/inventory/new" className="btn btn--primary">+ Add Vehicle</a>
         </div>
@@ -393,6 +425,8 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         .btn--primary:hover { background: #9e1c0e; }
         .btn--ghost { background: #fff; color: #1a1d23; border: 1px solid #e4e7ec; }
         .btn--ghost:hover { background: #f8f9fb; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:disabled:hover { background: #fff; }
 
         .inv-filters {
           display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;

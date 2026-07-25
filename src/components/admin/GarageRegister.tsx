@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
 
-type GarageVehicle = {
+export type GarageVehicle = {
   vin: string;
   make: string;
   body_type: string | null;
@@ -25,6 +26,21 @@ function fmtDate(iso: string | null) {
   });
 }
 
+export const GARAGE_REGISTER_EXPORT_COLUMNS: CSVColumn<GarageVehicle>[] = [
+  { key: "purchased_from_name", label: "Purchased From — Name", value: (r) => r.purchased_from_name },
+  { key: "purchased_from_address", label: "Purchased From — Address", value: (r) => r.purchased_from_address },
+  { key: "purchase_date", label: "Date Acquired", value: (r) => r.purchase_date },
+  { key: "purpose", label: "Purpose", value: () => "Resale" },
+  { key: "vin", label: "VIN", value: (r) => r.vin },
+  { key: "make", label: "Make", value: (r) => r.make },
+  { key: "body_type", label: "Style", value: (r) => r.body_type },
+  { key: "colour", label: "Colour", value: (r) => r.colour },
+  { key: "odometer", label: "Odometer (km)", value: (r) => r.odometer },
+  { key: "purchaser_name", label: "Sold To — Name", value: (r) => r.purchaser_name },
+  { key: "purchaser_address", label: "Sold To — Address", value: (r) => r.purchaser_address },
+  { key: "sale_date", label: "Date Sold", value: (r) => (r.sale_date ? r.sale_date : "In Stock") },
+];
+
 export default function GarageRegister({ vehicles: initial }: Props) {
   const [vehicles] = useState<GarageVehicle[]>(initial);
   const [search, setSearch] = useState("");
@@ -37,6 +53,11 @@ export default function GarageRegister({ vehicles: initial }: Props) {
     (v.purchased_from_name ?? "").toLowerCase().includes(q) ||
     (v.purchaser_name ?? "").toLowerCase().includes(q)
   );
+
+  function handleExportCSV() {
+    const csv = toCSV(filtered, GARAGE_REGISTER_EXPORT_COLUMNS);
+    downloadCSV(`garage-register-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  }
 
   return (
     <div>
@@ -52,6 +73,13 @@ export default function GarageRegister({ vehicles: initial }: Props) {
           font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
         }
         .gr-search:focus { outline: 2px solid #B92111; border-color: transparent; }
+        .gr-export-btn {
+          padding: 9px 14px; border: 1px solid #e4e7ec; border-radius: 6px;
+          background: #fff; color: #1a1d23; font-size: 13px; font-weight: 600;
+          font-family: inherit; cursor: pointer; white-space: nowrap;
+        }
+        .gr-export-btn:hover:not(:disabled) { background: #f8f9fb; }
+        .gr-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .gr-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
 
         .gr-section { background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden; }
@@ -156,6 +184,14 @@ export default function GarageRegister({ vehicles: initial }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button
+          type="button"
+          className="gr-export-btn"
+          onClick={handleExportCSV}
+          disabled={filtered.length === 0}
+        >
+          Export CSV
+        </button>
         <span className="gr-count">{filtered.length} {filtered.length === 1 ? "vehicle" : "vehicles"}</span>
       </div>
 
