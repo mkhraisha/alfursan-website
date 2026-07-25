@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - New admin **Reports** tab (`/admin/reports/`) showing sold-vehicle counts, revenue, and total profit/loss grouped by month. Gated by a new `reports:read` permission (manager/owner only, matching the existing profit/loss visibility rule).
 - **Export CSV** button on the admin Inventory table — exports all vehicles matching the currently applied filters (not just the current page).
 - **Export CSV** button on the admin Garage Register — exports all vehicles matching the current search.
+- Drag-and-drop support on the vehicle and expense CSV importer upload zones, in addition to click-to-select.
 
 ### Changed
 
@@ -47,3 +48,4 @@ All notable changes to this project will be documented in this file.
 - Fixed the financing application form's two-column field rows (Full Legal Name / Date of Birth, Phone / Email, etc.) never collapsing to one column on mobile, which truncated placeholder text and cramped inputs on narrow screens.
 - Fixed magic-link admin sign-in bouncing back to the login page: `/admin/**` responses (page renders and the middleware's own redirects) had no explicit `Cache-Control` header, so Vercel's edge could heuristically cache an anonymous login-redirect (e.g. from the daily smoke test hitting production unauthenticated) and serve it back to a freshly-authenticated user. The middleware now sets `Cache-Control: no-store` on every `/admin/**` response.
 - Fixed admin sessions intermittently bouncing to `/admin/?error=invalid_token` on later-visited pages (most noticeably Garage Register and Users): the `sb-token-exp` cookie was accidentally marked `HttpOnly` on token refresh (in `middleware.ts` and `refresh-session.ts`), contradicting its intentional non-`HttpOnly` design in the initial login cookie writer. This silently broke the client-side proactive-refresh timer after the very first refresh of a session, letting the access token genuinely expire later on with no safety net beyond a single reactive refresh attempt. `sb-token-exp` is no longer marked `HttpOnly` on rotation.
+- Fixed the dashed border on the CSV importer upload zones (vehicle and expense import) not wrapping the full box — the underlying `<label>` was an inline element, so the border only hugged its inline content instead of the padded area around it. The upload zone is now a flex container.
