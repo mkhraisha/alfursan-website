@@ -193,9 +193,10 @@ export default function CSVImport() {
         .step-sep { flex: 1; height: 1px; background: #e4e7ec; margin: 0 10px; min-width: 16px; }
 
         /* Upload step */
-        .upload-zone { border: 2px dashed #e4e7ec; border-radius: 10px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+        .upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #e4e7ec; border-radius: 10px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.15s, background-color 0.15s; }
         .upload-zone:hover { border-color: #b92111; }
         .upload-zone--filled { border-color: #1a7f4b; background: #f0fdf4; }
+        .upload-zone--dragging { border-color: #b92111; background: #fef6f5; }
         .upload-icon { font-size: 36px; margin-bottom: 10px; }
         .upload-text  { font-size: 15px; font-weight: 600; color: #1a1d23; margin-bottom: 4px; }
         .upload-hint  { font-size: 13px; color: #99a1b2; }
@@ -276,11 +277,35 @@ function Stepper({ current }: { current: Step }) {
 }
 
 function StepUpload({ fileRef, onFile, file, onNext }: { fileRef: React.RefObject<HTMLInputElement | null>; onFile: (f: File | null) => void; file: File | null; onNext: () => void }) {
+  const [dragging, setDragging] = useState(false);
+
+  function handleDragOver(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setDragging(false);
+    onFile(e.dataTransfer.files?.[0] ?? null);
+  }
+
   return (
     <div>
-      <label className={`upload-zone${file ? " upload-zone--filled" : ""}`}>
-        <div className="upload-icon">{file ? "✅" : "📂"}</div>
-        <div className="upload-text">{file ? file.name : "Click to select a CSV file"}</div>
+      <label
+        className={`upload-zone${file ? " upload-zone--filled" : ""}${dragging ? " upload-zone--dragging" : ""}`}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className="upload-icon">{file ? "✅" : dragging ? "📥" : "📂"}</div>
+        <div className="upload-text">{file ? file.name : dragging ? "Drop your CSV file here" : "Click to select or drag & drop a CSV file"}</div>
         <div className="upload-hint">{file ? `${(file.size / 1024).toFixed(1)} KB` : "Accepts .csv files"}</div>
         <input
           ref={fileRef}
