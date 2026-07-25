@@ -35,6 +35,21 @@ export default function ExpenseCSVImport() {
   const [error,     setError]     = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  async function parseApiResponse<T>(res: Response): Promise<{ data: T | null; error?: string }> {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json() as T & { error?: string };
+      return { data, error: (data as { error?: string }).error };
+    }
+
+    const text = await res.text();
+    const cleaned = text.replace(/\s+/g, " ").trim();
+    return {
+      data: null,
+      error: cleaned ? `Request failed (${res.status}): ${cleaned.slice(0, 180)}` : `Request failed (${res.status})`,
+    };
+  }
+
   const REQUIRED_FIELDS = ["category", "description", "amount"];
   const hasAllRequired = REQUIRED_FIELDS.every((f) => Object.values(mapping).includes(f));
 
@@ -71,12 +86,12 @@ export default function ExpenseCSVImport() {
 
     try {
       const res  = await fetch("/api/vehicles/expenses/import", { method: "POST", body: fd });
-      const data = await res.json() as PreviewResult & { error?: string };
-      if (!res.ok) { setError(data.error ?? "Preview failed"); return; }
+      const { data, error } = await parseApiResponse<PreviewResult>(res);
+      if (!res.ok || !data) { setError(error ?? "Preview failed"); return; }
       setPreview(data);
       setStep(3);
-    } catch {
-      setError("Network error");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setLoading(false);
     }
@@ -95,12 +110,12 @@ export default function ExpenseCSVImport() {
 
     try {
       const res  = await fetch("/api/vehicles/expenses/import", { method: "POST", body: fd });
-      const data = await res.json() as ImportResult & { error?: string };
-      if (!res.ok) { setError(data.error ?? "Import failed"); return; }
+      const { data, error } = await parseApiResponse<ImportResult>(res);
+      if (!res.ok || !data) { setError(error ?? "Import failed"); return; }
       setResult(data);
       setStep(5);
-    } catch {
-      setError("Network error");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setLoading(false);
     }
