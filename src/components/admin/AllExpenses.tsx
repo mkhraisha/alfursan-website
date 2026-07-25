@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TAX_TYPES } from "../../lib/vehicles";
 
 export type AllExpensesRow = {
   id: string;
@@ -9,6 +10,9 @@ export type AllExpensesRow = {
   vendor: string | null;
   expense_date: string | null;
   reimbursed: boolean;
+  tax_amount: number | null;
+  tax_type: string | null;
+  tax_rate: number | null;
   created_at: string;
   vehicles: { make: string; model: string; year: number } | null;
 };
@@ -51,6 +55,7 @@ export default function AllExpenses({ expenses: initial }: Props) {
   });
 
   const total = filtered.reduce((s, e) => s + Number(e.amount), 0);
+  const taxTotal = filtered.reduce((s, e) => s + Number(e.tax_amount ?? 0), 0);
 
   async function toggleReimbursed(id: string, reimbursed: boolean) {
     setExpenses((es) => es.map((e) => (e.id === id ? { ...e, reimbursed } : e)));
@@ -139,6 +144,8 @@ export default function AllExpenses({ expenses: initial }: Props) {
                   <th>Vendor</th>
                   <th>Description</th>
                   <th>Amount</th>
+                  <th>Tax</th>
+                  <th>Total</th>
                   <th>Reimbursed</th>
                 </tr>
               </thead>
@@ -160,6 +167,11 @@ export default function AllExpenses({ expenses: initial }: Props) {
                     <td>{e.vendor ?? <span className="ae-muted">—</span>}</td>
                     <td>{e.description}</td>
                     <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(e.amount)}</td>
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                      {e.tax_amount != null ? fmtMoney(e.tax_amount) : <span className="ae-muted">—</span>}
+                      {e.tax_type && <div className="ae-muted">{TAX_TYPES.find((t) => t.code === e.tax_type)?.label ?? e.tax_type}</div>}
+                    </td>
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(e.amount + Number(e.tax_amount ?? 0))}</td>
                     <td>
                       <input
                         type="checkbox"
@@ -175,6 +187,8 @@ export default function AllExpenses({ expenses: initial }: Props) {
                 <tr>
                   <td colSpan={5}>Total</td>
                   <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(total)}</td>
+                  <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(taxTotal)}</td>
+                  <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(total + taxTotal)}</td>
                   <td />
                 </tr>
               </tfoot>

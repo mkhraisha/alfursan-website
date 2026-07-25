@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, EXPENSE_CATEGORIES } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
 import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,6 +55,9 @@ export type VehicleExpense = {
   reimbursed: boolean;
   vendor: string | null;
   expense_date: string | null;
+  tax_amount: number | null;
+  tax_type: string | null;
+  tax_rate: number | null;
   created_at: string;
 };
 
@@ -163,7 +166,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
   const [docs,      setDocs]      = useState(initDocs);
   const { toast, show } = useToast();
 
-  const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const expenseTotal = expenses.reduce((s, e) => s + Number(e.amount) + Number(e.tax_amount ?? 0), 0);
   const totalCost    = calcTotalCost(v.purchase_price, expenseTotal);
   const profitLoss   = calcProfitLoss(v.sale_price, totalCost);
   const commUser     = users.find((u) => u.id === v.commission_user_id) ?? null;
@@ -785,9 +788,34 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
 // ── Expenses Tab ──────────────────────────────────────────────────────────────
 
 function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: string; expenses: VehicleExpense[]; totalCost: number | null; setExpenses: React.Dispatch<React.SetStateAction<VehicleExpense[]>>; show: (msg: string, ok: boolean) => void }) {
-  const [form, setForm]   = useState({ category: "repair" as string, description: "", amount: "", vendor: "", expense_date: "" });
+  const [form, setForm]   = useState({ category: "repair" as string, description: "", amount: "", vendor: "", expense_date: "", tax_type: DEFAULT_TAX_TYPE as string, tax_amount: "" });
+  const [taxAmountTouched, setTaxAmountTouched] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding]  = useState(false);
+
+  function setAmount(amount: string) {
+    setForm((f) => {
+      const next = { ...f, amount };
+      if (!taxAmountTouched) {
+        const rate = rateForTaxType(f.tax_type) ?? 0;
+        const n = parseFloat(amount);
+        next.tax_amount = isNaN(n) ? "" : (n * rate).toFixed(2);
+      }
+      return next;
+    });
+  }
+
+  function setTaxType(tax_type: string) {
+    setForm((f) => {
+      const next = { ...f, tax_type };
+      if (!taxAmountTouched) {
+        const rate = rateForTaxType(tax_type) ?? 0;
+        const n = parseFloat(f.amount);
+        next.tax_amount = isNaN(n) ? "" : (n * rate).toFixed(2);
+      }
+      return next;
+    });
+  }
 
   async function addExpense() {
     if (!form.description || !form.amount) return;
@@ -799,11 +827,15 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
         amount: parseFloat(form.amount),
         vendor: form.vendor || undefined,
         expense_date: form.expense_date || undefined,
+        tax_type: form.tax_type,
+        tax_rate: rateForTaxType(form.tax_type),
+        tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : undefined,
       }) });
       if (res.ok || res.status === 201) {
         const newExp = await res.json() as VehicleExpense;
         setExpenses((e) => [...e, newExp]);
-        setForm({ category: "repair", description: "", amount: "", vendor: "", expense_date: "" });
+        setForm({ category: "repair", description: "", amount: "", vendor: "", expense_date: "", tax_type: DEFAULT_TAX_TYPE, tax_amount: "" });
+        setTaxAmountTouched(false);
         setShowAdd(false);
         show("Expense added!", true);
       } else {
@@ -858,9 +890,16 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
               </select>
             </div>
             <div className="f-field"><label>Description *</label><input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe the expense" /></div>
-            <div className="f-field"><label>Amount ($) *</label><input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} step="0.01" placeholder="Negative for refunds/credits" /></div>
+            <div className="f-field"><label>Amount ($) *</label><input type="number" value={form.amount} onChange={(e) => setAmount(e.target.value)} step="0.01" placeholder="Negative for refunds/credits" /></div>
             <div className="f-field"><label>Vendor</label><input value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))} placeholder="Who was paid" /></div>
             <div className="f-field"><label>Date</label><input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} /></div>
+            <div className="f-field">
+              <label>Tax Type</label>
+              <select value={form.tax_type} onChange={(e) => setTaxType(e.target.value)}>
+                {TAX_TYPES.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+              </select>
+            </div>
+            <div className="f-field"><label>Tax Amount ($)</label><input type="number" value={form.tax_amount} onChange={(e) => { setTaxAmountTouched(true); setForm((f) => ({ ...f, tax_amount: e.target.value })); }} step="0.01" /></div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className="btn-save" onClick={addExpense} disabled={adding || !form.description || !form.amount}>{adding ? "Adding…" : "Add Expense"}</button>
@@ -872,7 +911,7 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
       {expenses.length > 0 ? (
         <div style={{ background: "#fff", border: "1px solid #e4e7ec", borderRadius: 8, overflow: "auto", marginBottom: 12 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr>{["Date","Category","Vendor","Description","Amount","Reimbursed","Actions"].map((h) => <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#99a1b2", borderBottom: "1px solid #e4e7ec" }}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Date","Category","Vendor","Description","Amount","Tax","Reimbursed","Actions"].map((h) => <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#99a1b2", borderBottom: "1px solid #e4e7ec" }}>{h}</th>)}</tr></thead>
             <tbody>
               {expenses.map((exp) => (
                 <tr key={exp.id}>
@@ -881,6 +920,10 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
                   <td style={{ padding: "10px 14px", color: "#374151" }}>{exp.vendor ?? "—"}</td>
                   <td style={{ padding: "10px 14px", color: "#374151" }}>{exp.description}</td>
                   <td style={{ padding: "10px 14px", fontVariantNumeric: "tabular-nums" }}>{fmt(exp.amount)}</td>
+                  <td style={{ padding: "10px 14px", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    {exp.tax_amount != null ? fmt(exp.tax_amount) : "—"}
+                    {exp.tax_type && <div style={{ fontSize: 11, color: "#99a1b2" }}>{TAX_TYPES.find((t) => t.code === exp.tax_type)?.label ?? exp.tax_type}</div>}
+                  </td>
                   <td style={{ padding: "10px 14px" }}>
                     <input
                       type="checkbox"

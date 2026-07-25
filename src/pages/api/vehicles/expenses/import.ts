@@ -12,6 +12,8 @@ export const prerender = false;
  * reported as an error and skipped. Rows with no VIN are imported as
  * general (non-vehicle) expenses, e.g. admin/business costs.
  *
+ * Tax type/rate default to Ontario HST (13%) when a row has neither mapped.
+ *
  * Returns:
  *   { created, failed, errors: [{ row, vin?, error }] }
  *   or { preview: [...rows], total_rows, valid_count, error_count, errors } when preview=true
@@ -24,7 +26,7 @@ import { can } from "../../../../lib/permissions";
 import { expenseCreateSchema } from "../../../../lib/vehicles";
 import { writeAudit } from "../../../../lib/audit";
 import { parseCSV } from "../../../../lib/csv-parse";
-import { applyExpenseMapping } from "../../../../lib/expense-import";
+import { applyExpenseMapping, applyDefaultTax } from "../../../../lib/expense-import";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -86,7 +88,7 @@ export const POST: APIRoute = async ({ request }) => {
     const vin = typeof mapped.vin === "string" && mapped.vin ? mapped.vin : null;
 
     const { vin: _vin, ...expenseFields } = mapped;
-    const parsed = expenseCreateSchema.safeParse(expenseFields);
+    const parsed = expenseCreateSchema.safeParse(applyDefaultTax(expenseFields));
 
     if (parsed.success) {
       valid.push({ rowIndex: rowNum, vin, data: parsed.data });

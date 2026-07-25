@@ -38,7 +38,7 @@ export const PATCH: APIRoute = async ({ params, request }) => {
     .from("vehicle_expenses")
     .update(parsed.data)
     .eq("id", expenseId)
-    .select("id, vin, category, description, amount, receipt_file_path, reimbursed, vendor, expense_date, created_at")
+    .select("id, vin, category, description, amount, receipt_file_path, reimbursed, vendor, expense_date, tax_amount, tax_type, tax_rate, created_at")
     .single();
 
   if (error || !data) {

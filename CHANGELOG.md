@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - `vendor` and `expense_date` fields on vehicle expenses — mappable in the expense CSV importer and editable on the per-vehicle Expenses tab.
 - General (non-vehicle) expenses — expense CSV rows with no VIN now import as standalone records instead of being rejected, for admin/business costs that don't relate to a specific car.
 - "All Expenses" page (`/admin/inventory/expenses`) — a searchable, filterable list of every expense (vehicle-linked and general) with a reimbursed toggle and running total.
+- Canadian sales tax tracking on vehicle expenses: `tax_type` (HST Ontario/15%, GST only, GST+PST by province, GST+QST Quebec, or exempt), `tax_rate`, and `tax_amount`. The expense CSV importer defaults to Ontario HST (13%) when a row has no tax type/rate mapped, and auto-maps an "HST" column to `tax_amount`. The manual Add Expense form has a tax type dropdown (defaulting to HST 13%) that auto-computes the tax amount from the entered amount. Total cost calculations now include tax.
 
 ### Changed
 

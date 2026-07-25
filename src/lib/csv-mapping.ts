@@ -8,6 +8,7 @@ export type FieldOption = { value: string; label: string };
 export const AUTO_MAP_ALIASES: Record<string, string> = {
   advertised_price: "advertised_price_cargurus",
   notes: "internal_notes",
+  hst: "tax_amount",
 };
 
 /**

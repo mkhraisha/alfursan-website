@@ -1,5 +1,75 @@
 import { describe, it, expect } from "vitest";
-import { parseReimbursedFlag, applyExpenseMapping, extractVin, parseExpenseDate } from "../lib/expense-import";
+import {
+  parseReimbursedFlag,
+  applyExpenseMapping,
+  extractVin,
+  parseExpenseDate,
+  parseTaxRate,
+  parseTaxType,
+  applyDefaultTax,
+} from "../lib/expense-import";
+
+describe("parseTaxRate", () => {
+  it("parses a percentage with a % sign", () => {
+    expect(parseTaxRate("13%")).toBe(0.13);
+  });
+
+  it("parses a whole-number percentage without a % sign", () => {
+    expect(parseTaxRate("13")).toBe(0.13);
+  });
+
+  it("passes through an already-fractional rate", () => {
+    expect(parseTaxRate("0.13")).toBe(0.13);
+  });
+
+  it("returns null for unparseable input", () => {
+    expect(parseTaxRate("n/a")).toBeNull();
+  });
+});
+
+describe("parseTaxType", () => {
+  it("matches by exact code", () => {
+    expect(parseTaxType("HST_ON")).toBe("HST_ON");
+  });
+
+  it("matches by label, case-insensitively", () => {
+    expect(parseTaxType("hst (ontario) — 13%")).toBe("HST_ON");
+  });
+
+  it("matches the common alias 'HST'", () => {
+    expect(parseTaxType("HST")).toBe("HST_ON");
+  });
+
+  it("matches the common alias 'GST'", () => {
+    expect(parseTaxType("gst")).toBe("GST_ONLY");
+  });
+
+  it("matches 'exempt' to NONE", () => {
+    expect(parseTaxType("Exempt")).toBe("NONE");
+  });
+
+  it("returns null for an unrecognized value", () => {
+    expect(parseTaxType("VAT")).toBeNull();
+  });
+});
+
+describe("applyDefaultTax", () => {
+  it("defaults to Ontario HST (13%) when neither tax_type nor tax_rate is set", () => {
+    expect(applyDefaultTax({ amount: 100 })).toEqual({ amount: 100, tax_type: "HST_ON", tax_rate: 0.13 });
+  });
+
+  it("derives tax_rate from a provided tax_type", () => {
+    expect(applyDefaultTax({ amount: 100, tax_type: "GST_ONLY" })).toEqual({ amount: 100, tax_type: "GST_ONLY", tax_rate: 0.05 });
+  });
+
+  it("leaves an explicit tax_rate alongside tax_type untouched", () => {
+    expect(applyDefaultTax({ amount: 100, tax_type: "HST_ON", tax_rate: 0.2 })).toEqual({ amount: 100, tax_type: "HST_ON", tax_rate: 0.2 });
+  });
+
+  it("leaves an explicit tax_rate with no tax_type untouched (no type back-filled)", () => {
+    expect(applyDefaultTax({ amount: 100, tax_rate: 0.05 })).toEqual({ amount: 100, tax_rate: 0.05 });
+  });
+});
 
 describe("parseExpenseDate", () => {
   it("parses M/D/YYYY", () => {
@@ -129,5 +199,23 @@ describe("applyExpenseMapping", () => {
     const fullMapping = { ...mapping, Date: "expense_date" };
     const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "1", Date: "garbage" };
     expect(applyExpenseMapping(row, fullMapping).expense_date).toBeUndefined();
+  });
+
+  it("maps a currency-formatted HST column to tax_amount", () => {
+    const fullMapping = { ...mapping, HST: "tax_amount" };
+    const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "2500", HST: "CA$325.00" };
+    expect(applyExpenseMapping(row, fullMapping).tax_amount).toBe(325);
+  });
+
+  it("maps a tax rate column to tax_rate", () => {
+    const fullMapping = { ...mapping, Rate: "tax_rate" };
+    const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "1", Rate: "13%" };
+    expect(applyExpenseMapping(row, fullMapping).tax_rate).toBe(0.13);
+  });
+
+  it("maps a tax type column to a canonical code", () => {
+    const fullMapping = { ...mapping, "Tax Type": "tax_type" };
+    const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "1", "Tax Type": "HST" };
+    expect(applyExpenseMapping(row, fullMapping).tax_type).toBe("HST_ON");
   });
 });

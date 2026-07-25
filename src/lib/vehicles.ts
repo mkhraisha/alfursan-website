@@ -101,6 +101,28 @@ export const vehicleUpdateSchema = vehicleBaseSchema
 export const EXPENSE_CATEGORIES = ["repair", "cleaning", "parts", "gas", "admin", "other"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
+// Canadian sales tax types. `rate` is the fraction applied (0.13 = 13%) — the
+// canonical source of truth for tax_rate; selecting a type determines the rate.
+export const TAX_TYPES = [
+  { code: "HST_ON",     label: "HST (Ontario) — 13%",              rate: 0.13 },
+  { code: "HST_15",     label: "HST (NB / NL / NS / PE) — 15%",    rate: 0.15 },
+  { code: "GST_ONLY",   label: "GST only (AB/NT/NU/YT) — 5%",      rate: 0.05 },
+  { code: "GST_PST_BC", label: "GST + PST (BC) — 12%",             rate: 0.12 },
+  { code: "GST_PST_SK", label: "GST + PST (SK) — 11%",             rate: 0.11 },
+  { code: "GST_PST_MB", label: "GST + PST (MB) — 12%",             rate: 0.12 },
+  { code: "GST_QST_QC", label: "GST + QST (Quebec) — 14.975%",     rate: 0.14975 },
+  { code: "NONE",       label: "No Tax / Exempt",                  rate: 0 },
+] as const;
+export type TaxTypeCode = (typeof TAX_TYPES)[number]["code"];
+
+export const DEFAULT_TAX_TYPE: TaxTypeCode = "HST_ON";
+export const DEFAULT_TAX_RATE = TAX_TYPES.find((t) => t.code === DEFAULT_TAX_TYPE)!.rate;
+
+/** Look up the rate for a tax type code. Returns undefined for an unknown code. */
+export function rateForTaxType(code: string): number | undefined {
+  return TAX_TYPES.find((t) => t.code === code)?.rate;
+}
+
 export const expenseCreateSchema = z.object({
   category:          z.enum(EXPENSE_CATEGORIES),
   description:       z.string().min(1, "Description is required"),
@@ -110,6 +132,10 @@ export const expenseCreateSchema = z.object({
   reimbursed:        z.boolean().optional(),
   vendor:            z.string().optional(),
   expense_date:      isoDate.optional(),
+  tax_amount:        z.number().min(0).optional(),
+  tax_type:          z.enum(TAX_TYPES.map((t) => t.code) as [TaxTypeCode, ...TaxTypeCode[]]).optional(),
+  // Fraction, e.g. 0.13 for 13% HST — kept in sync with tax_type.
+  tax_rate:          z.number().min(0).optional(),
 });
 
 export const expenseUpdateSchema = z.object({

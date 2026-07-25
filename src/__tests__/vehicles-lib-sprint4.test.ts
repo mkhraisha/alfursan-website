@@ -6,7 +6,35 @@ import {
   commissionAssignSchema,
   vehicleCreateSchema,
   EXPENSE_CATEGORIES,
+  TAX_TYPES,
+  DEFAULT_TAX_TYPE,
+  DEFAULT_TAX_RATE,
+  rateForTaxType,
 } from "../lib/vehicles";
+
+// ── TAX_TYPES ─────────────────────────────────────────────────────────────────
+
+describe("TAX_TYPES / rateForTaxType", () => {
+  it("defaults to Ontario HST at 13%", () => {
+    expect(DEFAULT_TAX_TYPE).toBe("HST_ON");
+    expect(DEFAULT_TAX_RATE).toBe(0.13);
+  });
+
+  it("every tax type has a rate between 0 and 1", () => {
+    for (const t of TAX_TYPES) {
+      expect(t.rate).toBeGreaterThanOrEqual(0);
+      expect(t.rate).toBeLessThan(1);
+    }
+  });
+
+  it("looks up the rate for a known type", () => {
+    expect(rateForTaxType("GST_ONLY")).toBe(0.05);
+  });
+
+  it("returns undefined for an unknown type", () => {
+    expect(rateForTaxType("VAT")).toBeUndefined();
+  });
+});
 
 // ── expenseCreateSchema ───────────────────────────────────────────────────────
 
@@ -45,6 +73,18 @@ describe("expenseCreateSchema", () => {
 
   it("rejects a malformed expense_date", () => {
     expect(expenseCreateSchema.safeParse({ ...BASE, expense_date: "9/13/2025" }).success).toBe(false);
+  });
+
+  it("accepts optional tax_amount and tax_type", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, tax_amount: 65, tax_type: "HST_ON", tax_rate: 0.13 }).success).toBe(true);
+  });
+
+  it("rejects an unrecognized tax_type", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, tax_type: "VAT" }).success).toBe(false);
+  });
+
+  it("rejects a negative tax_amount", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, tax_amount: -5 }).success).toBe(false);
   });
 
   it("rejects empty description", () => {

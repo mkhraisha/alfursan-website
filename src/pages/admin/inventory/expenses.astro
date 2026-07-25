@@ -14,7 +14,7 @@ if (!can(adminRole, "vehicles:financials:read")) {
 const db = getAdminClient();
 const { data, error } = await db
   .from("vehicle_expenses")
-  .select("id, vin, category, description, amount, vendor, expense_date, reimbursed, created_at, vehicles(make, model, year)")
+  .select("id, vin, category, description, amount, vendor, expense_date, reimbursed, tax_amount, tax_type, tax_rate, created_at, vehicles(make, model, year)")
   .order("expense_date", { ascending: false, nullsFirst: false })
   .order("created_at", { ascending: false });
 
