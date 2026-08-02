@@ -142,8 +142,8 @@ To run the full e2e suite locally, including RBAC/CRUD:
 ```bash
 supabase start
 supabase db reset
-node scripts/e2e-seed-test-users.mjs   # prints E2E_SERVICE_TOKEN / E2E_MANAGER_TOKEN / E2E_SALES_TOKEN
 export SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... SUPABASE_SECRET_KEY=...  # from `supabase status -o env`
+node scripts/e2e-seed-test-users.mjs   # prints E2E_SERVICE_TOKEN / E2E_MANAGER_TOKEN / E2E_SALES_TOKEN
 export E2E_SERVICE_TOKEN=... E2E_MANAGER_TOKEN=... E2E_SALES_TOKEN=...       # from the seed script's output
 npm run test:e2e
 ```
