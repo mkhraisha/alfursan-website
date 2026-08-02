@@ -46,55 +46,122 @@ export function buildVehicleImageStoragePaths(
 
 export interface VehiclePhotoMigrationPlan {
   vin: string;
-  action: "migrate" | "skip";
+  action: "migrate" | "resume" | "skip";
   reason?: string;
-  /** Source WP media URLs to download, in order (index 0 = featured). Empty when action === "skip". */
+  /** Paths already present in images_json and left untouched — kept as-is in the final result. */
+  existingPaths: string[];
+  /** Source WP media URLs still needing download+upload, in order. Empty when action === "skip". */
   sourceUrls: string[];
-  /** Destination Supabase Storage paths — same order/length as sourceUrls. */
+  /** Destination Supabase Storage paths for sourceUrls — same order/length. */
   storagePaths: string[];
+  /**
+   * The fully-migrated, WP-ordered path list this vehicle would end up with
+   * if every entry in sourceUrls/storagePaths uploads successfully
+   * (existingPaths ∪ storagePaths, in WP order). For "skip" this equals the
+   * vehicle's current images_json unchanged.
+   */
+  order: string[];
+}
+
+function skipPlan(
+  vin: string,
+  reason: string,
+  existingPaths: string[],
+): VehiclePhotoMigrationPlan {
+  return {
+    vin,
+    action: "skip",
+    reason,
+    existingPaths,
+    sourceUrls: [],
+    storagePaths: [],
+    order: existingPaths,
+  };
 }
 
 /**
  * Decides whether a single vehicle's photos should be migrated, given its
  * current DMS state and the raw WP image URLs found for it.
  *
- * Never re-migrates a vehicle that already has `images_json` populated:
- * photo uploads happen only through the DMS going forward (decision 4 in
- * docs/WORDPRESS_MIGRATION.md), so an admin may have already uploaded/curated
- * photos since Part 2 ran, and this must not clobber that.
+ * Three outcomes:
+ * - "migrate": images_json is empty — download+upload every WP image.
+ * - "resume": images_json is non-empty, but every path in it is one this
+ *   script would itself generate for this vehicle from the current WP data
+ *   (the `vehicles/{vin}/wp-NN.ext` pattern) — meaning it's the leftover
+ *   result of an earlier run that partially failed (e.g. transient upload
+ *   errors), not admin-curated photos. Only the still-missing images are
+ *   downloaded/uploaded; already-present ones are left alone.
+ * - "skip": either images_json contains a path this script wouldn't have
+ *   generated (an admin uploaded/curated a photo — photo uploads happen only
+ *   through the DMS going forward, decision 4 in docs/WORDPRESS_MIGRATION.md,
+ *   so this must never be clobbered), the vehicle is already fully migrated,
+ *   or there are no WP images to migrate at all.
  */
 export function planVehiclePhotoMigration(
   vehicle: { vin: string; images_json: string[] | null | undefined },
   wpImageUrls: string[],
 ): VehiclePhotoMigrationPlan {
-  if ((vehicle.images_json?.length ?? 0) > 0) {
-    return {
-      vin: vehicle.vin,
-      action: "skip",
-      reason: "images_json already populated",
-      sourceUrls: [],
-      storagePaths: [],
-    };
-  }
+  const existing = vehicle.images_json ?? [];
 
   const dedupedUrls = [...new Set(wpImageUrls.filter(Boolean))];
-  if (dedupedUrls.length === 0) {
+  const fullSourceUrls = dedupedUrls.map(toMediaUrl);
+  const fullStoragePaths = buildVehicleImageStoragePaths(
+    vehicle.vin,
+    fullSourceUrls,
+  );
+
+  if (existing.length === 0) {
+    if (fullStoragePaths.length === 0) {
+      return skipPlan(vehicle.vin, "no WP images found", existing);
+    }
     return {
       vin: vehicle.vin,
-      action: "skip",
-      reason: "no WP images found",
-      sourceUrls: [],
-      storagePaths: [],
+      action: "migrate",
+      existingPaths: [],
+      sourceUrls: fullSourceUrls,
+      storagePaths: fullStoragePaths,
+      order: fullStoragePaths,
     };
   }
 
-  const sourceUrls = dedupedUrls.map(toMediaUrl);
+  const fullPathSet = new Set(fullStoragePaths);
+  const allScriptAuthored = existing.every((p) => fullPathSet.has(p));
+  if (!allScriptAuthored) {
+    return skipPlan(vehicle.vin, "images_json already populated", existing);
+  }
+
+  const missingPaths = fullStoragePaths.filter((p) => !existing.includes(p));
+  if (missingPaths.length === 0) {
+    return skipPlan(vehicle.vin, "already fully migrated", existing);
+  }
+
+  const missingSourceUrls = missingPaths.map(
+    (p) => fullSourceUrls[fullStoragePaths.indexOf(p)],
+  );
+
   return {
     vin: vehicle.vin,
-    action: "migrate",
-    sourceUrls,
-    storagePaths: buildVehicleImageStoragePaths(vehicle.vin, sourceUrls),
+    action: "resume",
+    existingPaths: existing,
+    sourceUrls: missingSourceUrls,
+    storagePaths: missingPaths,
+    order: fullStoragePaths,
   };
+}
+
+/**
+ * Builds the final `images_json` value to write after a migration/resume
+ * attempt: `plan.order` (the correct WP-ordered full path list) filtered down
+ * to only the paths that are either already-existing or were just uploaded
+ * successfully this run — so a still-failing image is excluded rather than
+ * silently included, and the WP-designated order is preserved either way.
+ */
+export function buildFinalImagesJson(
+  plan: VehiclePhotoMigrationPlan,
+  uploadedPaths: string[],
+): string[] {
+  const known = new Set([...plan.existingPaths, ...uploadedPaths]);
+  return plan.order.filter((p) => known.has(p));
 }
 
 /**

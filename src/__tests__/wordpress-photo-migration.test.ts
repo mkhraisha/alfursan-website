@@ -4,6 +4,7 @@ import {
   getFileExtension,
   buildVehicleImageStoragePaths,
   planVehiclePhotoMigration,
+  buildFinalImagesJson,
   buildPhotographyStatusPatch,
 } from "../lib/wordpress-photo-migration";
 
@@ -69,7 +70,7 @@ describe("buildVehicleImageStoragePaths", () => {
 describe("planVehiclePhotoMigration", () => {
   const vin = "1HGCM82633A123456";
 
-  it("skips a vehicle that already has images_json populated", () => {
+  it("skips a vehicle whose images_json contains a non-script path (admin-curated)", () => {
     const plan = planVehiclePhotoMigration(
       { vin, images_json: ["vehicles/1HGCM82633A123456/existing.jpg"] },
       ["https://alfursanauto.ca/a.jpg"],
@@ -78,8 +79,10 @@ describe("planVehiclePhotoMigration", () => {
       vin,
       action: "skip",
       reason: "images_json already populated",
+      existingPaths: ["vehicles/1HGCM82633A123456/existing.jpg"],
       sourceUrls: [],
       storagePaths: [],
+      order: ["vehicles/1HGCM82633A123456/existing.jpg"],
     });
   });
 
@@ -89,7 +92,12 @@ describe("planVehiclePhotoMigration", () => {
     expect(plan.reason).toBe("no WP images found");
   });
 
-  it("skips when images_json is null", () => {
+  it("skips when images_json is null and there are no WP images", () => {
+    const plan = planVehiclePhotoMigration({ vin, images_json: null }, []);
+    expect(plan.action).toBe("skip");
+  });
+
+  it("migrates when images_json is null and WP images exist", () => {
     const plan = planVehiclePhotoMigration({ vin, images_json: null }, [
       "https://alfursanauto.ca/a.jpg",
     ]);
@@ -105,6 +113,7 @@ describe("planVehiclePhotoMigration", () => {
       ],
     );
     expect(plan.action).toBe("migrate");
+    expect(plan.existingPaths).toEqual([]);
     expect(plan.sourceUrls).toEqual([
       "https://media.alfursanauto.ca/a.jpg",
       "https://media.alfursanauto.ca/b.png",
@@ -113,6 +122,7 @@ describe("planVehiclePhotoMigration", () => {
       `vehicles/${vin}/wp-00.jpg`,
       `vehicles/${vin}/wp-01.png`,
     ]);
+    expect(plan.order).toEqual(plan.storagePaths);
   });
 
   it("dedupes repeated WP image urls while preserving first-seen order", () => {
@@ -136,6 +146,100 @@ describe("planVehiclePhotoMigration", () => {
       ["https://alfursanauto.ca/a.jpg", "", undefined as unknown as string],
     );
     expect(plan.sourceUrls).toEqual(["https://media.alfursanauto.ca/a.jpg"]);
+  });
+
+  it("resumes a partially-migrated vehicle, fetching only the missing script-authored paths", () => {
+    // First image (wp-00) already uploaded by an earlier, partially-failed run.
+    const plan = planVehiclePhotoMigration(
+      { vin, images_json: [`vehicles/${vin}/wp-00.jpg`] },
+      [
+        "https://alfursanauto.ca/a.jpg",
+        "https://alfursanauto.ca/b.png",
+        "https://alfursanauto.ca/c.webp",
+      ],
+    );
+    expect(plan.action).toBe("resume");
+    expect(plan.existingPaths).toEqual([`vehicles/${vin}/wp-00.jpg`]);
+    expect(plan.sourceUrls).toEqual([
+      "https://media.alfursanauto.ca/b.png",
+      "https://media.alfursanauto.ca/c.webp",
+    ]);
+    expect(plan.storagePaths).toEqual([
+      `vehicles/${vin}/wp-01.png`,
+      `vehicles/${vin}/wp-02.webp`,
+    ]);
+    expect(plan.order).toEqual([
+      `vehicles/${vin}/wp-00.jpg`,
+      `vehicles/${vin}/wp-01.png`,
+      `vehicles/${vin}/wp-02.webp`,
+    ]);
+  });
+
+  it("skips a vehicle that is already fully migrated (all script-authored paths present)", () => {
+    const plan = planVehiclePhotoMigration(
+      { vin, images_json: [`vehicles/${vin}/wp-00.jpg`, `vehicles/${vin}/wp-01.png`] },
+      ["https://alfursanauto.ca/a.jpg", "https://alfursanauto.ca/b.png"],
+    );
+    expect(plan.action).toBe("skip");
+    expect(plan.reason).toBe("already fully migrated");
+  });
+
+  it("skips (never resumes) if even one existing path isn't script-authored, even alongside script-authored ones", () => {
+    const plan = planVehiclePhotoMigration(
+      {
+        vin,
+        images_json: [
+          `vehicles/${vin}/wp-00.jpg`,
+          `vehicles/${vin}/admin-uploaded-uuid.jpg`,
+        ],
+      },
+      ["https://alfursanauto.ca/a.jpg", "https://alfursanauto.ca/b.png"],
+    );
+    expect(plan.action).toBe("skip");
+    expect(plan.reason).toBe("images_json already populated");
+  });
+});
+
+describe("buildFinalImagesJson", () => {
+  const vin = "1HGCM82633A123456";
+
+  it("returns the full order when every upload succeeds", () => {
+    const plan = planVehiclePhotoMigration({ vin, images_json: [] }, [
+      "https://alfursanauto.ca/a.jpg",
+      "https://alfursanauto.ca/b.png",
+    ]);
+    expect(buildFinalImagesJson(plan, plan.storagePaths)).toEqual(plan.order);
+  });
+
+  it("excludes a still-failing image while preserving WP order", () => {
+    const plan = planVehiclePhotoMigration({ vin, images_json: [] }, [
+      "https://alfursanauto.ca/a.jpg",
+      "https://alfursanauto.ca/b.png",
+      "https://alfursanauto.ca/c.webp",
+    ]);
+    // Only the 1st and 3rd uploads succeeded this run.
+    const uploaded = [plan.storagePaths[0], plan.storagePaths[2]];
+    expect(buildFinalImagesJson(plan, uploaded)).toEqual([
+      `vehicles/${vin}/wp-00.jpg`,
+      `vehicles/${vin}/wp-02.webp`,
+    ]);
+  });
+
+  it("merges existing (already-uploaded) paths with newly-uploaded ones on resume, preserving order", () => {
+    const plan = planVehiclePhotoMigration(
+      { vin, images_json: [`vehicles/${vin}/wp-00.jpg`] },
+      [
+        "https://alfursanauto.ca/a.jpg",
+        "https://alfursanauto.ca/b.png",
+        "https://alfursanauto.ca/c.webp",
+      ],
+    );
+    // Only wp-01 uploads successfully this time; wp-02 still fails.
+    const uploaded = [`vehicles/${vin}/wp-01.png`];
+    expect(buildFinalImagesJson(plan, uploaded)).toEqual([
+      `vehicles/${vin}/wp-00.jpg`,
+      `vehicles/${vin}/wp-01.png`,
+    ]);
   });
 });
 
