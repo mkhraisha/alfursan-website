@@ -6,6 +6,11 @@ import sitemap from "@astrojs/sitemap";
 import sentry from "@sentry/astro";
 import { checkEnvIntegration } from "./src/lib/check-env.ts";
 
+// Vercel sets VERCEL_ENV to "production" | "preview" | "development" at build time.
+// Only create Sentry releases/deploys on production builds — creating one on every
+// PR preview build is just noise in Sentry.
+const isProductionBuild = process.env.VERCEL_ENV === "production";
+
 // https://astro.build/config
 export default defineConfig({
   output: "static",
@@ -85,6 +90,13 @@ export default defineConfig({
       sourceMapsUploadOptions: {
         project: "alfursan-website",
         authToken: process.env.SENTRY_AUTH_TOKEN,
+        unstable_sentryVitePluginOptions: {
+          release: {
+            create: isProductionBuild,
+            finalize: isProductionBuild,
+            deploy: isProductionBuild ? { env: "production" } : false,
+          },
+        },
       },
       // Don't crash the build if Sentry env vars are missing locally
       enabled: !!process.env.SENTRY_DSN,
