@@ -11,7 +11,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 /**
  * Browser-safe Supabase client using the anon/publishable key.
- * Use only for auth/session flows (magic link, session retrieval).
+ * Use only for auth/session flows (magic link, passkey, session retrieval).
  * Never use for privileged reads/writes — use supabase-admin.ts server-side.
+ *
+ * `experimental.passkey` opts into `auth.signInWithPasskey()` / `auth.registerPasskey()`
+ * / `auth.passkey.*` — calling those without it throws at call time.
  */
-export const supabaseBrowser = createClient(supabaseUrl, supabaseAnonKey);
+export const supabaseBrowser = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { experimental: { passkey: true } },
+});
