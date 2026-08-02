@@ -89,19 +89,21 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
 
 ## 5. Part 2 — Data migration (WordPress → `vehicles`)
 
-- [ ] **One-time import script: WP `cars` → `vehicles`**
-  - **Description:** Script (Node, run manually, not part of the app) that fetches all WP `cars` posts + taxonomy terms (reusing the mapping logic already in `wordpress.ts`), maps each field to the new schema (Part 4's table), and inserts/upserts into the local/staging `vehicles` table by VIN. Vehicles with a missing/invalid VIN (WP data isn't always clean) are reported and skipped, not silently dropped.
-  - **Validation:** Row counts reconcile — every WP car with a valid 17-character VIN produces exactly one `vehicles` row. Skipped rows are logged with a reason.
-  - **Test:** Run against the local Supabase stack (never production — see CLAUDE.md database migration safety rules) with a sample export; verify a handful of known cars migrate with correct field values.
+**Status: implemented, fixed post-review, and validated end-to-end against a real local Supabase stack — see PR `feat/wp-migration-part2-data-import`.**
 
-- [ ] **Map `vehicleType`/taxonomy terms → new enum values**
-  - **Description:** WP's free-text taxonomy terms (e.g. drive type "All Wheel Drive") need a translation table to the new constrained enum values (`awd`, etc.). Build this mapping as part of the import script; log any WP term that doesn't map to a known enum value instead of failing the row.
-  - **Validation:** No unmapped terms silently become `NULL` without being logged.
-  - **Test:** Dry-run the script against production WP data (read-only fetch, not a DB write) and review the unmapped-terms log before doing the real import.
+- [x] **One-time import script: WP `cars` → `vehicles`**
+  - **Description:** `scripts/migrate-wordpress-inventory.mjs` fetches all WP `cars` posts + taxonomy terms, maps each field via the pure functions in `src/lib/wordpress-migration.ts` onto the schema added in Part 1. For a VIN that doesn't exist yet, it INSERTs a new row. For a VIN that already exists (e.g. imported earlier via the CSV importer, which never carries `drive_type`/`transmission`/`fuel_type`/`cylinders`/`doors`/`features`/`description`), it **fills in only the fields that are currently empty** on that row (`buildFillPatch`) — it never overwrites a field the DMS already has a value for, and never touches `status` (staff-managed operational state, not vehicle spec data). Vehicles with a missing/invalid VIN, make, model, year, or body type are reported and skipped, not silently dropped. `images_json`/`videos_json`/`photography_status` are deliberately left untouched — Part 4 migrates photos separately, and a vehicle with no photos yet should stay non-public under Part 3's visibility rule.
+  - **Validation:** Every mapped row is re-validated against `vehicleCreateSchema` before insert as a safety net. Skipped rows are written to `skipped.json` with a reason; existing vehicles that got fields filled in are written to `filled.json` with exactly which fields changed.
+  - **Test:** `src/__tests__/wordpress-migration.test.ts` covers the pure mapping/validation/fill-patch logic (46 tests). `--dry-run` was run against the live WordPress site: 43 cars fetched, 38 candidates, 5 skipped (real WP data-quality gaps, not bugs). A real write-mode run against a local Supabase stack confirmed: all 38 candidates already existed (this dev DB has real dealership inventory seeded via CSV import), all 38 got 1+ empty field filled in, zero errors; a second run confirmed idempotency (0 filled, 38 already complete). Spot-checked a filled row directly against the DB — pre-existing `make`/`model`/`colour` untouched, new `drive_type`/`transmission`/`fuel_type`/`cylinders`/`doors`/`description` correctly populated.
 
-- [ ] **Reconciliation report**
-  - **Description:** After import, produce a simple report: total WP cars, total migrated, total skipped (with reasons), and a diff of any VINs that exist in both WP and the DMS already (collision — decide manually whether WP or DMS data wins per vehicle).
-  - **Validation:** Report reviewed and signed off before cutover.
+- [x] **Map `vehicleType`/taxonomy terms → new enum values**
+  - **Description:** `src/lib/wordpress-migration.ts` has an alias table per field (body type, drive type, transmission, fuel type) translating WP's free-text taxonomy terms to the new constrained enum values, plus digit-extraction for cylinders/doors. Unmapped terms produce a warning and leave that one field `null` — they never fail the whole row.
+  - **Validation:** Confirmed via the dry run above: real WP data uses a combined `"AWD/4WD"` drive-type term the initial alias table didn't cover — found via the actual dry run, added as an alias (defaults to `awd`), verified the warning count dropped from 15 to 0 on re-run. No unmapped terms are silently dropped without logging.
+  - **Test:** Dry-run reviewed against production WP data (read-only fetch, no DB write) — see above. Real output is not committed (`docs/migration/` is gitignored — it contains real inventory data).
+
+- [x] **Reconciliation report**
+  - **Description:** The script writes `report.md`/`report.json` (counts, warnings, insert/update errors), `skipped.json` (every skipped row with its reason), `filled.json` (every existing vehicle that got fields populated, and which ones), and `slug-to-vin.json` (old WP slug → VIN, feeding Part 5's redirect table) to `docs/migration/wordpress-inventory/<timestamp>/`.
+  - **Validation:** Reviewed against real WordPress + a real local Supabase stack — see above.
   - **Test:** N/A (manual review step).
 
 ---
@@ -110,8 +112,8 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
 
 - [ ] **Define `isPubliclyVisible(vehicle)` helper**
   - **Description:** Add to `src/lib/vehicles.ts`. Proposed rule (confirm before implementing, since it encodes new business logic):
-    - Visible as **active listing** if `photography_status = 'done'` AND `status @> ARRAY['frontline_ready']` AND `status` does not contain any of `sold`, `in_deal`, `pending_delivery`, `pending_pickup`, `bodyshop`, `mechanic_ssc`, `mechanic_repairs`, `detailing_shop`, `on_lot_work_needed`, `openlane_arbitration`, `sale_cancelled_by_arbitration`, `openlane_auction`.
-    - Visible as **recently sold** (read-only, no financing CTA, "Sold" badge) if `status @> ARRAY['sold']` AND `sale_date >= CURRENT_DATE - INTERVAL '30 days'`.
+    - Visible as **active listing** if `photography_status = 'done'` AND `status = 'frontline_ready'`. (Corrected from the original draft: `vehicles.status` was changed from `TEXT[]` to a single `TEXT` value in `20260524000002_status_single_value.sql`, after this plan's first draft — a vehicle can only hold one status at a time now, so this simplifies to plain equality; no need to separately exclude `in_deal`/`bodyshop`/etc. since they're mutually exclusive with `frontline_ready` by construction.)
+    - Visible as **recently sold** (read-only, no financing CTA, "Sold" badge) if `status = 'sold'` AND `sale_date >= CURRENT_DATE - INTERVAL '30 days'`.
     - Otherwise not publicly visible.
   - **Validation:** Unit tests cover: frontline-ready+done photos → visible; sold 10 days ago → visible as sold; sold 40 days ago → not visible; `in_deal` → not visible; `photography_status = 'pending'` → not visible.
   - **Test:** `src/__tests__/vehicles.test.ts` — table-driven test over the status/date combinations above.

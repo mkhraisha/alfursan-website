@@ -133,6 +133,15 @@ const nav = [
         cursor: pointer;
       }
       .topbar__signout:hover { background: rgba(185,33,17,0.15); }
+      .topbar__account {
+        color: #c8ccd6;
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.15s;
+        cursor: pointer;
+      }
+      .topbar__account:hover { background: rgba(255,255,255,0.08); }
 
       /* ── Body with sidebar ──────────────────────────────────────────── */
       .layout {
@@ -250,6 +259,7 @@ const nav = [
       <div class="topbar__user">
         <span class="topbar__email">{adminEmail}</span>
         <span class="topbar__role">{adminRole}</span>
+        <a href="/admin/account/" class="topbar__account">Account</a>
         <a href="/admin/signout/" class="topbar__signout">Sign out</a>
       </div>
     </header>
