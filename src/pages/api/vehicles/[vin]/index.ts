@@ -11,6 +11,7 @@ import {
   calcProfitLoss,
   calcCommission,
   calcDaysOnLot,
+  isPubliclyVisible,
 } from "../../../../lib/vehicles";
 import { writeAudit } from "../../../../lib/audit";
 
@@ -68,19 +69,31 @@ export const GET: APIRoute = async ({ params, request }) => {
   const db   = getAdminClient();
   const vin  = params.vin!;
 
+  // Public visibility (WordPress migration Part 3): the visibility fields
+  // (status/photography_status/sale_date) are fetched alongside the public
+  // columns purely to run isPubliclyVisible() below, then stripped before the
+  // response is sent — the actual status is never exposed to an
+  // unauthenticated caller, it only ever determines 404 vs. 200.
   const { data, error } = await db
     .from("vehicles")
     .select(
       user
         ? "*, commission_user:user_profiles!commission_user_id(commission_percentage)"
-        : PUBLIC_COLUMNS
+        : `${PUBLIC_COLUMNS}, status, photography_status, sale_date`
     )
     .eq("vin", vin)
     .single();
 
   if (error || !data) return json({ error: "Vehicle not found" }, 404);
 
-  if (!user) return json(data);
+  if (!user) {
+    const row = data as Record<string, unknown>;
+    if (!isPubliclyVisible(row as { photography_status: string | null; status: string | null; sale_date: string | null })) {
+      return json({ error: "Vehicle not found" }, 404);
+    }
+    const { status: _status, photography_status: _photo, sale_date: _saleDate, ...publicRow } = row;
+    return json(publicRow);
+  }
 
   return json(await enrichVehicle(db, data as Record<string, unknown>, user.role));
 };

@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 3 — public visibility rules for `GET /api/vehicles` and `GET /api/vehicles/:vin`. Unauthenticated requests now only see vehicles with photography done, excluding sales older than 30 days; every other status (in_deal, bodyshop, pending_delivery, etc.) is shown like any other listing. The vehicle's actual `status` is never returned to the frontend — it's a server-side filter only, not a field in the public response. Fixed a pre-existing gap along the way: `GET /api/vehicles/:vin` had no visibility filter at all (any vehicle was fetchable by VIN regardless of status/photography); it now applies the same rule and returns 404 for a non-visible vehicle.
 - `docs/WORDPRESS_MIGRATION.md` — detailed plan for decommissioning WordPress: migrating vehicle inventory/status/photos into the DMS, rebuilding About Us/Contact Us as static Astro pages, and removing the unused Blog/Team/FAQ. `docs/DMS_PHASE2_PLAN.md` Sprint 2 now points here for the full task list.
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.

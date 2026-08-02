@@ -11,6 +11,7 @@ import {
   calcProfitLoss,
   calcCommission,
   calcDaysOnLot,
+  soldVisibilityCutoff,
 } from "../../../lib/vehicles";
 import { writeAudit } from "../../../lib/audit";
 
@@ -69,6 +70,20 @@ export const GET: APIRoute = async ({ request }) => {
     if (Number.isFinite(maxYearValue)) query = query.lte("year", maxYearValue);
     if (status) query = query.eq("status", status);
     if (bodyType) query = query.eq("body_type", bodyType);
+  } else {
+    // Public visibility (WordPress migration Part 3): photography must be
+    // done, and a 'sold' vehicle must not be older than 30 days. Every other
+    // status (including no status set at all) is included as long as
+    // photography is ready — mirrors isPubliclyVisible() in lib/vehicles.ts,
+    // expressed as a DB filter so pagination/count stay correct. `status.is.null`
+    // is listed explicitly because SQL's <> doesn't match NULL the way JS's
+    // !== does — without it, a vehicle with no status set would be wrongly
+    // excluded. `status`/`photography_status`/`sale_date` are filtered on
+    // here but never selected (not in PUBLIC_COLUMNS), so the actual status
+    // is never exposed to the caller.
+    query = query
+      .eq("photography_status", "done")
+      .or(`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}`);
   }
 
   const { data: vehicles, error, count } = await query;

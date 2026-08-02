@@ -163,7 +163,17 @@ describe("GET /api/vehicles — unauthenticated response excludes private fields
       carfax_link: null,
     };
 
-    const rangeFn    = vi.fn().mockResolvedValue({ data: [publicRow], error: null, count: 1 });
+    const result = { data: [publicRow], error: null, count: 1 };
+    // range() must return a chainable object (the route calls .eq()/.or() on
+    // it for the public visibility filter) that also resolves like a promise.
+    const queryResult: Record<string, unknown> = {};
+    for (const m of ["eq", "gte", "lte", "neq", "in", "or"]) {
+      queryResult[m] = vi.fn(() => queryResult);
+    }
+    queryResult.then = (resolve: (v: typeof result) => void, reject?: (e: unknown) => void) =>
+      Promise.resolve(result).then(resolve, reject);
+
+    const rangeFn    = vi.fn().mockReturnValue(queryResult);
     const orderFn    = vi.fn().mockReturnValue({ range: rangeFn });
     const selectFn   = vi.fn().mockReturnValue({ order: orderFn });
     (getAdminClient as Mock).mockReturnValue({
