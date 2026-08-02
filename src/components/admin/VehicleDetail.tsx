@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
 import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -13,6 +13,13 @@ export type VehicleFull = {
   body_type: string | null;
   engine_type: string | null;
   num_keys: number | null;
+  drive_type: string | null;
+  transmission: string | null;
+  fuel_type: string | null;
+  cylinders: number | null;
+  doors: number | null;
+  features: string[];
+  description: string | null;
   year: number | null;
   colour: string | null;
   odometer: number | null;
@@ -297,6 +304,11 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     colour:                v.colour ?? "",
     odometer:              v.odometer != null ? v.odometer.toLocaleString("en-CA") : "",
     num_keys:              v.num_keys != null ? String(v.num_keys) : "",
+    drive_type:            v.drive_type ?? "",
+    transmission:          v.transmission ?? "",
+    fuel_type:             v.fuel_type ?? "",
+    cylinders:             v.cylinders != null ? String(v.cylinders) : "",
+    doors:                 v.doors != null ? String(v.doors) : "",
     status:                v.status ?? "",
     ownership_status:      v.ownership_status ?? "",
     photography_status:    v.photography_status ?? "",
@@ -305,14 +317,32 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
   });
   const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
   const [disclosures,   setDisclosures]   = useState(v.disclosures ?? "");
+  const [description,   setDescription]  = useState(v.description ?? "");
+  const [features,      setFeatures]      = useState<string[]>(v.features ?? []);
+  const [newFeature,    setNewFeature]    = useState("");
   const [saving, setSaving] = useState(false);
 
   const daysOnLot = calcDaysOnLot(v.purchase_date);
 
   function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
 
-  async function autoSave(field: "internal_notes" | "disclosures", value: string) {
+  async function autoSave(field: "internal_notes" | "disclosures" | "description", value: string) {
     await onSave({ [field]: value || null });
+  }
+
+  async function addFeature() {
+    const value = newFeature.trim();
+    if (!value || features.includes(value)) return;
+    const next = [...features, value];
+    setFeatures(next);
+    setNewFeature("");
+    await onSave({ features: next });
+  }
+
+  async function removeFeature(feature: string) {
+    const next = features.filter((f) => f !== feature);
+    setFeatures(next);
+    await onSave({ features: next });
   }
 
   async function submit(e: React.FormEvent) {
@@ -326,6 +356,11 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     if (form.colour)      fields.colour      = form.colour;
     if (form.odometer)    fields.odometer    = parseInt(form.odometer.replace(/,/g, ""));
     fields.num_keys              = form.num_keys !== "" ? parseInt(form.num_keys) : null;
+    fields.drive_type            = form.drive_type || null;
+    fields.transmission          = form.transmission || null;
+    fields.fuel_type             = form.fuel_type || null;
+    fields.cylinders             = form.cylinders !== "" ? parseInt(form.cylinders) : null;
+    fields.doors                 = form.doors !== "" ? parseInt(form.doors) : null;
     fields.status                = form.status || null;
     fields.ownership_status      = form.ownership_status || null;
     fields.photography_status    = form.photography_status || null;
@@ -359,6 +394,35 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
         <div className="f-field"><label>Colour</label><input value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
         <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
         <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
+        <div className="f-field">
+          <label>Drive Type</label>
+          <select value={form.drive_type} onChange={(e) => set("drive_type", e.target.value)}>
+            <option value="">— Select —</option>
+            {DRIVE_TYPES.map((dt) => (
+              <option key={dt} value={dt}>{dt.toUpperCase()}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field">
+          <label>Transmission</label>
+          <select value={form.transmission} onChange={(e) => set("transmission", e.target.value)}>
+            <option value="">— Select —</option>
+            {TRANSMISSIONS.map((t) => (
+              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field">
+          <label>Fuel Type</label>
+          <select value={form.fuel_type} onChange={(e) => set("fuel_type", e.target.value)}>
+            <option value="">— Select —</option>
+            {FUEL_TYPES.map((ft) => (
+              <option key={ft} value={ft}>{ft.charAt(0).toUpperCase() + ft.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field"><label>Cylinders</label><input type="number" min="1" max="16" value={form.cylinders} onChange={(e) => set("cylinders", e.target.value)} placeholder="e.g. 4" /></div>
+        <div className="f-field"><label>Doors</label><input type="number" min="2" max="6" value={form.doors} onChange={(e) => set("doors", e.target.value)} placeholder="e.g. 4" /></div>
         <div className="f-field"><label>Carfax Link</label><input type="url" value={form.carfax_link} onChange={(e) => set("carfax_link", e.target.value)} placeholder="https://www.carfax.ca/..." /></div>
       </div>
 
@@ -410,6 +474,43 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
       </div>
 
       <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+
+      {/* Public Listing — shown on the website; features/description save immediately, independent of the form above */}
+      <div style={{ borderTop: "1px solid #f0f2f5", paddingTop: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 16 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: "#99a1b2", textTransform: "uppercase", letterSpacing: "0.05em", margin: 0 }}>Public Listing</h3>
+        <div className="f-field">
+          <label>Features</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+            {features.map((f) => (
+              <span key={f} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#f8f9fb", border: "1px solid #e4e7ec", borderRadius: 999, padding: "4px 6px 4px 12px", fontSize: 13 }}>
+                {f}
+                <button type="button" onClick={() => removeFeature(f)} aria-label={`Remove ${f}`} style={{ border: "none", background: "none", color: "#99a1b2", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 4px" }}>×</button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={newFeature}
+              onChange={(e) => setNewFeature(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }}
+              placeholder="e.g. Backup Camera, Heated Seats"
+              style={{ flex: 1 }}
+            />
+            <button type="button" className="btn-secondary" onClick={addFeature}>Add</button>
+          </div>
+        </div>
+        <div className="f-field">
+          <label>Public Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={(e) => autoSave("description", e.target.value)}
+            rows={5}
+            placeholder="Marketing description shown on the public listing page…"
+          />
+        </div>
+        <p style={{ fontSize: 12, color: "#99a1b2", margin: 0 }}>Description auto-saves when you click away. Features save immediately when added or removed.</p>
+      </div>
 
       {/* Notes — auto-save on blur */}
       <div style={{ borderTop: "1px solid #f0f2f5", paddingTop: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 16 }}>
