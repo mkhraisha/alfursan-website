@@ -68,6 +68,55 @@ const removeCarfaxAnchors = (html: string): string =>
     /carfax\.ca/i.test(href) ? "" : full
   );
 
+// ── Legacy (pre-fix) description reconstruction — for safe one-time repair only ──
+//
+// A prior run of this migration (before stripHtmlToPlainText was fixed to
+// preserve paragraph breaks and extract the Carfax link) already wrote the
+// old, run-on-line description into some `vehicles` rows. Those rows'
+// `description` is no longer empty, so buildFillPatch()'s normal
+// fill-only-if-empty rule will never revisit them. `isUnrefreshedLegacyDescription`
+// lets the migration script safely auto-correct exactly those rows — and only
+// those — by checking whether the existing DB value still matches byte-for-byte
+// what the old, buggy code would have produced from the current WP content. If
+// it doesn't match (WP content changed since, or — more likely — an admin has
+// since hand-edited the public description in the admin UI), the row is left
+// untouched and flagged for manual review instead of being silently overwritten.
+//
+// This reproduces the OLD (buggy) algorithm exactly, including its lack of
+// &nbsp; decoding — do not "fix" or reuse this for anything else.
+const legacyDecodeHtmlEntities = (input: string): string =>
+  input
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+
+const legacyStripHtmlTags = (input: string): string =>
+  input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+export const legacyStripHtmlToPlainTextV1 = (html: string): string =>
+  legacyDecodeHtmlEntities(legacyStripHtmlTags(html));
+
+/**
+ * True when an existing DB `description` is non-empty and still exactly
+ * matches what the old, buggy migration would have produced from the current
+ * WP content — meaning no one has touched it since, so it's safe to replace
+ * with the corrected description. False when it's empty (buildFillPatch
+ * already handles that case) or differs at all (an admin may have hand-edited
+ * it, or the WP content itself changed since the original migration ran) —
+ * either way, never auto-overwrite.
+ */
+export function isUnrefreshedLegacyDescription(
+  existingDescription: unknown,
+  htmlDescription: string
+): boolean {
+  if (typeof existingDescription !== "string" || existingDescription.trim() === "") return false;
+  return existingDescription === legacyStripHtmlToPlainTextV1(htmlDescription);
+}
+
 const slugify = (raw: string): string =>
   raw.trim().toLowerCase().replace(/[\s_-]+/g, "_");
 

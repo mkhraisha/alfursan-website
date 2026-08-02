@@ -8,6 +8,8 @@ import {
   parseLeadingInt,
   stripHtmlToPlainText,
   extractCarfaxLink,
+  legacyStripHtmlToPlainTextV1,
+  isUnrefreshedLegacyDescription,
   mapWpCarToVehicleRow,
   summarizeMigrationResults,
   buildReconciliationArtifacts,
@@ -159,6 +161,50 @@ describe("extractCarfaxLink", () => {
 
   it("returns undefined when there is no link at all", () => {
     expect(extractCarfaxLink("<p>No links here.</p>")).toBeUndefined();
+  });
+});
+
+// ── legacyStripHtmlToPlainTextV1 / isUnrefreshedLegacyDescription ──────────────
+// These exist only to safely detect (and repair) vehicles migrated before the
+// description/Carfax-link fix — see --refresh-description in the migration script.
+
+describe("legacyStripHtmlToPlainTextV1", () => {
+  it("reproduces the old buggy behaviour: flattens paragraphs onto one line", () => {
+    expect(legacyStripHtmlToPlainTextV1("<p>Line one</p>\n\n<p>Line two</p>")).toBe(
+      "Line one Line two"
+    );
+  });
+
+  it("does NOT decode &nbsp; (the old bug) — leaves it as literal text", () => {
+    expect(legacyStripHtmlToPlainTextV1("<p>Line one</p><p>&nbsp;</p><p>Line two</p>")).toBe(
+      "Line one &nbsp; Line two"
+    );
+  });
+});
+
+describe("isUnrefreshedLegacyDescription", () => {
+  const html = "<p>Well maintained, single owner.</p><p>&nbsp;</p><p>Second line.</p>";
+
+  it("is true when the existing description exactly matches the old buggy output", () => {
+    const existing = legacyStripHtmlToPlainTextV1(html);
+    expect(isUnrefreshedLegacyDescription(existing, html)).toBe(true);
+  });
+
+  it("is false when the existing description is empty, null, or undefined", () => {
+    expect(isUnrefreshedLegacyDescription("", html)).toBe(false);
+    expect(isUnrefreshedLegacyDescription("   ", html)).toBe(false);
+    expect(isUnrefreshedLegacyDescription(null, html)).toBe(false);
+    expect(isUnrefreshedLegacyDescription(undefined, html)).toBe(false);
+  });
+
+  it("is false when the existing description was hand-edited (doesn't match the old output)", () => {
+    expect(isUnrefreshedLegacyDescription("A staff member rewrote this listing entirely.", html)).toBe(
+      false
+    );
+  });
+
+  it("is false when the existing description already is the new, corrected format", () => {
+    expect(isUnrefreshedLegacyDescription(stripHtmlToPlainText(html), html)).toBe(false);
   });
 });
 
