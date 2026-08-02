@@ -3,7 +3,7 @@
 **Status:** Not Started  
 **Date:** 2026-05-24  
 **Depends on:** Phase 1 complete — see `docs/DMS_PHASE1_PLAN.md`  
-**Reference docs:** `DEALER_MANAGEMENT_DESIGN.md`, `DEALER_MANAGEMENT_DECISIONS.md`
+**Reference docs:** `DEALER_MANAGEMENT_DESIGN.md`, `DEALER_MANAGEMENT_DECISIONS.md`, `WORDPRESS_MIGRATION.md` (Sprint 2 detail)
 
 ---
 
@@ -38,20 +38,14 @@
 
 ## Sprint 2 — Website Integration (Replace WordPress Inventory)
 
-- [ ] **Update public inventory pages to use Supabase**
-  - **Description:** Replace `wordpress.ts` inventory fetch in `search/index.astro` and `listing/[slug].astro` with GET /api/vehicles (unauthenticated). Map Supabase fields to existing UI components. Keep WordPress for blog only.
-  - **Validation:** Public inventory page shows vehicles from Supabase. Listing detail page works with VIN-based routing.
-  - **Test:** Add a vehicle in DMS; verify it appears on public `/search` page with only public fields visible.
+**This sprint is now fully detailed in `docs/WORDPRESS_MIGRATION.md`** — that document is the authoritative task list (schema additions for drive type/transmission/fuel type/cylinders/doors/features/description, the 30-day sold-visibility window, photo migration off `media.alfursanauto.ca`, VIN-based listing routes, and the native rebuild of About Us/Contact Us plus removal of Blog/Team/FAQ). Work this sprint from that doc; the summary below is kept only so Phase 2's scope stays visible in one place.
 
-- [ ] **Update listing route from WordPress slug to VIN**
-  - **Description:** Change `/listing/[slug]` to `/listing/[vin]` (or create redirect from old slugs). Update all internal links.
-  - **Validation:** `/listing/{vin}` returns correct vehicle detail. Old slug URLs redirect gracefully.
-  - **Test:** Visit `/listing/{valid-vin}`; verify correct vehicle shown. Visit old-format slug; verify redirect.
-
-- [ ] **Remove WordPress dependency for inventory**
-  - **Description:** Delete or gut `wordpress.ts` inventory-related functions. Keep blog-related functions intact. Remove unused imports.
-  - **Validation:** `npm run build` passes. No TypeScript errors.
-  - **Test:** Build passes; blog pages still work.
+- [ ] See `docs/WORDPRESS_MIGRATION.md` Parts 1–2 — add missing vehicle spec fields (`drive_type`, `transmission`, `fuel_type`, `cylinders`, `doors`, `features`, `description`) and migrate WordPress car data into `vehicles`.
+- [ ] See `docs/WORDPRESS_MIGRATION.md` Part 3 — public visibility rule (hide in-deal/shop statuses; keep sold vehicles visible for 30 days post-`sale_date`, then hide).
+- [ ] See `docs/WORDPRESS_MIGRATION.md` Part 4 — one-time migration of all vehicle photos/videos from WordPress media into the `vehicle-images` Supabase bucket.
+- [ ] See `docs/WORDPRESS_MIGRATION.md` Part 5 — rewire `search/index.astro`, `listing/[slug].astro` → `listing/[vin].astro` (with redirects from old slugs), `sold/index.astro` (→ "Recently Sold"), `index.astro`, `InventoryFilters.tsx`, `PopularMakes.tsx` to read from the DMS instead of `wordpress.ts`.
+- [ ] See `docs/WORDPRESS_MIGRATION.md` Parts 6–7 — rebuild About Us/Contact Us as native static Astro pages; delete Blog/Team/FAQ (confirmed unused, not migrated).
+- [ ] See `docs/WORDPRESS_MIGRATION.md` Part 8 — delete `src/lib/wordpress.ts` entirely once nothing references it, and resolve ISR cache staleness for the now-live public inventory pages.
 
 ---
 
@@ -93,7 +87,7 @@ All of the following must be true before Phase 2 is considered done:
 - [ ] `npm run build` passes with zero TypeScript errors
 - [ ] `npm run test` passes with zero test failures
 - [ ] Bill of Sale generation works for all three sale types (Wholesale, As-Is, Retail)
-- [ ] Public website shows vehicles from Supabase (not WordPress)
+- [ ] Public website shows vehicles from Supabase (not WordPress) — see `docs/WORDPRESS_MIGRATION.md` completion criteria for the full checklist
 - [ ] Financing form accepts vehicle selection from DMS inventory
 - [ ] VIN FK stored on `applications` table when a DMS vehicle is selected
 - [ ] Linked vehicle visible in application admin view

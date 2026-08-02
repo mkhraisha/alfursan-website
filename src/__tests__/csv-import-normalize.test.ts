@@ -3,7 +3,12 @@ import { describe, it, expect } from "vitest";
 // Mirrors the normalization helpers in src/pages/api/vehicles/import.ts
 
 function normalizeEnum(raw: string): string {
-  return raw.trim().toLowerCase().replace(/[\s\-]+/g, "_");
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-/]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 function normalizeOwnershipStatus(raw: string): string {
@@ -35,6 +40,14 @@ describe("normalizeEnum (status / photography_status)", () => {
 
   it("converts hyphens to underscores", () => {
     expect(normalizeEnum("on-lot-work-needed")).toBe("on_lot_work_needed");
+  });
+
+  it("converts slashes to underscores — On Lot / Work Needed", () => {
+    expect(normalizeEnum("On Lot / Work Needed")).toBe("on_lot_work_needed");
+  });
+
+  it("collapses adjacent separators around a slash", () => {
+    expect(normalizeEnum("On Lot/Work Needed")).toBe("on_lot_work_needed");
   });
 
   it("handles ALL CAPS", () => {

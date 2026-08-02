@@ -51,6 +51,7 @@ type PreviewResult = {
 
 type ImportResult = {
   created: number;
+  updated: number;
   failed: number;
   errors: RowError[];
 };
@@ -449,7 +450,7 @@ function StepConfirm({ preview, onBack, onConfirm, loading }: { preview: Preview
           {preview.error_count} invalid row{preview.error_count !== 1 ? "s" : ""} will be skipped.
         </p>
       )}
-      <p style={{ color: "#99a1b2", fontSize: 13 }}>Duplicate VINs will be flagged in the summary and skipped.</p>
+      <p style={{ color: "#99a1b2", fontSize: 13 }}>Rows with a VIN that already exists will update that vehicle's mapped fields instead of creating a new one.</p>
       <div className="step-actions" style={{ justifyContent: "center", marginTop: 28 }}>
         <button type="button" className="btn btn--ghost" onClick={onBack} disabled={loading}>← Back</button>
         <button type="button" className="btn btn--green" onClick={onConfirm} disabled={loading}>
@@ -468,6 +469,7 @@ function StepSummary({ result, onReset }: { result: ImportResult; onReset: () =>
         <h2>Import Complete</h2>
         <div className="summary-counts">
           <div className="sc-item sc-item--ok">✓ {result.created} created</div>
+          {result.updated > 0 && <div className="sc-item sc-item--ok">↻ {result.updated} updated</div>}
           {result.failed > 0 && <div className="sc-item sc-item--err">✕ {result.failed} failed</div>}
         </div>
       </div>

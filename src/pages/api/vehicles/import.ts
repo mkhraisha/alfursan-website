@@ -8,8 +8,11 @@ export const prerender = false;
  *   mapping  — JSON string: { "CSV Column Name": "vehicle_field", ... }
  *   preview  — optional "true" to return parsed rows without inserting
  *
+ * A row whose VIN already exists is treated as an update: only the columns
+ * present in the CSV mapping are overwritten on the existing vehicle row.
+ *
  * Returns:
- *   { created, failed, errors: [{ row, vin?, error }] }
+ *   { created, updated, failed, errors: [{ row, vin?, error }] }
  *   or { preview: [...rows] } when preview=true
  */
 
@@ -35,10 +38,16 @@ const PRICE_FIELDS = new Set([
 
 /**
  * Normalize a raw CSV string to snake_case for enum validation.
- * "Frontline Ready" → "frontline_ready", "SOLD" → "sold", etc.
+ * "Frontline Ready" → "frontline_ready", "SOLD" → "sold",
+ * "On Lot / Work Needed" → "on_lot_work_needed", etc.
  */
 function normalizeEnum(raw: string): string {
-  return raw.trim().toLowerCase().replace(/[\s\-]+/g, "_");
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-/]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
 }
 
 /**
@@ -165,35 +174,49 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   if (valid.length === 0) {
-    return json({ created: 0, failed: errors.length, errors });
+    return json({ created: 0, updated: 0, failed: errors.length, errors });
   }
 
   const db = getAdminClient();
   let created = 0;
+  let updated = 0;
   const insertErrors: RowError[] = [...errors];
 
-  // Insert row-by-row — skip duplicates, collect errors per row
+  // Look up which VINs already exist so we can report created vs. updated counts —
+  // the upsert below doesn't distinguish an insert from an update on its own.
+  const vins = valid
+    .map(({ data }) => data.vin)
+    .filter((v): v is string => typeof v === "string");
+
+  const existingVins = new Set<string>();
+  if (vins.length > 0) {
+    const { data: existingRows } = await db.from("vehicles").select("vin").in("vin", vins);
+    for (const row of existingRows ?? []) {
+      if (typeof row.vin === "string") existingVins.add(row.vin);
+    }
+  }
+
+  // Upsert row-by-row — an existing VIN updates only the columns present in the
+  // CSV mapping rather than being skipped, collecting errors per row.
   for (const { rowIndex, data } of valid) {
-    const { error } = await db.from("vehicles").insert(data);
+    const vin = typeof data.vin === "string" ? data.vin : undefined;
+    const { error } = await db.from("vehicles").upsert(data, { onConflict: "vin" });
     if (error) {
-      const isDuplicate = error.code === "23505";
-      insertErrors.push({
-        row: rowIndex,
-        vin: typeof data.vin === "string" ? data.vin : undefined,
-        error: isDuplicate ? "Duplicate VIN" : error.message,
-      });
+      insertErrors.push({ row: rowIndex, vin, error: error.message });
+    } else if (vin && existingVins.has(vin)) {
+      updated++;
     } else {
       created++;
     }
   }
 
-  if (created > 0) {
+  if (created > 0 || updated > 0) {
     await writeAudit({
       action:     "csv_import",
       adminEmail: user.email,
-      entityRef:  `${created} vehicles imported`,
+      entityRef:  `${created} vehicles imported, ${updated} updated`,
     });
   }
 
-  return json({ created, failed: insertErrors.length, errors: insertErrors });
+  return json({ created, updated, failed: insertErrors.length, errors: insertErrors });
 };

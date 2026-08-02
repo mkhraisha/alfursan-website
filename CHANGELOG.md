@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `docs/WORDPRESS_MIGRATION.md` — detailed plan for decommissioning WordPress: migrating vehicle inventory/status/photos into the DMS, rebuilding About Us/Contact Us as static Astro pages, and removing the unused Blog/Team/FAQ. `docs/DMS_PHASE2_PLAN.md` Sprint 2 now points here for the full task list.
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.
 - `gas` expense category on vehicle expenses, alongside repair/detailing/parts/other.
@@ -78,3 +79,11 @@ All notable changes to this project will be documented in this file.
 
 - Fixed the authenticated CRUD/RBAC e2e tests (`e2e/vehicles-api.spec.ts`) failing on every DELETE and CSV-import call once real tokens were wired up: Astro's built-in CSRF origin-check middleware 403s any non-GET request that has neither a matching `Origin` header nor a non-form `Content-Type`, which covers bodyless DELETEs and `multipart/form-data` uploads made by non-browser HTTP clients. Real browsers always send `Origin` on same-origin fetches, so production and the admin UI were never affected — only test tooling (and any headless API client) hit this. Tests now send an explicit `Origin` header matching the app's own origin. This had never surfaced before because the RBAC/CRUD suite had never actually run anywhere until this change.
 - Fixed the entire production build crashing whenever the WordPress API had a transient outage: `getStaticPaths()` for `/blog/[slug]` (and any other prerendered page backed by `wordpress.ts`) let a network-error exception from `fetchWithRetry` propagate uncaught after retries were exhausted, killing the whole `astro build` instead of degrading just the affected page — unlike a persistent HTTP 4xx/5xx response, which every caller already handled gracefully. `fetchWithRetry` now returns a synthetic non-ok `Response` instead of throwing, so existing `!response.ok` handling in `getPosts`/`getPostBySlug`/`getPageBySlug`/`getCars`/`getCarBySlug` applies uniformly. Found via three flaky CI runs across this PR stack.
+
+### Changed
+
+- The vehicle CSV importer (`/api/vehicles/import`) no longer skips rows whose VIN already exists in inventory. A duplicate VIN now updates that vehicle's mapped fields in place (an upsert keyed on `vin`) instead of being rejected as a "Duplicate VIN" error, and the import summary now shows separate created/updated counts.
+
+### Fixed
+
+- Fixed the vehicle CSV importer silently rejecting valid rows whose `status` column contained a slash, e.g. "On Lot / Work Needed" — `normalizeEnum` only converted spaces and hyphens to underscores, so the value normalized to `on_lot_/_work_needed` instead of the valid `on_lot_work_needed` enum value and failed schema validation. Slashes (and any run of whitespace/hyphens/slashes) now collapse to a single underscore.
