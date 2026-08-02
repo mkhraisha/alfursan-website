@@ -1,6 +1,10 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { getFaqPageContent, type FaqItem } from "../../lib/wordpress";
+
+interface FaqItem {
+  question: string;
+  answer: string;
+}
 
 const faqLeft: FaqItem[] = [
   {
@@ -11,13 +15,13 @@ const faqLeft: FaqItem[] = [
   {
     question: "Do you offer financing?",
     answer:
-      "Yes! We can help you get approved for financing through our trusted network of financing partners across Canada. Whether you have good credit, no credit, or are rebuilding, we'll do our best to find an option that suits your needs.",
+      "Yes! We can help you get approved for financing through our trusted network of financing partners across Canada. Whether you have good credit, no credit, or are rebuilding, we’ll do our best to find an option that suits your needs.",
   },
   {
     question:
-      "Can you help me find a specific car that's not in your inventory?",
+      "Can you help me find a specific car that’s not in your inventory?",
     answer:
-      "Absolutely. Just let us know what you're looking for, and we'll source the vehicle for you at the most competitive price through our trusted supplier and auction network.",
+      "Absolutely. Just let us know what you’re looking for, and we’ll source the vehicle for you at the most competitive price through our trusted supplier and auction network.",
   },
   {
     question: "Do you offer car delivery?",
@@ -27,7 +31,7 @@ const faqLeft: FaqItem[] = [
   {
     question: "Do you export vehicles internationally?",
     answer:
-      "Yes! We specialize in exporting vehicles worldwide. Whether you're located in the Middle East, Europe, or Asia, we can arrange reliable and efficient shipping to your destination.",
+      "Yes! We specialize in exporting vehicles worldwide. Whether you’re located in the Middle East, Europe, or Asia, we can arrange reliable and efficient shipping to your destination.",
   },
   {
     question: "Where do you source your vehicles from?",
@@ -45,12 +49,12 @@ const faqRight: FaqItem[] = [
   {
     question: "Do you take trade-ins?",
     answer:
-      "Yes, we accept trade-ins. Bring your vehicle for an on-the-spot appraisal or contact us with the details (year, make, model, mileage, condition) and we'll provide an estimate.",
+      "Yes, we accept trade-ins. Bring your vehicle for an on-the-spot appraisal or contact us with the details (year, make, model, mileage, condition) and we’ll provide an estimate.",
   },
   {
     question: "What documents do I need to bring when buying a car?",
     answer:
-      "You'll need a valid driver's license and proof of insurance. If financing, additional documents like recent pay stubs, proof of address, or credit info may be required.",
+      "You’ll need a valid driver’s license and proof of insurance. If financing, additional documents like recent pay stubs, proof of address, or credit info may be required.",
   },
   {
     question: "Do you sell to customers outside Ontario?",
@@ -64,29 +68,6 @@ const faqRight: FaqItem[] = [
   },
 ];
 
-type FetchState = "ok" | "not-found" | "error";
-
-let faqFetchState: FetchState = "ok";
-let cmsFaqItems: FaqItem[] = [];
-
-try {
-  const faq = await getFaqPageContent();
-  if (faq.page || faq.items.length > 0) {
-    cmsFaqItems = faq.items;
-  } else {
-    faqFetchState = "not-found";
-  }
-} catch (error) {
-  faqFetchState = "error";
-  console.error("[about-us] Failed to load FAQ content from WordPress", error);
-}
-
-const fallbackFaqItems = [...faqLeft, ...faqRight];
-const effectiveFaqItems =
-  cmsFaqItems.length > 0 ? cmsFaqItems : fallbackFaqItems;
-const faqMidpoint = Math.ceil(effectiveFaqItems.length / 2);
-const renderFaqLeft = effectiveFaqItems.slice(0, faqMidpoint);
-const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
 ---
 
 <Layout
@@ -94,16 +75,6 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
   description="Learn about Alfursan Auto — a trusted used car dealership in the Greater Toronto Area specializing in retail sales, wholesale deals, and international exports."
 >
   <main id="main-content" class="container">
-    {
-      faqFetchState !== "ok" && (
-        <p class="cms-status" role="status">
-          {faqFetchState === "error"
-            ? "Live FAQ content could not be loaded right now. Showing fallback content."
-            : "Live FAQ content is not available. Showing fallback content."}
-        </p>
-      )
-    }
-
     <!-- ── Intro (two-column: text + image) ─────────── -->
     <section class="intro">
       <div class="intro-text">
@@ -122,7 +93,7 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
         </p>
         <p class="callout">
           From the moment you walk in, we aim to make your experience clear and
-          stress-free. Whether you're buying locally or exporting overseas, our
+          stress-free. Whether you’re buying locally or exporting overseas, our
           goal is to make sure you leave with confidence.
         </p>
         <p>
@@ -222,7 +193,7 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
       <div class="faq-grid">
         <div class="faq-column">
           {
-            renderFaqLeft.map((item, idx) => (
+            faqLeft.map((item, idx) => (
               <details class="faq-item" open={idx === 0}>
                 <summary>{item.question}</summary>
                 <p>{item.answer}</p>
@@ -233,7 +204,7 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
 
         <div class="faq-column">
           {
-            renderFaqRight.map((item, idx) => (
+            faqRight.map((item, idx) => (
               <details class="faq-item" open={idx === 0}>
                 <summary>{item.question}</summary>
                 <p>{item.answer}</p>
@@ -256,17 +227,6 @@ const renderFaqRight = effectiveFaqItems.slice(faqMidpoint);
     max-width: 1466px;
     margin: 0 auto;
     padding: 6.3rem 30px 4rem;
-  }
-
-  .cms-status {
-    margin: 0 0 1rem;
-    padding: 0.75rem 0.9rem;
-    border-radius: 10px;
-    border: 1px solid #f2d6a1;
-    background: #fff4dd;
-    color: #7a4d00;
-    font-size: 0.9rem;
-    line-height: 1.5;
   }
 
   /* ── Intro section ───────────────────────────────── */
