@@ -20,18 +20,102 @@ export const decodeHtmlEntities = (input: string): string =>
   input
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#039;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
 
-const stripHtmlTags = (input: string): string =>
+// WP wraps every block in its own <p>/<div>/<li>/<h1-6> (often with spacer
+// paragraphs like "<p>&nbsp;</p>" between sections) — treat those and <br>
+// as line breaks rather than flattening the whole post into one run-on line.
+const BLOCK_BREAK_TAGS = /<\/(?:p|div|li|h[1-6])>|<br\s*\/?>/gi;
+
+const stripHtmlTags = (input: string): string => input.replace(/<[^>]*>/g, " ");
+
+/**
+ * Convert a WP post's rendered HTML content into plain text for the public
+ * `description` field, keeping paragraph breaks as blank lines instead of
+ * collapsing everything into a single line. The DMS description field is
+ * plain text (no HTML), so this is the best fidelity that model supports —
+ * see removeCarfaxAnchors()/extractCarfaxLink() for pulling the Carfax
+ * report link out into its own dedicated `carfax_link` column instead of
+ * leaving dead link text behind.
+ */
+export const stripHtmlToPlainText = (html: string): string =>
+  html
+    .replace(BLOCK_BREAK_TAGS, "\n")
+    .split("\n")
+    .map((line) => decodeHtmlEntities(stripHtmlTags(line)).replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+
+/** Find the first WordPress content link pointing at a Carfax vehicle history report, if any. */
+export const extractCarfaxLink = (html: string): string | undefined => {
+  const anchorRe = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = anchorRe.exec(html))) {
+    const href = decodeHtmlEntities(match[1]);
+    if (/carfax\.ca/i.test(href)) return href;
+  }
+  return undefined;
+};
+
+/** Strip Carfax report links out of WP content before flattening to plain text, so no dead link text (e.g. "Carfax Report") is left behind in the description. */
+const removeCarfaxAnchors = (html: string): string =>
+  html.replace(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>.*?<\/a>/gis, (full, href) =>
+    /carfax\.ca/i.test(href) ? "" : full
+  );
+
+// ── Legacy (pre-fix) description reconstruction — for safe one-time repair only ──
+//
+// A prior run of this migration (before stripHtmlToPlainText was fixed to
+// preserve paragraph breaks and extract the Carfax link) already wrote the
+// old, run-on-line description into some `vehicles` rows. Those rows'
+// `description` is no longer empty, so buildFillPatch()'s normal
+// fill-only-if-empty rule will never revisit them. `isUnrefreshedLegacyDescription`
+// lets the migration script safely auto-correct exactly those rows — and only
+// those — by checking whether the existing DB value still matches byte-for-byte
+// what the old, buggy code would have produced from the current WP content. If
+// it doesn't match (WP content changed since, or — more likely — an admin has
+// since hand-edited the public description in the admin UI), the row is left
+// untouched and flagged for manual review instead of being silently overwritten.
+//
+// This reproduces the OLD (buggy) algorithm exactly, including its lack of
+// &nbsp; decoding — do not "fix" or reuse this for anything else.
+const legacyDecodeHtmlEntities = (input: string): string =>
+  input
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+
+const legacyStripHtmlTags = (input: string): string =>
   input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
-/** Convert a WP post's rendered HTML content into plain text for the public `description` field. */
-export const stripHtmlToPlainText = (html: string): string =>
-  decodeHtmlEntities(stripHtmlTags(html));
+export const legacyStripHtmlToPlainTextV1 = (html: string): string =>
+  legacyDecodeHtmlEntities(legacyStripHtmlTags(html));
+
+/**
+ * True when an existing DB `description` is non-empty and still exactly
+ * matches what the old, buggy migration would have produced from the current
+ * WP content — meaning no one has touched it since, so it's safe to replace
+ * with the corrected description. False when it's empty (buildFillPatch
+ * already handles that case) or differs at all (an admin may have hand-edited
+ * it, or the WP content itself changed since the original migration ran) —
+ * either way, never auto-overwrite.
+ */
+export function isUnrefreshedLegacyDescription(
+  existingDescription: unknown,
+  htmlDescription: string
+): boolean {
+  if (typeof existingDescription !== "string" || existingDescription.trim() === "") return false;
+  return existingDescription === legacyStripHtmlToPlainTextV1(htmlDescription);
+}
 
 const slugify = (raw: string): string =>
   raw.trim().toLowerCase().replace(/[\s_-]+/g, "_");
@@ -234,7 +318,8 @@ export function mapWpCarToVehicleRow(fields: ResolvedWpCarFields): MappedVehicle
     warnings.push(`unparseable odometer value "${fields.odometerRaw}"`);
   }
 
-  const description = stripHtmlToPlainText(fields.htmlDescription);
+  const carfaxLink = extractCarfaxLink(fields.htmlDescription);
+  const description = stripHtmlToPlainText(removeCarfaxAnchors(fields.htmlDescription));
   const features = [...new Set(fields.features.map((f) => f.trim()).filter(Boolean))];
   const status = isSoldOfferType(fields.offerTypeRaw) ? "sold" : "frontline_ready";
 
@@ -255,6 +340,7 @@ export function mapWpCarToVehicleRow(fields: ResolvedWpCarFields): MappedVehicle
   if (odometer !== undefined) row.odometer = odometer;
   if (features.length > 0) row.features = features;
   if (description) row.description = description;
+  if (carfaxLink) row.carfax_link = carfaxLink;
   const price = toPrice(fields.priceObject);
   if (price !== undefined) row.advertised_price_cargurus = price;
 
@@ -302,14 +388,17 @@ export function summarizeMigrationResults(
 
 // Fields WordPress can supply that the CSV/OpenLane import sheet never does
 // (drive_type, transmission, fuel_type, cylinders, doors, features,
-// description), plus the handful of overlapping spec fields — filled only
-// when the existing DMS row doesn't already have a value. `status` is
-// deliberately excluded: it's staff-managed operational state, not vehicle
-// spec data, and this migration never touches it on an existing vehicle.
+// description, carfax_link — the Carfax report link is embedded as an <a>
+// inside the WP post body, not a sheet column), plus the handful of
+// overlapping spec fields — filled only when the existing DMS row doesn't
+// already have a value. `status` is deliberately excluded: it's
+// staff-managed operational state, not vehicle spec data, and this
+// migration never touches it on an existing vehicle.
 export const FILLABLE_FIELDS = [
   "make", "model", "year", "body_type",
   "drive_type", "transmission", "fuel_type", "cylinders", "doors",
   "colour", "odometer", "features", "description", "advertised_price_cargurus",
+  "carfax_link",
 ] as const;
 
 function isEmptyValue(value: unknown): boolean {

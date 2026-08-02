@@ -7,6 +7,9 @@ import {
   isSoldOfferType,
   parseLeadingInt,
   stripHtmlToPlainText,
+  extractCarfaxLink,
+  legacyStripHtmlToPlainTextV1,
+  isUnrefreshedLegacyDescription,
   mapWpCarToVehicleRow,
   summarizeMigrationResults,
   buildReconciliationArtifacts,
@@ -114,8 +117,94 @@ describe("stripHtmlToPlainText", () => {
     );
   });
 
-  it("collapses repeated whitespace", () => {
-    expect(stripHtmlToPlainText("<p>Line one</p>\n\n<p>Line two</p>")).toBe("Line one Line two");
+  it("preserves paragraph breaks as blank lines instead of flattening to one line", () => {
+    expect(stripHtmlToPlainText("<p>Line one</p>\n\n<p>Line two</p>")).toBe(
+      "Line one\n\nLine two"
+    );
+  });
+
+  it("treats <br> as a line break too", () => {
+    expect(stripHtmlToPlainText("<p>Line one<br>Line two</p>")).toBe("Line one\n\nLine two");
+  });
+
+  it("collapses repeated whitespace within a single line", () => {
+    expect(stripHtmlToPlainText("<p>Too    many   spaces</p>")).toBe("Too many spaces");
+  });
+
+  it("drops empty spacer paragraphs (WP's <p>&nbsp;</p> between sections)", () => {
+    expect(stripHtmlToPlainText("<p>Line one</p><p>&nbsp;</p><p>Line two</p>")).toBe(
+      "Line one\n\nLine two"
+    );
+  });
+});
+
+describe("extractCarfaxLink", () => {
+  it("finds a Carfax report link anywhere in the content", () => {
+    const html = '<p>Great car.</p><p><a href="https://vhr.carfax.ca/en/?id=abc123">Carfax Report</a></p>';
+    expect(extractCarfaxLink(html)).toBe("https://vhr.carfax.ca/en/?id=abc123");
+  });
+
+  it("is case-insensitive about the domain", () => {
+    const html = '<a href="https://vhr.CARFAX.ca/?id=xyz">link</a>';
+    expect(extractCarfaxLink(html)).toBe("https://vhr.CARFAX.ca/?id=xyz");
+  });
+
+  it("decodes HTML entities in the href", () => {
+    const html = '<a href="https://vhr.carfax.ca/?id=abc&amp;foo=bar">Carfax</a>';
+    expect(extractCarfaxLink(html)).toBe("https://vhr.carfax.ca/?id=abc&foo=bar");
+  });
+
+  it("ignores non-Carfax links", () => {
+    const html = '<p><a href="https://example.com">Visit us</a></p>';
+    expect(extractCarfaxLink(html)).toBeUndefined();
+  });
+
+  it("returns undefined when there is no link at all", () => {
+    expect(extractCarfaxLink("<p>No links here.</p>")).toBeUndefined();
+  });
+});
+
+// ── legacyStripHtmlToPlainTextV1 / isUnrefreshedLegacyDescription ──────────────
+// These exist only to safely detect (and repair) vehicles migrated before the
+// description/Carfax-link fix — see --refresh-description in the migration script.
+
+describe("legacyStripHtmlToPlainTextV1", () => {
+  it("reproduces the old buggy behaviour: flattens paragraphs onto one line", () => {
+    expect(legacyStripHtmlToPlainTextV1("<p>Line one</p>\n\n<p>Line two</p>")).toBe(
+      "Line one Line two"
+    );
+  });
+
+  it("does NOT decode &nbsp; (the old bug) — leaves it as literal text", () => {
+    expect(legacyStripHtmlToPlainTextV1("<p>Line one</p><p>&nbsp;</p><p>Line two</p>")).toBe(
+      "Line one &nbsp; Line two"
+    );
+  });
+});
+
+describe("isUnrefreshedLegacyDescription", () => {
+  const html = "<p>Well maintained, single owner.</p><p>&nbsp;</p><p>Second line.</p>";
+
+  it("is true when the existing description exactly matches the old buggy output", () => {
+    const existing = legacyStripHtmlToPlainTextV1(html);
+    expect(isUnrefreshedLegacyDescription(existing, html)).toBe(true);
+  });
+
+  it("is false when the existing description is empty, null, or undefined", () => {
+    expect(isUnrefreshedLegacyDescription("", html)).toBe(false);
+    expect(isUnrefreshedLegacyDescription("   ", html)).toBe(false);
+    expect(isUnrefreshedLegacyDescription(null, html)).toBe(false);
+    expect(isUnrefreshedLegacyDescription(undefined, html)).toBe(false);
+  });
+
+  it("is false when the existing description was hand-edited (doesn't match the old output)", () => {
+    expect(isUnrefreshedLegacyDescription("A staff member rewrote this listing entirely.", html)).toBe(
+      false
+    );
+  });
+
+  it("is false when the existing description already is the new, corrected format", () => {
+    expect(isUnrefreshedLegacyDescription(stripHtmlToPlainText(html), html)).toBe(false);
   });
 });
 
@@ -183,6 +272,27 @@ describe("mapWpCarToVehicleRow — happy path", () => {
     expect(result.row).not.toHaveProperty("images_json");
     expect(result.row).not.toHaveProperty("videos_json");
     expect(result.row).not.toHaveProperty("photography_status");
+  });
+
+  it("pulls the Carfax report link out of the post body into carfax_link, and keeps the rest of the description formatted", () => {
+    const result = mapWpCarToVehicleRow({
+      ...FULL_FIELDS,
+      htmlDescription:
+        "<p>Well maintained, single owner.</p>" +
+        '<p><a href="https://vhr.carfax.ca/en/?id=abc123">Carfax Report</a></p>' +
+        "<p><strong>The LX Advantage</strong></p>" +
+        "<p>Standard equipment includes a rearview camera.</p>",
+    });
+    expect(result.row?.carfax_link).toBe("https://vhr.carfax.ca/en/?id=abc123");
+    expect(result.row?.description).toBe(
+      "Well maintained, single owner.\n\nThe LX Advantage\n\nStandard equipment includes a rearview camera."
+    );
+    expect(result.row?.description).not.toContain("Carfax");
+  });
+
+  it("omits carfax_link entirely when the post body has no Carfax link", () => {
+    const result = mapWpCarToVehicleRow(FULL_FIELDS);
+    expect(result.row).not.toHaveProperty("carfax_link");
   });
 });
 
@@ -360,6 +470,28 @@ describe("buildFillPatch", () => {
     expect(patch.colour).toBeUndefined();
     expect(patch.odometer).toBeUndefined();
     expect(patch.drive_type).toBeUndefined();
+  });
+
+  it("fills carfax_link when the existing row has none and WP's post body has a Carfax link", () => {
+    const rowWithCarfax = mapWpCarToVehicleRow({
+      ...FULL_FIELDS,
+      htmlDescription: '<p><a href="https://vhr.carfax.ca/en/?id=abc123">Carfax Report</a></p>',
+    }).row!;
+    const existingRow = { vin: rowWithCarfax.vin, carfax_link: null };
+
+    const patch = buildFillPatch(existingRow, rowWithCarfax);
+    expect(patch.carfax_link).toBe("https://vhr.carfax.ca/en/?id=abc123");
+  });
+
+  it("never overwrites an existing carfax_link", () => {
+    const rowWithCarfax = mapWpCarToVehicleRow({
+      ...FULL_FIELDS,
+      htmlDescription: '<p><a href="https://vhr.carfax.ca/en/?id=abc123">Carfax Report</a></p>',
+    }).row!;
+    const existingRow = { vin: rowWithCarfax.vin, carfax_link: "https://vhr.carfax.ca/?id=already-set" };
+
+    const patch = buildFillPatch(existingRow, rowWithCarfax);
+    expect(patch.carfax_link).toBeUndefined();
   });
 
   it("never includes status, even when the existing row's status is null", () => {
