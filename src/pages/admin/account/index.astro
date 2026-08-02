@@ -8,5 +8,9 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 ---
 
 <AdminLayout title="Account">
-  <PasskeyManager supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_PUBLISHABLE_KEY} client:load />
+  {SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY ? (
+    <PasskeyManager supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_PUBLISHABLE_KEY} client:load />
+  ) : (
+    <p>Admin auth is not configured on this environment.</p>
+  )}
 </AdminLayout>
