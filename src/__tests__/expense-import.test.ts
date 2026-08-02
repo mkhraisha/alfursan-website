@@ -213,6 +213,18 @@ describe("applyExpenseMapping", () => {
     expect(applyExpenseMapping(row, fullMapping).tax_amount).toBe(0);
   });
 
+  it("rounds a sub-cent negative tax_amount artifact (spreadsheet float residue) to zero", () => {
+    const fullMapping = { ...mapping, HST: "tax_amount" };
+    const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "100", HST: "CA$-0.0000000000004" };
+    expect(applyExpenseMapping(row, fullMapping).tax_amount).toBe(0);
+  });
+
+  it("still rejects a genuine cent-level negative tax_amount", () => {
+    const fullMapping = { ...mapping, HST: "tax_amount" };
+    const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "100", HST: "CA$-0.02" };
+    expect(applyExpenseMapping(row, fullMapping).tax_amount).toBe(-0.02);
+  });
+
   it("maps a tax rate column to tax_rate", () => {
     const fullMapping = { ...mapping, Rate: "tax_rate" };
     const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "1", Rate: "13%" };

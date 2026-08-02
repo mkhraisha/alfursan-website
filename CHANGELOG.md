@@ -51,6 +51,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed the expense CSV importer rejecting rows whose `tax_amount`/`amount` column contained sub-cent floating-point residue from a spreadsheet formula (e.g. `-0.0000000000004`, displayed as `$0.00`) — `parseCurrency` now rounds parsed values to the nearest cent, so this no longer trips the `tax_amount >= 0` check for vendors that charge no tax.
 - Stopped creating a Sentry release/deploy on every build (including PR preview deploys) — `astro.config.mjs` now only creates and finalizes a Sentry release, and records a deploy, when `VERCEL_ENV` is `production`. Preview builds still upload source maps for the runtime SDK's error reporting.
 - Fixed the "Listing" link on the admin finance application view, which pointed at the non-existent `/listings/` route instead of `/listing/`.
 - Fixed the homepage auto-scrolling ~2000px down on every load: the Popular Makes tab strip called `scrollIntoView` on mount instead of only on user-driven tab changes.
