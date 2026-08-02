@@ -984,6 +984,13 @@ const localBusinessSchema = {
       aspect-ratio: 16 / 9;
     }
 
+    /* On mobile the overlay text can grow taller than the shrunken image
+       and end up covering it entirely — flow it below the image instead,
+       like the smaller cards. */
+    .card-hero .card-body {
+      position: static;
+    }
+
     .featured-grid {
       grid-template-columns: 1fr;
     }
