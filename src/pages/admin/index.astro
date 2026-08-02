@@ -182,7 +182,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         <button type="submit" id="submit-btn">Send Magic Link</button>
       </form>
 
-      <div class="divider">or</div>
+      <div class="divider" id="passkey-divider" hidden>or</div>
       <button type="button" id="passkey-btn" class="btn-secondary" hidden>
         Sign in with a passkey
       </button>
