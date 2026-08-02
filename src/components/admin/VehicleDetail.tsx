@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
 import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -12,6 +12,13 @@ export type VehicleFull = {
   series: string | null;
   body_type: string | null;
   engine_type: string | null;
+  drive_type: string | null;
+  transmission: string | null;
+  fuel_type: string | null;
+  cylinders: number | null;
+  doors: number | null;
+  features: string[];
+  description: string | null;
   num_keys: number | null;
   year: number | null;
   colour: string | null;
@@ -293,6 +300,11 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     series:                v.series ?? "",
     body_type:             v.body_type ?? "",
     engine_type:           v.engine_type ?? "",
+    drive_type:            v.drive_type ?? "",
+    transmission:          v.transmission ?? "",
+    fuel_type:             v.fuel_type ?? "",
+    cylinders:             v.cylinders != null ? String(v.cylinders) : "",
+    doors:                 v.doors != null ? String(v.doors) : "",
     year:                  String(v.year ?? ""),
     colour:                v.colour ?? "",
     odometer:              v.odometer != null ? v.odometer.toLocaleString("en-CA") : "",
@@ -303,9 +315,23 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     garage_register_number: v.garage_register_number ?? "",
     carfax_link:           v.carfax_link ?? "",
   });
+  const [features,      setFeatures]      = useState<string[]>(v.features ?? []);
+  const [featureInput,  setFeatureInput]  = useState("");
+  const [description,   setDescription]  = useState(v.description ?? "");
   const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
   const [disclosures,   setDisclosures]   = useState(v.disclosures ?? "");
   const [saving, setSaving] = useState(false);
+
+  function addFeature() {
+    const val = featureInput.trim();
+    if (!val || features.includes(val)) { setFeatureInput(""); return; }
+    setFeatures((f) => [...f, val]);
+    setFeatureInput("");
+  }
+
+  function removeFeature(val: string) {
+    setFeatures((f) => f.filter((x) => x !== val));
+  }
 
   const daysOnLot = calcDaysOnLot(v.purchase_date);
 
@@ -322,6 +348,11 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     if (form.series)      fields.series      = form.series;
     if (form.body_type)   fields.body_type   = form.body_type;
     fields.engine_type           = form.engine_type || null;
+    fields.drive_type            = form.drive_type || null;
+    fields.transmission          = form.transmission || null;
+    fields.fuel_type             = form.fuel_type || null;
+    fields.cylinders             = form.cylinders !== "" ? parseInt(form.cylinders) : null;
+    fields.doors                 = form.doors !== "" ? parseInt(form.doors) : null;
     if (form.year)        fields.year        = parseInt(form.year);
     if (form.colour)      fields.colour      = form.colour;
     if (form.odometer)    fields.odometer    = parseInt(form.odometer.replace(/,/g, ""));
@@ -331,6 +362,8 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     fields.photography_status    = form.photography_status || null;
     fields.garage_register_number = form.garage_register_number || null;
     fields.carfax_link           = form.carfax_link || null;
+    fields.features              = features;
+    fields.description           = description || null;
     await onSave(fields); setSaving(false);
   }
 
@@ -356,6 +389,35 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
           </select>
         </div>
         <div className="f-field"><label>Engine Type</label><input value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L 4-Cylinder" /></div>
+        <div className="f-field">
+          <label>Drive Type</label>
+          <select value={form.drive_type} onChange={(e) => set("drive_type", e.target.value)}>
+            <option value="">— Select —</option>
+            {DRIVE_TYPES.map((dt) => (
+              <option key={dt} value={dt}>{dt.toUpperCase()}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field">
+          <label>Transmission</label>
+          <select value={form.transmission} onChange={(e) => set("transmission", e.target.value)}>
+            <option value="">— Select —</option>
+            {TRANSMISSIONS.map((t) => (
+              <option key={t} value={t}>{t === "cvt" ? "CVT" : t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field">
+          <label>Fuel Type</label>
+          <select value={form.fuel_type} onChange={(e) => set("fuel_type", e.target.value)}>
+            <option value="">— Select —</option>
+            {FUEL_TYPES.map((ft) => (
+              <option key={ft} value={ft}>{ft.charAt(0).toUpperCase() + ft.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="f-field"><label>Cylinders</label><input type="number" min="1" value={form.cylinders} onChange={(e) => set("cylinders", e.target.value)} placeholder="e.g. 4" /></div>
+        <div className="f-field"><label>Doors</label><input type="number" min="2" max="6" value={form.doors} onChange={(e) => set("doors", e.target.value)} placeholder="e.g. 4" /></div>
         <div className="f-field"><label>Colour</label><input value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
         <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
         <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
@@ -406,6 +468,42 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
             <label>Garage Register #</label>
             <input value={form.garage_register_number} onChange={(e) => set("garage_register_number", e.target.value)} />
           </div>
+        </div>
+      </div>
+
+      {/* Public listing fields */}
+      <div style={{ borderTop: "1px solid #f0f2f5", paddingTop: 20, marginTop: 16 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: "#99a1b2", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 14px" }}>Public Listing</h3>
+        <div className="f-field" style={{ marginBottom: 16 }}>
+          <label>Features</label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input
+              value={featureInput}
+              onChange={(e) => setFeatureInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }}
+              placeholder="e.g. Heated Seats"
+            />
+            <button type="button" className="btn-secondary" onClick={addFeature}>Add</button>
+          </div>
+          {features.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {features.map((f) => (
+                <span key={f} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", background: "#f8f9fb", border: "1px solid #e4e7ec", borderRadius: 14, fontSize: 13 }}>
+                  {f}
+                  <button type="button" onClick={() => removeFeature(f)} style={{ border: "none", background: "none", cursor: "pointer", color: "#99a1b2", fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="f-field">
+          <label>Public Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder="Marketing copy shown on the public listing page…"
+          />
         </div>
       </div>
 

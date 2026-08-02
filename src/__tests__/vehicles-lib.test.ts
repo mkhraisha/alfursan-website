@@ -10,6 +10,9 @@ import {
   aggregateMonthlySales,
   getMonthDateRange,
   BODY_TYPES,
+  DRIVE_TYPES,
+  TRANSMISSIONS,
+  FUEL_TYPES,
   type SoldVehicle,
 } from "../lib/vehicles";
 
@@ -403,5 +406,93 @@ describe("vehicleCreateSchema — body_type", () => {
 
   it("body_type is optional on update (partial schema)", () => {
     expect(vehicleUpdateSchema.safeParse({ colour: "Blue" }).success).toBe(true);
+  });
+});
+
+// ── WordPress migration Part 1: new public-listing fields ────────────────────
+
+describe("vehicleCreateSchema — drive_type", () => {
+  it.each(DRIVE_TYPES)("accepts valid drive_type '%s'", (dt) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, drive_type: dt }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised drive_type", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, drive_type: "4x4" }).success).toBe(false);
+  });
+
+  it("is optional", () => {
+    expect(vehicleCreateSchema.safeParse(BASE_VEHICLE).success).toBe(true);
+  });
+});
+
+describe("vehicleCreateSchema — transmission", () => {
+  it.each(TRANSMISSIONS)("accepts valid transmission '%s'", (t) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, transmission: t }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised transmission", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, transmission: "semi-auto" }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — fuel_type", () => {
+  it.each(FUEL_TYPES)("accepts valid fuel_type '%s'", (ft) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, fuel_type: ft }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised fuel_type", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, fuel_type: "propane" }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — cylinders", () => {
+  it("accepts a positive integer", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, cylinders: 4 }).success).toBe(true);
+  });
+
+  it("rejects zero", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, cylinders: 0 }).success).toBe(false);
+  });
+
+  it("rejects a negative number", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, cylinders: -2 }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — doors", () => {
+  it.each([2, 3, 4, 5, 6])("accepts %i doors", (d) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, doors: d }).success).toBe(true);
+  });
+
+  it("rejects 1 door", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, doors: 1 }).success).toBe(false);
+  });
+
+  it("rejects 7 doors", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, doors: 7 }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — features", () => {
+  it("accepts a list of strings", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, features: ["Heated Seats", "Sunroof"] }).success).toBe(true);
+  });
+
+  it("accepts an empty list", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, features: [] }).success).toBe(true);
+  });
+
+  it("is optional", () => {
+    expect(vehicleCreateSchema.safeParse(BASE_VEHICLE).success).toBe(true);
+  });
+});
+
+describe("vehicleCreateSchema — description", () => {
+  it("accepts a public description string", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, description: "A well-maintained one-owner vehicle." }).success).toBe(true);
+  });
+
+  it("is optional", () => {
+    expect(vehicleCreateSchema.safeParse(BASE_VEHICLE).success).toBe(true);
   });
 });

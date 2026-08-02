@@ -67,7 +67,7 @@ function makeListMock(vehicles = [VEHICLE], expenses: {vin: string; amount: numb
     return {};
   });
 
-  return { client: { from: fromFn } };
+  return { client: { from: fromFn }, selectListFn };
 }
 
 /** Build a Supabase mock for GET single vehicle */
@@ -173,6 +173,18 @@ describe("GET /api/vehicles — unauthenticated", () => {
     const body = await res.json();
     // Public response is the raw Supabase row — no server-side enrichment
     expect(body.data[0]).not.toHaveProperty("expense_total");
+  });
+
+  it("selects the new public-listing fields (drive_type, transmission, fuel_type, cylinders, doors, features, description)", async () => {
+    const { client, selectListFn } = makeListMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    await vehiclesGET({ request: req("/api/vehicles") } as never);
+
+    const selectedColumns = selectListFn.mock.calls[0][0] as string;
+    for (const col of ["drive_type", "transmission", "fuel_type", "cylinders", "doors", "features", "description"]) {
+      expect(selectedColumns).toContain(col);
+    }
   });
 });
 
@@ -308,6 +320,79 @@ describe("POST /api/vehicles", () => {
 
     const res = await vehiclesPOST({ request: req("/api/vehicles", "POST", VALID_BODY) } as never);
     expect(res.status).toBe(403);
+  });
+
+  it("returns 201 when new public-listing fields are provided", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const { client } = makeInsertMock({
+      ...VEHICLE,
+      drive_type: "awd",
+      transmission: "automatic",
+      fuel_type: "gasoline",
+      cylinders: 4,
+      doors: 4,
+      features: ["Heated Seats"],
+      description: "A well-maintained one-owner vehicle.",
+    });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vehiclesPOST({
+      request: req("/api/vehicles", "POST", {
+        ...VALID_BODY,
+        drive_type: "awd",
+        transmission: "automatic",
+        fuel_type: "gasoline",
+        cylinders: 4,
+        doors: 4,
+        features: ["Heated Seats"],
+        description: "A well-maintained one-owner vehicle.",
+      }),
+    } as never);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.drive_type).toBe("awd");
+    expect(body.transmission).toBe("automatic");
+    expect(body.fuel_type).toBe("gasoline");
+    expect(body.cylinders).toBe(4);
+    expect(body.doors).toBe(4);
+    expect(body.features).toEqual(["Heated Seats"]);
+    expect(body.description).toBe("A well-maintained one-owner vehicle.");
+  });
+
+  it("returns 422 for an invalid drive_type", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const res = await vehiclesPOST({
+      request: req("/api/vehicles", "POST", { ...VALID_BODY, drive_type: "4x4" }),
+    } as never);
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 422 for an invalid transmission", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const res = await vehiclesPOST({
+      request: req("/api/vehicles", "POST", { ...VALID_BODY, transmission: "semi-auto" }),
+    } as never);
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 422 for an invalid fuel_type", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const res = await vehiclesPOST({
+      request: req("/api/vehicles", "POST", { ...VALID_BODY, fuel_type: "propane" }),
+    } as never);
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 422 for doors outside 2-6", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const res = await vehiclesPOST({
+      request: req("/api/vehicles", "POST", { ...VALID_BODY, doors: 7 }),
+    } as never);
+    expect(res.status).toBe(422);
   });
 });
 
@@ -518,6 +603,35 @@ describe("POST /api/vehicles/import", () => {
     const body = await res.json();
     expect(body).toHaveProperty("preview");
     expect(body.valid_count).toBe(1);
+  });
+
+  it("maps and normalizes the new public-listing columns (drive_type, transmission, fuel_type, cylinders, doors)", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const csv = [
+      "VIN,Make,Model,Year,Body Type,Drive Type,Transmission,Fuel Type,Cylinders,Doors",
+      "1HGCM82633A004352,Honda,Civic,2020,sedan,AWD,Automatic,Gasoline,4,4",
+    ].join("\n");
+    const mapping = JSON.stringify({
+      VIN: "vin", Make: "make", Model: "model", Year: "year", "Body Type": "body_type",
+      "Drive Type": "drive_type", Transmission: "transmission", "Fuel Type": "fuel_type",
+      Cylinders: "cylinders", Doors: "doors",
+    });
+
+    const request = new Request("https://alfursanauto.ca/api/vehicles/import", {
+      method: "POST",
+      body: makeImportFormData(csv, mapping, true),
+    });
+    const res = await importPOST({ request } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid_count).toBe(1);
+    expect(body.preview[0]).toMatchObject({
+      drive_type: "awd",
+      transmission: "automatic",
+      fuel_type: "gasoline",
+      cylinders: 4,
+      doors: 4,
+    });
   });
 
   it("inserts new VINs and returns created count", async () => {

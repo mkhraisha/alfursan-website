@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - **Export CSV** button on the admin Garage Register — exports all vehicles matching the current search.
 - Drag-and-drop support on the vehicle and expense CSV importer upload zones, in addition to click-to-select.
 - `suv`, `hatchback`, `truck`, and `wagon` body types on vehicles, alongside sedan/van/coupe/convertible — selectable on the Add Vehicle form, the vehicle Purchase tab, and mappable in the vehicle CSV importer.
+- WordPress migration Part 1 — new public-listing vehicle fields: `drive_type` (fwd/rwd/awd/4wd), `transmission` (automatic/manual/cvt), `fuel_type` (gasoline/diesel/hybrid/electric), `cylinders`, `doors`, `features` (list), and a public `description`. Editable in a new "Public Listing" section on the admin vehicle Basics tab, mappable in the vehicle CSV importer (drive type/transmission/fuel type/cylinders/doors), and now included in the unauthenticated public API response (`PUBLIC_COLUMNS`).
 
 ### Changed
 

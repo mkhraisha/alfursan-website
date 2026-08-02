@@ -83,9 +83,9 @@ function applyMapping(
       out[vehicleField] = normalizeOwnershipStatus(raw);
     } else if (vehicleField === "status" || vehicleField === "photography_status") {
       out[vehicleField] = normalizeEnum(raw);
-    } else if (vehicleField === "body_type") {
+    } else if (vehicleField === "body_type" || vehicleField === "drive_type" || vehicleField === "transmission" || vehicleField === "fuel_type") {
       out[vehicleField] = raw.trim().toLowerCase();
-    } else if (vehicleField === "num_keys") {
+    } else if (vehicleField === "num_keys" || vehicleField === "cylinders" || vehicleField === "doors") {
       const n = parseInt(raw.replace(/[^0-9]/g, ""), 10);
       if (!isNaN(n)) out[vehicleField] = n;
     } else {

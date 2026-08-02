@@ -1,6 +1,6 @@
 # WordPress Migration Plan
 
-**Status:** Not Started
+**Status:** Part 1 complete (schema); Parts 2–8 not started
 **Date:** 2026-08-02
 **Supersedes/details:** `docs/DMS_PHASE2_PLAN.md` Sprint 2 ("Website Integration — Replace WordPress Inventory") — that sprint now just points here.
 **Related:** `docs/DEALER_MANAGEMENT_DECISIONS.md`, `docs/DEALER_MANAGEMENT_DESIGN.md`
@@ -56,7 +56,7 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
 
 ## 4. Part 1 — Schema: new vehicle fields
 
-- [ ] **Add `drive_type`, `transmission`, `fuel_type`, `cylinders`, `doors`, `features`, `description` to `vehicles`**
+- [x] **Add `drive_type`, `transmission`, `fuel_type`, `cylinders`, `doors`, `features`, `description` to `vehicles`**
   - **Description:** New migration `supabase/migrations/<timestamp>_add_public_listing_fields.sql`. Suggested types/constraints, following the existing `body_type` pattern (`20260531000002_add_vehicle_fields.sql`):
     - `drive_type TEXT CHECK (drive_type IS NULL OR drive_type IN ('fwd','rwd','awd','4wd'))`
     - `transmission TEXT CHECK (transmission IS NULL OR transmission IN ('automatic','manual','cvt'))`
@@ -68,17 +68,17 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
   - **Validation:** `supabase db reset` (local) applies cleanly. Inserting a vehicle with an invalid `drive_type`/`transmission`/`fuel_type` value is rejected with a check-constraint error (`23514`).
   - **Test:** Vitest coverage in `src/__tests__/vehicles.test.ts` (or new file) asserting `vehicleCreateSchema` accepts valid enum values and rejects invalid ones for each new field.
 
-- [ ] **Add new fields to `PUBLIC_COLUMNS` and `vehicleCreateSchema` in `src/lib/vehicles.ts`**
+- [x] **Add new fields to `PUBLIC_COLUMNS` and `vehicleCreateSchema` in `src/lib/vehicles.ts`**
   - **Description:** Extend `PUBLIC_COLUMNS` to include `drive_type, transmission, fuel_type, cylinders, doors, features, description` so the public API can return them. Extend the Zod schema so admin create/update validates the new fields.
   - **Validation:** `npm run build` passes. `GET /api/vehicles` (unauthenticated) response includes the new fields.
   - **Test:** Existing `src/__tests__/vehicles-api.test.ts`-style integration test extended to assert the new fields round-trip through POST → GET.
 
-- [ ] **Add fields to admin `VehicleDetail.tsx` (Basics tab)**
+- [x] **Add fields to admin `VehicleDetail.tsx` (Basics tab)**
   - **Description:** Add form inputs for drive type, transmission, fuel type, cylinders, doors (selects/number inputs matching the new CHECK constraints), a features list editor (add/remove chips), and a multiline public description textarea.
   - **Validation:** Editing and saving each field persists correctly and reloads with the saved value.
   - **Test:** Manual E2E per existing convention (Decision 12 in `DEALER_MANAGEMENT_DECISIONS.md`) — edit each field, save, reload page, confirm value present.
 
-- [ ] **(Optional) Map new fields in the vehicle CSV importer**
+- [x] **(Optional) Map new fields in the vehicle CSV importer**
   - **Description:** Add `drive_type`, `transmission`, `fuel_type`, `cylinders`, `doors` as mappable/optional columns in `src/pages/api/vehicles/import.ts` and the importer UI, consistent with how `lead_source` was added.
   - **Validation:** CSV import with these columns populated sets the fields; CSV without them leaves them `NULL`/empty without failing the import.
   - **Test:** Extend existing CSV import test fixtures with a row containing these columns.
