@@ -46,6 +46,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Stopped creating a Sentry release/deploy on every build (including PR preview deploys) — `astro.config.mjs` now only creates and finalizes a Sentry release, and records a deploy, when `VERCEL_ENV` is `production`. Preview builds still upload source maps for the runtime SDK's error reporting.
 - Fixed the "Listing" link on the admin finance application view, which pointed at the non-existent `/listings/` route instead of `/listing/`.
 - Fixed the homepage auto-scrolling ~2000px down on every load: the Popular Makes tab strip called `scrollIntoView` on mount instead of only on user-driven tab changes.
 - Fixed the financing application form's two-column field rows (Full Legal Name / Date of Birth, Phone / Email, etc.) never collapsing to one column on mobile, which truncated placeholder text and cramped inputs on narrow screens.
