@@ -13,7 +13,7 @@ const ROLE_RANK: Record<string, number> = { owner: 2, manager: 1, sales: 0 };
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 

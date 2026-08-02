@@ -12,6 +12,12 @@ export default defineConfig({
   adapter: vercel({
     isr: {
       expiration: 60 * 60 * 3, // 3-hour stale-while-revalidate edge cache
+      // API routes manage their own Cache-Control per endpoint (mutating routes
+      // must never be cached). Routing them through the ISR function ignores
+      // HTTP method and caches by path alone, which can serve a stale/cached
+      // response to POST/PATCH/DELETE requests — exclude them entirely so they
+      // run as plain serverless functions.
+      exclude: [/^\/api\//],
     },
   }),
   site: "https://alfursan-website.vercel.app",

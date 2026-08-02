@@ -495,6 +495,17 @@ describe("POST /api/vehicles/import", () => {
     expect(res.status).toBe(401);
   });
 
+  it("never sets a cacheable Cache-Control header on the response", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const request = new Request("https://alfursanauto.ca/api/vehicles/import", {
+      method: "POST",
+      body: makeImportFormData(VALID_CSV, MAPPING, true),
+    });
+    const res = await importPOST({ request } as never);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("returns preview rows without inserting when preview=true", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
 
