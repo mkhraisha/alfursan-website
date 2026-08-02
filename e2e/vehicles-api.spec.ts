@@ -117,8 +117,11 @@ test.describe("DELETE /api/vehicles/:vin (auth required)", () => {
   test("is rejected without sufficient permissions", async () => {
     // Expects 401 (no auth) or 403 (auth present but role lacks vehicles:delete).
     // Both are correct: the endpoint must not return 2xx without admin credentials.
+    // Origin header matches BASE_URL so this exercises the auth check itself,
+    // not Astro's same-origin CSRF guard (which also 403s bodyless/form-like
+    // requests with no matching Origin — see SAME_ORIGIN below).
     const ctx = await newRequest.newContext({ baseURL: BASE_URL });
-    const res = await ctx.delete(`${BASE}/1HGCM82633A004352`);
+    const res = await ctx.delete(`${BASE}/1HGCM82633A004352`, { headers: { Origin: BASE_URL } });
     await ctx.dispose();
     expect([401, 403]).toContain(res.status());
   });
@@ -131,6 +134,7 @@ test.describe("POST /api/vehicles/import (auth required)", () => {
     const mapping = JSON.stringify({ vin: "vin", make: "make", model: "model", year: "year" });
     const ctx = await newRequest.newContext({ baseURL: BASE_URL });
     const res = await ctx.post(`${BASE}/import`, {
+      headers: { Origin: BASE_URL },
       multipart: {
         file: { name: "test.csv", mimeType: "text/csv", buffer: Buffer.from(csv) },
         mapping,
@@ -146,7 +150,12 @@ test.describe("POST /api/vehicles/import (auth required)", () => {
 test.describe("Authenticated vehicle CRUD", () => {
   test.skip(!SERVICE_TOKEN, "E2E_SERVICE_TOKEN not set — skipping authenticated tests");
 
-  const authHeaders = { Authorization: `Bearer ${SERVICE_TOKEN}` };
+  // Origin must match BASE_URL: Astro's built-in CSRF guard (origin-check
+  // middleware) 403s any non-GET request that has neither a matching Origin
+  // header nor a non-form Content-Type — which covers bodyless DELETEs and
+  // multipart file uploads. Real browsers always send Origin on same-origin
+  // fetches, so production is unaffected; only headless API clients need this.
+  const authHeaders = { Authorization: `Bearer ${SERVICE_TOKEN}`, Origin: BASE_URL };
   const TEST_VIN = "E2ETEST0000000001"; // safe test VIN (17 chars, no I/O/Q) — cleaned up after
 
   test.afterAll(async ({ request }) => {
@@ -262,8 +271,9 @@ test.describe("RBAC — sales role restrictions", () => {
   test.skip(!SALES_TOKEN || !MANAGER_TOKEN,
     "E2E_SALES_TOKEN and E2E_MANAGER_TOKEN not set — skipping RBAC e2e tests");
 
-  const managerAuth = () => ({ Authorization: `Bearer ${MANAGER_TOKEN}` });
-  const salesAuth   = () => ({ Authorization: `Bearer ${SALES_TOKEN}` });
+  // See the Origin note on authHeaders above.
+  const managerAuth = () => ({ Authorization: `Bearer ${MANAGER_TOKEN}`, Origin: BASE_URL });
+  const salesAuth   = () => ({ Authorization: `Bearer ${SALES_TOKEN}`, Origin: BASE_URL });
   const RBAC_VIN    = "RBACE2ETEST000001";
 
   test.beforeAll(async () => {
