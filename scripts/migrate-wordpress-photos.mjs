@@ -13,10 +13,17 @@
  * admin convention), and `photography_status` flips from 'pending' to 'done'
  * so the vehicle becomes eligible for Part 3's public-visibility rule.
  *
- * Never touches a vehicle whose `images_json` is already populated — photo
- * uploads happen only through the DMS going forward (decision 4), so this
- * must not clobber photos an admin already curated after Part 2 ran. See
- * planVehiclePhotoMigration() in src/lib/wordpress-photo-migration.ts.
+ * Never touches a vehicle whose `images_json` contains a path this script
+ * wouldn't itself generate — photo uploads happen only through the DMS going
+ * forward (decision 4), so admin-curated photos are never clobbered. A
+ * vehicle whose `images_json` is a partial *subset* of what this script would
+ * generate (i.e. the leftover of an earlier run where some images failed —
+ * downloads/uploads do fail transiently under load) is safely resumed: only
+ * the still-missing images are attempted. Each download/upload is retried a
+ * few times before being counted as a failure, since most failures of this
+ * kind are transient network blips rather than permanent errors. See
+ * planVehiclePhotoMigration()/buildFinalImagesJson() in
+ * src/lib/wordpress-photo-migration.ts.
  *
  * Defaults to local/staging only: refuses to write to a non-local
  * SUPABASE_URL unless --allow-production is passed AND you type an exact
@@ -29,20 +36,27 @@
  *   node scripts/migrate-wordpress-photos.mjs [--limit=N]   # writes — requires a local SUPABASE_URL
  *   node scripts/migrate-wordpress-photos.mjs --allow-production [--limit=N]  # writes to a non-local SUPABASE_URL — prompts for confirmation
  *
+ * Re-running is always safe: a fully-migrated vehicle is skipped, and a
+ * partially-migrated one (some images still missing after a prior run) picks
+ * up only the missing images. Just re-run the same command to retry a run
+ * that reported per-image errors.
+ *
  * Options:
  *   --dry-run           Fetch + plan only. Never downloads, uploads, or writes to Supabase.
  *   --allow-production  Required to write to a non-local SUPABASE_URL. Still prompts for typed confirmation.
  *   --limit=N           Only process the first N WP cars (after fetching all pages).
  *   --vin=VIN           Only process a single VIN (for spot-checking before a full run).
- *   --concurrency=N     Max images downloaded/uploaded in parallel (default 4).
+ *   --concurrency=N     Max images downloaded/uploaded in parallel (default 4). Lower this if you see
+ *                       repeated "fetch failed" errors — that usually means the source/destination is
+ *                       rate-limiting concurrent requests, not a permanent failure.
  *   --wp-api-base=URL   Override the WordPress REST API base (default: https://media.alfursanauto.ca/wp-json)
  *
  * Output: docs/migration/wordpress-photos/<timestamp>/
  *   - report.md      human-readable summary
  *   - report.json    machine-readable version of the same
  *   - skipped.json   every skipped vehicle with its reason
- *   - migrated.json  every vehicle that got images_json populated, and the storage paths used
- *   - errors.json    per-image download/upload failures (partial migrations included)
+ *   - migrated.json  every vehicle that got images_json populated/updated this run, and how
+ *   - errors.json    per-image download/upload failures (after retries), partial migrations included
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -50,6 +64,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import {
   planVehiclePhotoMigration,
+  buildFinalImagesJson,
   buildPhotographyStatusPatch,
 } from "../src/lib/wordpress-photo-migration.ts";
 
@@ -63,6 +78,14 @@ const CONTENT_TYPE_BY_EXT = {
   webp: "image/webp",
   gif: "image/gif",
 };
+
+// A single image download or upload gets this many attempts total before
+// being counted as a failure. "fetch failed" (a bare network/socket error
+// with no HTTP status) is almost always transient — a brief retry with
+// backoff clears the large majority of them without any operator action.
+const MAX_ATTEMPTS = 4;
+const RETRY_DELAY_MS = 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── CLI args ────────────────────────────────────────────────────────────────────
 
@@ -179,23 +202,78 @@ async function mapWithConcurrency(items, limit, fn) {
   return results;
 }
 
+// ── Retry helper ─────────────────────────────────────────────────────────────
+// Wraps a step that returns { ok: true, value } or { ok: false, error } (and
+// may also throw on an unexpected network error — caught and treated the
+// same as an { ok: false } result) with a few retry attempts and linear
+// backoff. Used for both the WP download and the Supabase upload, since
+// either can fail with a bare "fetch failed" under transient load.
+
+async function withRetry(attemptFn, label) {
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let outcome;
+    try {
+      outcome = await attemptFn();
+    } catch (err) {
+      outcome = { ok: false, error: err?.message ?? String(err) };
+    }
+    if (outcome.ok) return outcome;
+    lastError = outcome.error;
+    if (attempt < MAX_ATTEMPTS) {
+      console.warn(`[migrate-photos] ${label}: attempt ${attempt}/${MAX_ATTEMPTS} failed (${lastError}), retrying...`);
+      await sleep(RETRY_DELAY_MS * attempt);
+    }
+  }
+  return { ok: false, error: lastError };
+}
+
 // ── Image download + upload ─────────────────────────────────────────────────────
 
-async function downloadAndUpload(db, sourceUrl, storagePath) {
+async function downloadOnce(sourceUrl) {
   const res = await fetch(sourceUrl);
-  if (!res.ok) {
-    return { ok: false, error: `download failed: HTTP ${res.status}` };
-  }
+  if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
   const buffer = Buffer.from(await res.arrayBuffer());
-  const ext = storagePath.split(".").pop();
-  const contentType = res.headers.get("content-type") ?? CONTENT_TYPE_BY_EXT[ext] ?? "application/octet-stream";
+  return { ok: true, value: { buffer, contentType: res.headers.get("content-type") ?? undefined } };
+}
 
+async function uploadOnce(db, storagePath, buffer, contentType) {
   const { error } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, buffer, {
     contentType,
     upsert: false,
   });
   if (error) {
-    return { ok: false, error: `upload failed: ${error.message}` };
+    // A retried upload can legitimately hit "the resource already exists":
+    // the *previous* attempt's write succeeded server-side even though its
+    // response timed out/errored on our end (observed in practice — a
+    // Supabase upload can succeed while the client still sees a transient
+    // "fetch failed"/timeout). Since storagePath is content-addressed by
+    // this vehicle+index (deterministic wp-NN naming, never reused for
+    // different content), an "already exists" here means the image we
+    // wanted is already there — treat it as success rather than burning
+    // through retries and eventually reporting a false failure.
+    const alreadyExists = /already exists/i.test(error.message ?? "");
+    if (!alreadyExists) return { ok: false, error: error.message };
+  }
+  return { ok: true, value: undefined };
+}
+
+async function downloadAndUpload(db, sourceUrl, storagePath) {
+  const downloadResult = await withRetry(() => downloadOnce(sourceUrl), `download ${sourceUrl}`);
+  if (!downloadResult.ok) {
+    return { ok: false, error: `download failed: ${downloadResult.error}` };
+  }
+
+  const { buffer, contentType: fetchedContentType } = downloadResult.value;
+  const ext = storagePath.split(".").pop();
+  const contentType = fetchedContentType ?? CONTENT_TYPE_BY_EXT[ext] ?? "application/octet-stream";
+
+  const uploadResult = await withRetry(
+    () => uploadOnce(db, storagePath, buffer, contentType),
+    `upload ${storagePath}`
+  );
+  if (!uploadResult.ok) {
+    return { ok: false, error: `upload failed: ${uploadResult.error}` };
   }
   return { ok: true };
 }
@@ -234,7 +312,9 @@ async function main() {
     if (DRY_RUN) {
       // Dry run has no DB credentials guaranteed — plan against an empty
       // images_json/photography_status assumption so it still reports what
-      // *would* be migrated if nothing has been touched yet.
+      // *would* be migrated if nothing has been touched yet. It won't
+      // preview a "resume" for a real partially-migrated vehicle; only a
+      // real run against Supabase sees that state.
       vehicles = candidateVins.map((vin) => ({ vin, images_json: [], photography_status: "pending" }));
     } else {
       const { data, error } = await db
@@ -260,15 +340,15 @@ async function main() {
     skipped.push({ vin, reason: "VIN not found in DMS (Part 2 must run first)" });
   }
 
-  const toMigrate = plans.filter((p) => p.action === "migrate");
-  const migrated = []; // { vin, storagePaths, photographyStatusUpdated }
+  const toAttempt = plans.filter((p) => p.action === "migrate" || p.action === "resume");
+  const migrated = []; // { vin, action, newlyUploaded, totalImages, stillMissing, photographyStatusUpdated }
   const errors = []; // { vin, sourceUrl, storagePath, error }
-  const failedVehicles = []; // { vin, reason: "all images failed" }
+  const failedVehicles = []; // { vin, reason }
 
   if (DRY_RUN) {
-    console.log(`[migrate-photos] Dry run — would migrate ${toMigrate.length} vehicle(s), ${toMigrate.reduce((n, p) => n + p.sourceUrls.length, 0)} image(s) total. Skipping downloads/uploads/writes.`);
+    console.log(`[migrate-photos] Dry run — would migrate ${toAttempt.length} vehicle(s), ${toAttempt.reduce((n, p) => n + p.sourceUrls.length, 0)} image(s) total. Skipping downloads/uploads/writes.`);
   } else {
-    for (const plan of toMigrate) {
+    for (const plan of toAttempt) {
       const vehicle = vehicles.find((v) => v.vin === plan.vin);
       const results = await mapWithConcurrency(plan.sourceUrls, CONCURRENCY, (sourceUrl, i) =>
         downloadAndUpload(db, sourceUrl, plan.storagePaths[i])
@@ -284,12 +364,18 @@ async function main() {
       });
 
       if (uploadedPaths.length === 0) {
-        failedVehicles.push({ vin: plan.vin, reason: "all images failed to download/upload" });
+        failedVehicles.push({
+          vin: plan.vin,
+          reason: plan.action === "resume"
+            ? "resume attempted but every remaining image still failed — rerun to retry"
+            : "all images failed to download/upload",
+        });
         continue;
       }
 
+      const finalImages = buildFinalImagesJson(plan, uploadedPaths);
       const patch = {
-        images_json: uploadedPaths,
+        images_json: finalImages,
         ...buildPhotographyStatusPatch(vehicle, uploadedPaths.length),
       };
       const { error: updateError } = await db.from("vehicles").update(patch).eq("vin", plan.vin);
@@ -298,8 +384,19 @@ async function main() {
         continue;
       }
 
-      migrated.push({ vin: plan.vin, storagePaths: uploadedPaths, photographyStatusUpdated: "photography_status" in patch });
-      console.log(`[migrate-photos] ${plan.vin}: uploaded ${uploadedPaths.length}/${plan.sourceUrls.length} image(s).`);
+      const stillMissing = plan.order.length - finalImages.length;
+      migrated.push({
+        vin: plan.vin,
+        action: plan.action,
+        newlyUploaded: uploadedPaths.length,
+        totalImages: finalImages.length,
+        stillMissing,
+        photographyStatusUpdated: "photography_status" in patch,
+      });
+      console.log(
+        `[migrate-photos] ${plan.vin}: uploaded ${uploadedPaths.length} new image(s) (${finalImages.length}/${plan.order.length} total)` +
+        (stillMissing > 0 ? `, ${stillMissing} still missing — rerun to retry.` : ".")
+      );
     }
   }
 
@@ -312,14 +409,16 @@ async function main() {
   writeFileSync(`${outDir}/migrated.json`, JSON.stringify(migrated, null, 2));
   writeFileSync(`${outDir}/errors.json`, JSON.stringify(errors, null, 2));
 
+  const stillIncompleteCount = migrated.filter((m) => m.stillMissing > 0).length;
   const summary = {
     mode: DRY_RUN ? "dry-run" : "write",
     totalCarsFetched: cars.length,
     candidateVehicles: candidateVins.length,
     notInDms: notInDms.length,
     skipped: skipped.length,
-    wouldMigrate: DRY_RUN ? toMigrate.length : undefined,
+    wouldMigrate: DRY_RUN ? toAttempt.length : undefined,
     migrated: DRY_RUN ? undefined : migrated.length,
+    stillIncomplete: DRY_RUN ? undefined : stillIncompleteCount,
     failedVehicles: DRY_RUN ? undefined : failedVehicles.length,
     imageErrors: errors.length,
   };
@@ -336,12 +435,14 @@ async function main() {
     `- Not found in DMS: ${notInDms.length}`,
     `- Skipped: ${skipped.length}`,
     DRY_RUN
-      ? `- Would migrate: ${toMigrate.length} vehicle(s), ${toMigrate.reduce((n, p) => n + p.sourceUrls.length, 0)} image(s)`
-      : `- Migrated: ${migrated.length} vehicle(s) (${migrated.reduce((n, m) => n + m.storagePaths.length, 0)} image(s) uploaded, ${migrated.filter((m) => m.photographyStatusUpdated).length} flipped to photography_status=done)`,
-    DRY_RUN ? "" : `- Vehicles with every image failing: ${failedVehicles.length}`,
-    `- Per-image errors: ${errors.length}`,
+      ? `- Would migrate: ${toAttempt.length} vehicle(s), ${toAttempt.reduce((n, p) => n + p.sourceUrls.length, 0)} image(s)`
+      : `- Migrated/updated: ${migrated.length} vehicle(s) (${migrated.reduce((n, m) => n + m.newlyUploaded, 0)} new image(s) uploaded, ${migrated.filter((m) => m.photographyStatusUpdated).length} flipped to photography_status=done)`,
+    DRY_RUN ? "" : `- Still incomplete (some images still missing — rerun to retry): ${stillIncompleteCount}`,
+    DRY_RUN ? "" : `- Vehicles with every attempted image failing: ${failedVehicles.length}`,
+    `- Per-image errors (after ${MAX_ATTEMPTS} attempts each): ${errors.length}`,
     ``,
-    `See skipped.json for skip reasons, migrated.json for uploaded paths per vehicle, errors.json for per-image failures, report.json for the full summary.`,
+    `See skipped.json for skip reasons, migrated.json for per-vehicle upload counts, errors.json for per-image failures, report.json for the full summary.`,
+    DRY_RUN ? "" : `Re-running this exact command will retry only what's still missing — already-uploaded images are never re-fetched.`,
   ].filter(Boolean).join("\n");
   writeFileSync(`${outDir}/report.md`, reportMd);
 
