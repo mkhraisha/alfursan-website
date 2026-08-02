@@ -6,6 +6,25 @@ import sitemap from "@astrojs/sitemap";
 import sentry from "@sentry/astro";
 import { checkEnvIntegration } from "./src/lib/check-env.ts";
 
+// Routes excluded from Vercel's ISR edge cache (see comment below). Exported
+// so it can be tested directly instead of via the adapter's internal config.
+export const ISR_EXCLUDE = [
+  // API routes manage their own Cache-Control per endpoint (mutating routes
+  // must never be cached). Routing them through the ISR function ignores
+  // HTTP method and caches by path alone, which can serve a stale/cached
+  // response to POST/PATCH/DELETE requests — exclude them entirely so they
+  // run as plain serverless functions.
+  /^\/api\//,
+  // Admin routes set Cache-Control: no-store themselves (see
+  // addSecurityHeaders in src/middleware.ts), but that header only governs
+  // downstream/browser caching — it does not stop Vercel's ISR function from
+  // caching the response at the edge per `expiration` below. Without this
+  // exclusion, a cached admin response (including rotated Set-Cookie session
+  // tokens written after a token refresh) gets replayed to later requests,
+  // which then fails re-validation and causes a sign-out-and-reload loop.
+  // Exclude admin routes entirely.
+  /^\/admin(\/|$)/,
+];
 // Vercel sets VERCEL_ENV to "production" | "preview" | "development" at build time.
 // Only create Sentry releases/deploys on production builds — creating one on every
 // PR preview build is just noise in Sentry.
@@ -17,12 +36,7 @@ export default defineConfig({
   adapter: vercel({
     isr: {
       expiration: 60 * 60 * 3, // 3-hour stale-while-revalidate edge cache
-      // API routes manage their own Cache-Control per endpoint (mutating routes
-      // must never be cached). Routing them through the ISR function ignores
-      // HTTP method and caches by path alone, which can serve a stale/cached
-      // response to POST/PATCH/DELETE requests — exclude them entirely so they
-      // run as plain serverless functions.
-      exclude: [/^\/api\//],
+      exclude: ISR_EXCLUDE,
     },
   }),
   site: "https://alfursan-website.vercel.app",
