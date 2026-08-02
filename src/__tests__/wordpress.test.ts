@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, afterEach } from "vitest";
-import { getCars, getCarBySlug, formatPrice, clearWordpressCache } from "../lib/wordpress";
+import { getCars, getCarBySlug, getPosts, formatPrice, clearWordpressCache } from "../lib/wordpress";
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
@@ -217,6 +217,14 @@ describe("getCars", () => {
     expect(cars).toEqual([]);
   });
 
+  it("returns empty array (does not throw) when every request hits a network error", async () => {
+    // Regression: a WordPress outage during prerendering must degrade the
+    // affected page, not crash the entire astro build (see fetchWithRetry).
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+    const cars = await getCars();
+    expect(cars).toEqual([]);
+  }, 10_000);
+
   it("returns empty array when the API returns an empty list", async () => {
     stubFetch([]);
     const cars = await getCars();
@@ -301,4 +309,26 @@ describe("getCarBySlug", () => {
     const car = await getCarBySlug("2022-toyota-rav4");
     expect(car!.image).toBe("https://media.alfursanauto.ca/wp-content/uploads/img1.jpg");
   });
+});
+
+// ── getPosts ──────────────────────────────────────────────────────────────────
+// blog/[slug].astro's getStaticPaths() calls getPosts() at build time — an
+// uncaught throw here previously crashed the entire astro build whenever the
+// WordPress API had a transient outage (see fetchWithRetry's resilience fix).
+
+describe("getPosts", () => {
+  it("returns empty array when the API returns a 4xx error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 404, json: () => Promise.resolve({}) } as Response),
+    );
+    const posts = await getPosts();
+    expect(posts).toEqual([]);
+  });
+
+  it("returns empty array (does not throw) when every request hits a network error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+    const posts = await getPosts();
+    expect(posts).toEqual([]);
+  }, 10_000);
 });
