@@ -15,18 +15,23 @@
  * Does NOT touch images_json/videos_json/photography_status — photo
  * migration is Part 4, run separately after this.
  *
- * Local/staging only: refuses to write to a non-local SUPABASE_URL. Reading
- * from WordPress is always safe (read-only, works against production WP).
+ * Defaults to local/staging only: refuses to write to a non-local
+ * SUPABASE_URL unless --allow-production is passed AND you type an exact
+ * confirmation phrase at an interactive prompt (see assertLocalSupabaseOrDryRun
+ * below) — this cannot be scripted/piped past by accident. Reading from
+ * WordPress is always safe (read-only, works against production WP).
  *
  * Usage:
  *   node scripts/migrate-wordpress-inventory.mjs --dry-run [--limit=N]
  *   node scripts/migrate-wordpress-inventory.mjs [--limit=N]   # writes to Supabase — requires a local SUPABASE_URL
+ *   node scripts/migrate-wordpress-inventory.mjs --allow-production [--limit=N]  # writes to a non-local SUPABASE_URL — prompts for confirmation, see below
  *
  * Options:
- *   --dry-run     Fetch + map + validate only. Never writes to Supabase.
- *   --limit=N     Only process the first N WP cars (after fetching all pages).
- *   --wp-api-base=URL  Override the WordPress REST API base (default matches
- *                      src/lib/wordpress.ts: https://media.alfursanauto.ca/wp-json)
+ *   --dry-run           Fetch + map + validate only. Never writes to Supabase.
+ *   --allow-production  Required to write to a non-local SUPABASE_URL. Still prompts for typed confirmation before writing anything.
+ *   --limit=N           Only process the first N WP cars (after fetching all pages).
+ *   --wp-api-base=URL   Override the WordPress REST API base (default matches
+ *                       src/lib/wordpress.ts: https://media.alfursanauto.ca/wp-json)
  *
  * Output: docs/migration/wordpress-inventory/<timestamp>/
  *   - report.md          human-readable reconciliation report
@@ -38,6 +43,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createInterface } from "node:readline/promises";
 import {
   mapWpCarToVehicleRow,
   summarizeMigrationResults,
@@ -77,6 +83,7 @@ const CAR_FIELDS = [
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
+const ALLOW_PRODUCTION = args.includes("--allow-production");
 const LIMIT = (() => {
   const arg = args.find((a) => a.startsWith("--limit="));
   if (!arg) return undefined;
@@ -89,9 +96,11 @@ const WP_API_BASE = (
   DEFAULT_WP_API_BASE
 ).replace(/\/$/, "");
 
-// ── Safety guard — never write to a non-local Supabase project ────────────────
+// ── Safety guard — refuses non-local writes unless explicitly + interactively confirmed ──
 
-function assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey) {
+const PRODUCTION_CONFIRMATION_PHRASE = "yes, write to production";
+
+async function assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey) {
   if (DRY_RUN) return;
   if (!supabaseUrl) {
     console.error("[migrate] Missing SUPABASE_URL. Run `supabase start` first, or pass --dry-run.");
@@ -108,14 +117,35 @@ function assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey) {
     console.error(`[migrate] Invalid SUPABASE_URL: ${supabaseUrl}`);
     process.exit(1);
   }
-  if (!["127.0.0.1", "localhost"].includes(hostname)) {
+  if (["127.0.0.1", "localhost"].includes(hostname)) return; // local stack — always fine
+
+  if (!ALLOW_PRODUCTION) {
     console.error(
       `[migrate] Refusing to write to non-local SUPABASE_URL (${supabaseUrl}).\n` +
-      "This script only ever writes to a local Supabase stack (`supabase start`).\n" +
+      "This script only writes to a local Supabase stack (`supabase start`) by default.\n" +
+      "Pass --allow-production if you really mean to write to this database (you'll be asked to confirm interactively).\n" +
       "Use --dry-run to fetch/map/validate without writing anywhere."
     );
     process.exit(1);
   }
+
+  console.warn(
+    `\n[migrate] ⚠️  --allow-production is set. This will WRITE real data to:\n` +
+    `           ${supabaseUrl}\n` +
+    `           Double-check this is really the database you mean to touch.\n`
+  );
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let answer;
+  try {
+    answer = await rl.question(`Type "${PRODUCTION_CONFIRMATION_PHRASE}" to continue: `);
+  } finally {
+    rl.close();
+  }
+  if (answer.trim() !== PRODUCTION_CONFIRMATION_PHRASE) {
+    console.error("[migrate] Confirmation phrase did not match. Aborting — nothing was written.");
+    process.exit(1);
+  }
+  console.log("[migrate] Confirmed. Proceeding with a production write.\n");
 }
 
 // ── WordPress fetch helpers ─────────────────────────────────────────────────────
@@ -206,7 +236,7 @@ function resolveCarFields(car, termMaps) {
 async function main() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SECRET_KEY;
-  assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey);
+  await assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey);
 
   console.log(`[migrate] WordPress API base: ${WP_API_BASE}`);
   console.log(`[migrate] Mode: ${DRY_RUN ? "DRY RUN (no writes)" : `WRITE to ${supabaseUrl}`}`);
