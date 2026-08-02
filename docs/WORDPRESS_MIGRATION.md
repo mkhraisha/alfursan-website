@@ -110,18 +110,27 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
 
 ## 6. Part 3 — Public visibility rules (status & "sold" window)
 
-- [ ] **Define `isPubliclyVisible(vehicle)` helper**
-  - **Description:** Add to `src/lib/vehicles.ts`. Proposed rule (confirm before implementing, since it encodes new business logic):
-    - Visible as **active listing** if `photography_status = 'done'` AND `status = 'frontline_ready'`. (Corrected from the original draft: `vehicles.status` was changed from `TEXT[]` to a single `TEXT` value in `20260524000002_status_single_value.sql`, after this plan's first draft — a vehicle can only hold one status at a time now, so this simplifies to plain equality; no need to separately exclude `in_deal`/`bodyshop`/etc. since they're mutually exclusive with `frontline_ready` by construction.)
-    - Visible as **recently sold** (read-only, no financing CTA, "Sold" badge) if `status = 'sold'` AND `sale_date >= CURRENT_DATE - INTERVAL '30 days'`.
-    - Otherwise not publicly visible.
-  - **Validation:** Unit tests cover: frontline-ready+done photos → visible; sold 10 days ago → visible as sold; sold 40 days ago → not visible; `in_deal` → not visible; `photography_status = 'pending'` → not visible.
-  - **Test:** `src/__tests__/vehicles.test.ts` — table-driven test over the status/date combinations above.
+**Status: implemented — see PR `feat/wp-migration-part3-visibility`.**
 
-- [ ] **Apply the rule in `GET /api/vehicles` (unauthenticated branch)**
-  - **Description:** `src/pages/api/vehicles/index.ts` currently returns *every* vehicle to unauthenticated callers regardless of status — that's a gap even before this migration. Add the `isPubliclyVisible` filter to the unauthenticated query path.
-  - **Validation:** Unauthenticated request never returns a vehicle mid-deal, in the shop, or sold >30 days ago. Sold-within-30-days vehicles are still returned (with `status`/`sale_date` present so the UI can render the "Sold" badge — these two fields need to move from `PUBLIC_COLUMNS`-excluded to included, since they're needed to render sold state, but stay screened by the filter above).
-  - **Test:** Integration test seeding vehicles in each status and asserting the unauthenticated response set matches expectations.
+**Rule, as clarified by the user (corrected from this doc's original draft — no "Sold" badge, status is never exposed):** a vehicle is publicly visible if photography is done, and it is not a sale older than 30 days. Every *other* status (`in_deal`, `bodyshop`, `pending_delivery`, no status set at all, etc.) shows on the website exactly like any other listing — the actual `status` value is purely a server-side filtering input and is never returned to the frontend, not even for sold vehicles (no "Sold" badge, no distinguishing marker). The public API only ever returns car specifications and what's needed to populate a listing.
+
+- [x] **Define `isPubliclyVisible(vehicle)` + `soldVisibilityCutoff(now)` helpers**
+  - **Description:** Added to `src/lib/vehicles.ts`:
+    - Not visible if `photography_status !== 'done'`.
+    - Visible if `status !== 'sold'` (this covers every non-sold status, and a `NULL` status too — nothing else is checked).
+    - If `status === 'sold'`: visible only if `sale_date` is set AND `sale_date >= soldVisibilityCutoff(now)` (30 days before `now`); a sold vehicle with no `sale_date` on record is treated as not-recent (hidden), since recency can't be established.
+  - **Validation:** Unit tests cover: every non-sold status (including `NULL`) + done photos → visible; sold 10/30 days ago → visible; sold 31/40 days ago → not visible; sold with no `sale_date` → not visible; `photography_status` pending/na → not visible regardless of status.
+  - **Test:** `src/__tests__/vehicles-lib.test.ts` — table-driven, 17 cases.
+
+- [x] **Apply the rule in `GET /api/vehicles` (list, unauthenticated branch)**
+  - **Description:** `src/pages/api/vehicles/index.ts` previously returned *every* vehicle to unauthenticated callers regardless of status — a gap even before this migration. Now applies `.eq("photography_status", "done").or(\`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}\`)` as a DB-level filter (mirrors `isPubliclyVisible`, but expressed as SQL so pagination/count stay correct). `status.is.null` is listed explicitly because SQL's `<>` doesn't match `NULL` the way JS's `!==` does. `PUBLIC_COLUMNS` still excludes `status`/`photography_status`/`sale_date` entirely — they're filtered on, never selected.
+  - **Validation:** Confirmed the exact `.eq`/`.or` calls via mocked query-builder assertions, and that the filter is skipped entirely for authenticated requests (staff always sees everything, unaffected by this rule).
+  - **Test:** `src/__tests__/api-vehicles.test.ts`.
+
+- [x] **Apply the same rule in `GET /api/vehicles/:vin` (single vehicle, unauthenticated branch) — gap found and fixed**
+  - **Description:** This endpoint had **no visibility filter at all** — any vehicle was fetchable by VIN regardless of status/photography, bypassing the list endpoint's filtering entirely. Fixed: the unauthenticated query now also selects `status, photography_status, sale_date` (in addition to `PUBLIC_COLUMNS`) purely to evaluate `isPubliclyVisible()` in-process; if not visible, returns 404 (same as an unknown VIN, so visibility state isn't leaked by a 403-vs-404 distinction either); if visible, the three internal fields are stripped from the response object before it's returned.
+  - **Validation:** Confirmed the response body never contains `status`/`photography_status`/`sale_date` for an unauthenticated request, and that 404 vs. 200 matches every case from the unit tests above (photography pending → 404 regardless of status; `in_deal`+done → 200; sold 10 days ago → 200; sold 40 days ago or with no `sale_date` → 404).
+  - **Test:** `src/__tests__/api-vehicles.test.ts`.
 
 ---
 

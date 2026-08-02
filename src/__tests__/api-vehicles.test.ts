@@ -12,6 +12,7 @@ import type { RequestUser } from "../lib/request-user";
 import { GET as vehiclesGET, POST as vehiclesPOST } from "../pages/api/vehicles/index";
 import { GET as vinGET, PATCH as vinPATCH, DELETE as vinDELETE } from "../pages/api/vehicles/[vin]/index";
 import { POST as importPOST } from "../pages/api/vehicles/import";
+import { PUBLIC_COLUMNS } from "../lib/vehicles";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function makeListMock(vehicles = [VEHICLE], expenses: {vin: string; amount: numb
   // The query builder returns a chainable, thenable object from `.range()` so
   // filter methods (.eq, .gte, .lte) can be appended after pagination without throwing.
   const queryResult: Record<string, unknown> = {};
-  for (const m of ["eq", "gte", "lte", "neq", "in"]) {
+  for (const m of ["eq", "gte", "lte", "neq", "in", "or"]) {
     queryResult[m] = vi.fn(() => queryResult);
   }
   queryResult.then = (resolve: (v: typeof result) => void, reject?: (e: unknown) => void) =>
@@ -67,7 +68,7 @@ function makeListMock(vehicles = [VEHICLE], expenses: {vin: string; amount: numb
     return {};
   });
 
-  return { client: { from: fromFn } };
+  return { client: { from: fromFn }, queryResult };
 }
 
 /** Build a Supabase mock for GET single vehicle */
@@ -173,6 +174,42 @@ describe("GET /api/vehicles — unauthenticated", () => {
     const body = await res.json();
     // Public response is the raw Supabase row — no server-side enrichment
     expect(body.data[0]).not.toHaveProperty("expense_total");
+  });
+
+  it("selects exactly PUBLIC_COLUMNS — status/photography_status/sale_date are never projected", async () => {
+    const { client } = makeListMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    await vehiclesGET({ request: req("/api/vehicles") } as never);
+
+    const selectFn = client.from("vehicles").select as Mock;
+    expect(selectFn.mock.calls[0][0]).toBe(PUBLIC_COLUMNS);
+    for (const field of ["status", "ownership_status", "photography_status", "sale_date", "sale_price", "purchase_price"]) {
+      expect(PUBLIC_COLUMNS).not.toContain(field);
+    }
+  });
+
+  it("applies the public visibility filter (photography done, not stale-sold)", async () => {
+    const { client, queryResult } = makeListMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    await vehiclesGET({ request: req("/api/vehicles") } as never);
+
+    expect(queryResult.eq).toHaveBeenCalledWith("photography_status", "done");
+    const orCall = (queryResult.or as Mock).mock.calls[0][0];
+    expect(orCall).toContain("status.is.null");
+    expect(orCall).toContain("status.neq.sold");
+    expect(orCall).toMatch(/sale_date\.gte\.\d{4}-\d{2}-\d{2}/);
+  });
+
+  it("does not apply the visibility filter for authenticated requests", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const { client, queryResult } = makeListMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    await vehiclesGET({ request: req("/api/vehicles") } as never);
+
+    expect(queryResult.or as Mock).not.toHaveBeenCalled();
   });
 });
 
@@ -328,6 +365,67 @@ describe("GET /api/vehicles/:vin", () => {
 
     const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
     expect(res.status).toBe(200);
+  });
+
+  it("never leaks status/photography_status/sale_date to an unauthenticated caller", async () => {
+    const { client } = makeSingleMock(VEHICLE);
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    const body = await res.json();
+    expect(body).not.toHaveProperty("status");
+    expect(body).not.toHaveProperty("photography_status");
+    expect(body).not.toHaveProperty("sale_date");
+  });
+
+  it("returns 404 (unauthenticated) when photography is not done, regardless of status", async () => {
+    const { client } = makeSingleMock({ ...VEHICLE, photography_status: "pending" });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 200 (unauthenticated) for a non-frontline status as long as photography is done", async () => {
+    const { client } = makeSingleMock({ ...VEHICLE, status: "in_deal", photography_status: "done" });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 200 (unauthenticated) when sold within the last 30 days", async () => {
+    const soldRecently = new Date();
+    soldRecently.setDate(soldRecently.getDate() - 10);
+    const { client } = makeSingleMock({
+      ...VEHICLE, status: "sold", photography_status: "done",
+      sale_date: soldRecently.toISOString().slice(0, 10),
+    });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 404 (unauthenticated) when sold more than 30 days ago", async () => {
+    const soldLongAgo = new Date();
+    soldLongAgo.setDate(soldLongAgo.getDate() - 40);
+    const { client } = makeSingleMock({
+      ...VEHICLE, status: "sold", photography_status: "done",
+      sale_date: soldLongAgo.toISOString().slice(0, 10),
+    });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 (unauthenticated) when sold with no sale_date on record", async () => {
+    const { client } = makeSingleMock({ ...VEHICLE, status: "sold", photography_status: "done", sale_date: null });
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+    expect(res.status).toBe(404);
   });
 
   it("returns enriched vehicle for authenticated request", async () => {

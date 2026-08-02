@@ -351,3 +351,38 @@ export function aggregateMonthlySales(vehicles: SoldVehicle[]): MonthlySales[] {
     }))
     .sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0));
 }
+
+// ── Public visibility (WordPress migration Part 3) ─────────────────────────────
+
+/**
+ * The oldest `sale_date` (YYYY-MM-DD) that still counts as "recently sold"
+ * for public visibility purposes — 30 days before `now`. Exported so the API
+ * layer's DB-level filter (`sale_date >= cutoff`) can use the exact same
+ * boundary as isPubliclyVisible() below.
+ */
+export function soldVisibilityCutoff(now: Date = new Date()): string {
+  // Use UTC date math to avoid timezone-dependent off-by-one errors.
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() - 30);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Whether a vehicle should appear on the public website.
+ *
+ * Rule: photography must be done, and the vehicle must not be a sale older
+ * than 30 days. Every other status (in_deal, bodyshop, pending_delivery,
+ * etc.) is publicly visible as long as photography is ready — the actual
+ * status value itself is never exposed to the frontend, this only decides
+ * inclusion. A 'sold' vehicle with no `sale_date` on record is treated as
+ * not-recent (hidden) since recency can't be established.
+ */
+export function isPubliclyVisible(
+  vehicle: { photography_status: string | null; status: string | null; sale_date: string | null },
+  now: Date = new Date()
+): boolean {
+  if (vehicle.photography_status !== "done") return false;
+  if (vehicle.status !== "sold") return true;
+  if (!vehicle.sale_date) return false;
+  return vehicle.sale_date >= soldVisibilityCutoff(now);
+}
