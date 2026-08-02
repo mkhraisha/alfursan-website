@@ -24,7 +24,15 @@ if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
   process.exit(1);
 }
 
-if (!/^https?:\/\/(127\.0\.0\.1|localhost)/.test(SUPABASE_URL)) {
+let supabaseHost;
+try {
+  supabaseHost = new URL(SUPABASE_URL).hostname;
+} catch {
+  console.error(`[e2e-seed] Invalid SUPABASE_URL: ${SUPABASE_URL}`);
+  process.exit(1);
+}
+
+if (!["127.0.0.1", "localhost"].includes(supabaseHost)) {
   console.error(`[e2e-seed] Refusing to run against non-local SUPABASE_URL: ${SUPABASE_URL}`);
   process.exit(1);
 }
@@ -68,6 +76,9 @@ async function seedUser(email, role) {
 
   const { data: signedIn, error: signInErr } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
   if (signInErr) throw new Error(`signInWithPassword(${email}): ${signInErr.message}`);
+  if (!signedIn.session?.access_token) {
+    throw new Error(`signInWithPassword(${email}): sign-in succeeded but no session access token was returned`);
+  }
 
   return signedIn.session.access_token;
 }
