@@ -30,3 +30,6 @@ coverage/
 
 playwright-report/
 test-results/
+
+# one-time migration script output (real inventory data — never commit)
+docs/migration/
