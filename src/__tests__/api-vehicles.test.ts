@@ -68,7 +68,7 @@ function makeListMock(vehicles = [VEHICLE], expenses: {vin: string; amount: numb
     return {};
   });
 
-  return { client: { from: fromFn } };
+  return { client: { from: fromFn }, queryResult };
 }
 
 /** Build a Supabase mock for GET single vehicle */
@@ -190,14 +190,13 @@ describe("GET /api/vehicles — unauthenticated", () => {
   });
 
   it("applies the public visibility filter (photography done, not stale-sold)", async () => {
-    const { client } = makeListMock();
+    const { client, queryResult } = makeListMock();
     (getAdminClient as Mock).mockReturnValue(client);
 
     await vehiclesGET({ request: req("/api/vehicles") } as never);
 
-    const selectResult = client.from("vehicles").select();
-    expect(selectResult.order().range().eq).toHaveBeenCalledWith("photography_status", "done");
-    const orCall = (selectResult.order().range().or as Mock).mock.calls[0][0];
+    expect(queryResult.eq).toHaveBeenCalledWith("photography_status", "done");
+    const orCall = (queryResult.or as Mock).mock.calls[0][0];
     expect(orCall).toContain("status.is.null");
     expect(orCall).toContain("status.neq.sold");
     expect(orCall).toMatch(/sale_date\.gte\.\d{4}-\d{2}-\d{2}/);
@@ -205,13 +204,12 @@ describe("GET /api/vehicles — unauthenticated", () => {
 
   it("does not apply the visibility filter for authenticated requests", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
-    const { client } = makeListMock();
+    const { client, queryResult } = makeListMock();
     (getAdminClient as Mock).mockReturnValue(client);
 
     await vehiclesGET({ request: req("/api/vehicles") } as never);
 
-    const selectResult = client.from("vehicles").select();
-    expect((selectResult.order().range().or as Mock)).not.toHaveBeenCalled();
+    expect(queryResult.or as Mock).not.toHaveBeenCalled();
   });
 });
 
