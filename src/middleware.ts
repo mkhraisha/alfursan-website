@@ -18,6 +18,22 @@ import type { Role } from "./lib/permissions";
  *
  * Public and API routes are passed through unchanged.
  */
+// In dev, the browser must be able to reach the local Supabase stack directly
+// (e.g. http://127.0.0.1:54321) — it's plain HTTP and not covered by the
+// production-only `https:` connect-src source. Never relaxed outside dev.
+export function buildConnectSrc(isDev: boolean, supabaseUrl: string): string {
+  const sources = ["'self'", "https:"];
+  if (isDev) {
+    try {
+      const origin = new URL(supabaseUrl).origin;
+      if (!origin.startsWith("https:")) sources.push(origin);
+    } catch {
+      // Invalid/missing SUPABASE_URL — handled elsewhere (check-env, middleware guard below).
+    }
+  }
+  return sources.join(" ");
+}
+
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -30,7 +46,7 @@ const SECURITY_HEADERS: Record<string, string> = {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https:",
-    "connect-src 'self' https:",
+    `connect-src ${buildConnectSrc(import.meta.env.DEV, import.meta.env.SUPABASE_URL ?? "")}`,
     "frame-ancestors 'none'",
   ].join("; "),
 };
