@@ -111,6 +111,14 @@ npm run dev
 - Site: http://localhost:4321
 - Admin: http://localhost:4321/admin/
 
+### 6. Signing in locally (magic link + passkeys)
+
+The local Supabase stack (`supabase start`) never sends real email — every magic-link email is captured by the local mail-testing tool instead of being delivered to your inbox:
+
+- After clicking "Send Magic Link" on `/admin/`, open **http://127.0.0.1:54324** (or run `supabase status` and use the `MAILPIT_URL` value) and open the latest "Your sign-in link" message. Click the link inside it to complete sign-in.
+- Passkey sign-in (`/admin/` → "Sign in with a passkey", or registering one from `/admin/account/`) needs WebAuthn enabled on the local GoTrue server — already configured in `supabase/config.toml` (`[auth.passkey]` + `[auth.webauthn]`). If you edit that file, restart the stack for the change to take effect: `supabase stop && supabase start`.
+- No real authenticator hardware needed to test passkeys: Chrome DevTools → More tools → WebAuthn → "Enable virtual authenticator environment" simulates one. On macOS, Touch ID via Chrome/Safari also works directly.
+
 ## Commands
 
 | Command | Action |
