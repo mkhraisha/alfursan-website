@@ -22,7 +22,7 @@ function isAllowedOrigin(request: Request): boolean {
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 

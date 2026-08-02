@@ -26,6 +26,7 @@ type ImportResult = {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ExpenseCSVImport() {
+  const MAX_IMPORT_FILE_BYTES = 4 * 1024 * 1024; // Keep under common serverless body limits.
   const [step,      setStep]      = useState<Step>(1);
   const [file,      setFile]      = useState<File | null>(null);
   const [headers,   setHeaders]   = useState<string[]>([]);
@@ -45,6 +46,10 @@ export default function ExpenseCSVImport() {
     if (!f) return;
     if (!f.name.endsWith(".csv") && f.type !== "text/csv" && f.type !== "text/plain") {
       setError("Please select a .csv file.");
+      return;
+    }
+    if (f.size > MAX_IMPORT_FILE_BYTES) {
+      setError("CSV is too large for direct import preview. Split the file into smaller chunks (under ~4 MB) and try again.");
       return;
     }
     setError(null);
@@ -73,7 +78,14 @@ export default function ExpenseCSVImport() {
     try {
       const res  = await fetch("/api/vehicles/expenses/import", { method: "POST", body: fd });
       const { data, error } = await parseApiResponse<PreviewResult>(res);
-      if (!res.ok || !data) { setError(error ?? "Preview failed"); return; }
+      if (!res.ok || !data) {
+        if ((error ?? "").includes("FUNCTION_INVOCATION_FAILED")) {
+          setError("Preview function failed before execution. This is usually a deployment/runtime issue or payload too large. Check Vercel Function logs and try a smaller CSV.");
+          return;
+        }
+        setError(error ?? "Preview failed");
+        return;
+      }
       setPreview(data);
       setStep(3);
     } catch (e) {
@@ -97,7 +109,14 @@ export default function ExpenseCSVImport() {
     try {
       const res  = await fetch("/api/vehicles/expenses/import", { method: "POST", body: fd });
       const { data, error } = await parseApiResponse<ImportResult>(res);
-      if (!res.ok || !data) { setError(error ?? "Import failed"); return; }
+      if (!res.ok || !data) {
+        if ((error ?? "").includes("FUNCTION_INVOCATION_FAILED")) {
+          setError("Import function failed before execution. Check Vercel Function logs and try a smaller CSV batch.");
+          return;
+        }
+        setError(error ?? "Import failed");
+        return;
+      }
       setResult(data);
       setStep(5);
     } catch (e) {

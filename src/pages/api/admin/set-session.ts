@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!isSameOriginRequest(request)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 
@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 
@@ -36,14 +36,14 @@ export const POST: APIRoute = async ({ request }) => {
   if (!token || typeof token !== "string" || token.length < 10) {
     return new Response(JSON.stringify({ error: "Invalid token" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
 
   const maxAge = typeof expiresIn === "number" && expiresIn > 0 ? expiresIn : 28800; // 8 hours
   const secure = import.meta.env.PROD ? "; Secure" : "";
 
-  const headers = new Headers({ "Content-Type": "application/json" });
+  const headers = new Headers({ "Content-Type": "application/json", "Cache-Control": "no-store" });
 
   headers.append(
     "Set-Cookie",
