@@ -51,6 +51,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed the admin **Account** page (`/admin/account/`) getting stuck on "Loading…" forever and never showing registered passkeys — an automated PR-finding autofix had silently dropped the `supabase.auth.passkey.list()` call in `loadPasskeys()`, leaving it reference undeclared variables (a runtime `ReferenceError` that `npm run build` doesn't catch, since it doesn't type-check). The page now also shows a persistent, dismissable error message with a Retry button instead of failing silently, and displays which account's passkeys are being managed. Added `npm run astro:check` as an npm script so the project's full TypeScript check (which *would* have caught this) is actually runnable.
 - Stopped creating a Sentry release/deploy on every build (including PR preview deploys) — `astro.config.mjs` now only creates and finalizes a Sentry release, and records a deploy, when `VERCEL_ENV` is `production`. Preview builds still upload source maps for the runtime SDK's error reporting.
 - Fixed the "Listing" link on the admin finance application view, which pointed at the non-existent `/listings/` route instead of `/listing/`.
 - Fixed the homepage auto-scrolling ~2000px down on every load: the Popular Makes tab strip called `scrollIntoView` on mount instead of only on user-driven tab changes.
