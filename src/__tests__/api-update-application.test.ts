@@ -3,9 +3,12 @@ import type { Mock } from "vitest";
 
 vi.mock("../lib/supabase-admin");
 vi.mock("../lib/permissions");
+vi.mock("../lib/request-user");
 
 import { getAdminClient } from "../lib/supabase-admin";
 import { can } from "../lib/permissions";
+import { getRequestUser } from "../lib/request-user";
+import type { RequestUser } from "../lib/request-user";
 import { PATCH } from "../pages/api/admin/update-application";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -31,8 +34,8 @@ function makeRequest(body: unknown, ip?: string): Request {
   });
 }
 
-function makeLocals(role: string | undefined = "admin", email = "admin@dealership.ca") {
-  return { adminRole: role, adminEmail: email };
+function makeUser(email = "admin@dealership.ca"): RequestUser {
+  return { email, role: "manager", userId: "user-1" };
 }
 
 interface SupabaseMockOpts {
@@ -54,7 +57,8 @@ function makeSupabaseMock({ updateError = false }: SupabaseMockOpts = {}) {
 
 describe("PATCH /api/admin/update-application", () => {
   beforeEach(() => {
-    // Default: `can` returns true (has permission)
+    // Default: authenticated with permission
+    (getRequestUser as Mock).mockResolvedValue(makeUser());
     (can as Mock).mockReturnValue(true);
   });
 
@@ -65,34 +69,27 @@ describe("PATCH /api/admin/update-application", () => {
   // ── Authorization ───────────────────────────────────────────────────────────
 
   describe("authorization", () => {
+    it("returns 401 when unauthenticated", async () => {
+      // This route lives under /api/**, which src/middleware.ts's /admin/**
+      // session check does not cover, so it must authenticate itself via
+      // getRequestUser() rather than relying on Astro.locals.
+      (getRequestUser as Mock).mockResolvedValue(null);
+      const res = await PATCH({ request: makeRequest(VALID_BODY) } as any);
+      expect(res.status).toBe(401);
+    });
+
     it("returns 403 when role lacks financing:write", async () => {
       (can as Mock).mockReturnValue(false);
-      const res = await PATCH({
-        request: makeRequest(VALID_BODY),
-        locals: makeLocals("viewer"),
-      } as any);
+      const res = await PATCH({ request: makeRequest(VALID_BODY) } as any);
       expect(res.status).toBe(403);
       const body = await res.json();
       expect(body.error).toMatch(/forbidden/i);
     });
 
-    it("returns 403 when role is undefined", async () => {
-      (can as Mock).mockReturnValue(false);
-      const res = await PATCH({
-        request: makeRequest(VALID_BODY),
-        locals: makeLocals(undefined),
-      } as any);
-      expect(res.status).toBe(403);
-    });
-
     it("allows requests with financing:write", async () => {
-      (can as Mock).mockReturnValue(true);
       const { client } = makeSupabaseMock();
       (getAdminClient as Mock).mockReturnValue(client);
-      const res = await PATCH({
-        request: makeRequest(VALID_BODY),
-        locals: makeLocals("admin"),
-      } as any);
+      const res = await PATCH({ request: makeRequest(VALID_BODY) } as any);
       expect(res.status).toBe(200);
     });
   });
@@ -106,7 +103,7 @@ describe("PATCH /api/admin/update-application", () => {
         headers: { "Content-Type": "application/json" },
         body: "{{bad-json",
       });
-      const res = await PATCH({ request: req, locals: makeLocals() } as any);
+      const res = await PATCH({ request: req } as any);
       expect(res.status).toBe(400);
     });
   });
@@ -116,14 +113,13 @@ describe("PATCH /api/admin/update-application", () => {
   describe("schema validation", () => {
     it("returns 422 when id is missing", async () => {
       const { id: _, ...noId } = VALID_BODY;
-      const res = await PATCH({ request: makeRequest(noId), locals: makeLocals() } as any);
+      const res = await PATCH({ request: makeRequest(noId) } as any);
       expect(res.status).toBe(422);
     });
 
     it("returns 422 when id is not a valid UUID", async () => {
       const res = await PATCH({
         request: makeRequest({ ...VALID_BODY, id: "not-a-uuid" }),
-        locals: makeLocals(),
       } as any);
       expect(res.status).toBe(422);
       const body = await res.json();
@@ -133,7 +129,6 @@ describe("PATCH /api/admin/update-application", () => {
     it("returns 422 when email is malformed", async () => {
       const res = await PATCH({
         request: makeRequest({ ...VALID_BODY, email: "not-an-email" }),
-        locals: makeLocals(),
       } as any);
       expect(res.status).toBe(422);
     });
@@ -141,7 +136,6 @@ describe("PATCH /api/admin/update-application", () => {
     it("returns 422 when full_name is a single character", async () => {
       const res = await PATCH({
         request: makeRequest({ ...VALID_BODY, full_name: "X" }),
-        locals: makeLocals(),
       } as any);
       expect(res.status).toBe(422);
     });
@@ -151,10 +145,7 @@ describe("PATCH /api/admin/update-application", () => {
 
   describe("empty patch guard", () => {
     it("returns 400 when only id is provided (no fields to update)", async () => {
-      const res = await PATCH({
-        request: makeRequest({ id: APP_ID }),
-        locals: makeLocals(),
-      } as any);
+      const res = await PATCH({ request: makeRequest({ id: APP_ID }) } as any);
       expect(res.status).toBe(400);
       const body = await res.json();
       expect(body.error).toMatch(/no fields/i);
@@ -167,7 +158,7 @@ describe("PATCH /api/admin/update-application", () => {
     it("returns 200 and success:true", async () => {
       const { client } = makeSupabaseMock();
       (getAdminClient as Mock).mockReturnValue(client);
-      const res = await PATCH({ request: makeRequest(VALID_BODY), locals: makeLocals() } as any);
+      const res = await PATCH({ request: makeRequest(VALID_BODY) } as any);
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.success).toBe(true);
@@ -178,15 +169,15 @@ describe("PATCH /api/admin/update-application", () => {
       (getAdminClient as Mock).mockReturnValue(client);
       await PATCH({
         request: makeRequest({ id: APP_ID, full_name: "Jane Smith" }),
-        locals: makeLocals(),
       } as any);
       expect(update).toHaveBeenCalledWith({ full_name: "Jane Smith" });
     });
 
     it("inserts an application_updated audit row", async () => {
+      (getRequestUser as Mock).mockResolvedValue(makeUser("admin@example.com"));
       const { client, auditInsert } = makeSupabaseMock();
       (getAdminClient as Mock).mockReturnValue(client);
-      await PATCH({ request: makeRequest(VALID_BODY), locals: makeLocals("admin", "admin@example.com") } as any);
+      await PATCH({ request: makeRequest(VALID_BODY) } as any);
       expect(auditInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           application_id: APP_ID,
@@ -203,7 +194,7 @@ describe("PATCH /api/admin/update-application", () => {
     it("returns 500 when DB update fails", async () => {
       const { client } = makeSupabaseMock({ updateError: true });
       (getAdminClient as Mock).mockReturnValue(client);
-      const res = await PATCH({ request: makeRequest(VALID_BODY), locals: makeLocals() } as any);
+      const res = await PATCH({ request: makeRequest(VALID_BODY) } as any);
       expect(res.status).toBe(500);
     });
   });

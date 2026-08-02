@@ -2,13 +2,25 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 import { getAdminClient } from "../../../lib/supabase-admin";
+import { getRequestUser } from "../../../lib/request-user";
 import { can } from "../../../lib/permissions";
 import { createHash } from "node:crypto";
 
-export const GET: APIRoute = async ({ locals, url, request }) => {
-  const { adminRole, adminEmail } = locals;
+export const GET: APIRoute = async ({ url, request }) => {
+  // This route lives under /api/**, which src/middleware.ts explicitly does
+  // NOT run its /admin/** session-check on (see isAdminRoute there) — so
+  // Astro.locals.adminRole/adminEmail are never populated here. Authenticate
+  // directly via getRequestUser(), the same way every other /api/** route does.
+  const user = await getRequestUser(request);
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+  const adminEmail = user.email;
 
-  if (!can(adminRole!, "financing:export")) {
+  if (!can(user.role, "financing:export")) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
