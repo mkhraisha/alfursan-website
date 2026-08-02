@@ -23,8 +23,50 @@ export type VehicleListItem = {
   commission_percentage: number | null;
 };
 
-type SortKey = "vin" | "make" | "year" | "advertised_price_cargurus" | "total_cost" | "profit_loss";
-type SortDir = "asc" | "desc";
+export type SortKey = "vin" | "make" | "year" | "advertised_price_cargurus" | "total_cost" | "profit_loss" | "purchase_date";
+export type SortDir = "asc" | "desc";
+
+/** Default inventory sort — most recently purchased vehicle first. */
+export const DEFAULT_SORT_KEY: SortKey = "purchase_date";
+export const DEFAULT_SORT_DIR: SortDir = "desc";
+
+export type SortableInventoryRow = {
+  vin: string;
+  make: string;
+  year: number;
+  advertised_price_cargurus: number | null;
+  totalCost: number | null;
+  profitLoss: number | null;
+  purchase_date: string | null;
+};
+
+/**
+ * Pure comparator — extracted so sort behavior (including null handling and
+ * direction) can be unit tested without rendering the component.
+ * Date fields are ISO "YYYY-MM-DD" strings, so lexicographic comparison is
+ * equivalent to chronological comparison (see matchesInventoryFilters above).
+ */
+export function compareInventoryRows(
+  a: SortableInventoryRow,
+  b: SortableInventoryRow,
+  sortKey: SortKey,
+  sortDir: SortDir
+): number {
+  let av: string | number | null = null;
+  let bv: string | number | null = null;
+  if (sortKey === "vin")                       { av = a.vin;                       bv = b.vin; }
+  if (sortKey === "make")                      { av = a.make;                      bv = b.make; }
+  if (sortKey === "year")                      { av = a.year;                      bv = b.year; }
+  if (sortKey === "advertised_price_cargurus")  { av = a.advertised_price_cargurus; bv = b.advertised_price_cargurus; }
+  if (sortKey === "total_cost")                { av = a.totalCost;                 bv = b.totalCost; }
+  if (sortKey === "profit_loss")                { av = a.profitLoss;                bv = b.profitLoss; }
+  if (sortKey === "purchase_date")             { av = a.purchase_date;             bv = b.purchase_date; }
+  if (av === null) return sortDir === "asc" ? 1 : -1;
+  if (bv === null) return sortDir === "asc" ? -1 : 1;
+  if (av < bv) return sortDir === "asc" ? -1 : 1;
+  if (av > bv) return sortDir === "asc" ? 1 : -1;
+  return 0;
+}
 
 export type InventoryFilters = {
   status: string;
@@ -158,8 +200,8 @@ export const INVENTORY_EXPORT_COLUMNS: CSVColumn<InventoryRow>[] = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem[] }) {
-  const [sortKey, setSortKey] = useState<SortKey>("vin");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT_KEY);
+  const [sortDir, setSortDir] = useState<SortDir>(DEFAULT_SORT_DIR);
   const [page,    setPage]    = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
@@ -191,22 +233,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   }, [rows, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear, filterPurchaseFrom, filterPurchaseTo, filterSaleFrom, filterSaleTo]);
 
   const sorted = useMemo(() => {
-    const cmp = (a: typeof filtered[0], b: typeof filtered[0]) => {
-      let av: string | number | null = null;
-      let bv: string | number | null = null;
-      if (sortKey === "vin")             { av = a.vin;             bv = b.vin; }
-      if (sortKey === "make")            { av = a.make;            bv = b.make; }
-      if (sortKey === "year")            { av = a.year;            bv = b.year; }
-      if (sortKey === "advertised_price_cargurus"){ av = a.advertised_price_cargurus; bv = b.advertised_price_cargurus; }
-      if (sortKey === "total_cost")      { av = a.totalCost;       bv = b.totalCost; }
-      if (sortKey === "profit_loss")     { av = a.profitLoss;      bv = b.profitLoss; }
-      if (av === null) return sortDir === "asc" ? 1 : -1;
-      if (bv === null) return sortDir === "asc" ? -1 : 1;
-      if (av < bv) return sortDir === "asc" ? -1 : 1;
-      if (av > bv) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    };
-    return [...filtered].sort(cmp);
+    return [...filtered].sort((a, b) => compareInventoryRows(a, b, sortKey, sortDir));
   }, [filtered, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
@@ -330,7 +357,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
               <th>Status</th>
               <th>Ownership</th>
               <th>Photos</th>
-              <th>Purchased</th>
+              <th onClick={() => toggleSort("purchase_date")} className="sortable">Purchased{sortArrow("purchase_date")}</th>
               <th>Sold</th>
               <th onClick={() => toggleSort("advertised_price_cargurus")} className="sortable">Listed Price{sortArrow("advertised_price_cargurus")}</th>
               <th onClick={() => toggleSort("total_cost")}       className="sortable">Total Cost{sortArrow("total_cost")}</th>
