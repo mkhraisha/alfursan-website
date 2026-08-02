@@ -34,9 +34,9 @@ export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
   }
 
   async function loadPasskeys() {
-    const { data, error } = await supabase.auth.passkey.list();
     if (error) {
       show(error.message ?? "Failed to load passkeys", false);
+      setPasskeys([]);
       return;
     }
     setPasskeys(data ?? []);
