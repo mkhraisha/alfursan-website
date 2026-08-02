@@ -87,3 +87,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Fixed the vehicle CSV importer silently rejecting valid rows whose `status` column contained a slash, e.g. "On Lot / Work Needed" — `normalizeEnum` only converted spaces and hyphens to underscores, so the value normalized to `on_lot_/_work_needed` instead of the valid `on_lot_work_needed` enum value and failed schema validation. Slashes (and any run of whitespace/hyphens/slashes) now collapse to a single underscore.
+
+### Fixed
+
+- Fixed magic-link admin sign-in never completing against a local Supabase stack: `supabase/config.toml`'s `[auth] site_url`/`additional_redirect_urls` were set to `http://127.0.0.1:3000` / `https://127.0.0.1:3000`, but the dev server (and the login page's `emailRedirectTo`) actually run on `http://localhost:4321`, so GoTrue rejected the magic-link redirect target. `site_url` now points at `http://localhost:4321` and `additional_redirect_urls` includes the actual callback path on both `localhost` and `127.0.0.1`.
+- Fixed the local Supabase stack issuing 1-hour admin sessions instead of the intended 8 hours: `supabase/config.toml`'s `jwt_expiry` was left at the CLI's default (`3600`) instead of `28800`, the value the admin cookie/refresh code (`src/middleware.ts`, `src/pages/api/admin/set-session.ts`, `src/pages/api/admin/refresh-session.ts`) already assumed as its fallback session length. Local `jwt_expiry` is now `28800` (8 hours), matching that intent. **Production's JWT expiry is a separate hosted setting** (Supabase Dashboard → Authentication → Sessions → "Access token (JWT) expiry limit") and isn't managed by this repo — update it there to 28800 seconds to get the same 8-hour session in production.
