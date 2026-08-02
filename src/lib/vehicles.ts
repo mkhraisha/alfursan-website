@@ -6,6 +6,15 @@ const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 export const BODY_TYPES = ["sedan", "van", "coupe", "convertible", "suv", "hatchback", "truck", "wagon"] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
 
+export const DRIVE_TYPES = ["fwd", "rwd", "awd", "4wd"] as const;
+export type DriveType = (typeof DRIVE_TYPES)[number];
+
+export const TRANSMISSIONS = ["automatic", "manual", "cvt"] as const;
+export type Transmission = (typeof TRANSMISSIONS)[number];
+
+export const FUEL_TYPES = ["gasoline", "diesel", "hybrid", "electric"] as const;
+export type FuelType = (typeof FUEL_TYPES)[number];
+
 export const vinSchema = z
   .string()
   .length(17, "VIN must be exactly 17 characters")
@@ -44,6 +53,13 @@ const vehicleBaseSchema = z.object({
   body_type:        z.enum(BODY_TYPES),
   engine_type:      z.string().optional(),
   num_keys:         z.number().int().min(0).optional(),
+  drive_type:       z.enum(DRIVE_TYPES).optional(),
+  transmission:     z.enum(TRANSMISSIONS).optional(),
+  fuel_type:        z.enum(FUEL_TYPES).optional(),
+  cylinders:        z.number().int().min(1).optional(),
+  doors:            z.number().int().min(2).max(6).optional(),
+  features:         z.array(z.string()).optional(),
+  description:      z.string().optional(),
   colour:           z.string().optional(),
   odometer:         z.number().int().min(0).optional(),
   purchase_date:    isoDate.optional(),
@@ -204,7 +220,7 @@ export const commissionAssignSchema = z.object({
 
 /** Columns returned for unauthenticated (public) requests */
 export const PUBLIC_COLUMNS =
-  "vin, make, model, trim, series, year, colour, odometer, advertised_price_cargurus, images_json, videos_json, carfax_link";
+  "vin, make, model, trim, series, year, colour, odometer, body_type, drive_type, transmission, fuel_type, cylinders, doors, features, description, advertised_price_cargurus, images_json, videos_json, carfax_link";
 
 /**
  * Compute total cost = purchase_price + sum of expenses.

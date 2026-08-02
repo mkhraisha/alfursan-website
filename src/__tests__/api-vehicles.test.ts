@@ -520,6 +520,35 @@ describe("POST /api/vehicles/import", () => {
     expect(body.valid_count).toBe(1);
   });
 
+  it("maps and coerces the new public listing fields (drive_type, transmission, fuel_type, cylinders, doors)", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const csv = [
+      "VIN,Make,Model,Year,Body Type,Drive Type,Transmission,Fuel Type,Cylinders,Doors",
+      "1HGCM82633A004352,Honda,Civic,2020,sedan,AWD,Automatic,Gasoline,4,4",
+    ].join("\n");
+    const mapping = JSON.stringify({
+      VIN: "vin", Make: "make", Model: "model", Year: "year", "Body Type": "body_type",
+      "Drive Type": "drive_type", Transmission: "transmission", "Fuel Type": "fuel_type",
+      Cylinders: "cylinders", Doors: "doors",
+    });
+
+    const request = new Request("https://alfursanauto.ca/api/vehicles/import", {
+      method: "POST",
+      body: makeImportFormData(csv, mapping, true),
+    });
+    const res = await importPOST({ request } as never);
+    const body = await res.json();
+    expect(body.valid_count).toBe(1);
+    expect(body.preview[0]).toMatchObject({
+      drive_type: "awd",
+      transmission: "automatic",
+      fuel_type: "gasoline",
+      cylinders: 4,
+      doors: 4,
+    });
+  });
+
   it("inserts valid rows and returns created count", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
     const insertEqFn = vi.fn().mockResolvedValue({ error: null });

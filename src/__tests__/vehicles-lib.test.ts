@@ -10,6 +10,10 @@ import {
   aggregateMonthlySales,
   getMonthDateRange,
   BODY_TYPES,
+  DRIVE_TYPES,
+  TRANSMISSIONS,
+  FUEL_TYPES,
+  PUBLIC_COLUMNS,
   type SoldVehicle,
 } from "../lib/vehicles";
 
@@ -403,5 +407,105 @@ describe("vehicleCreateSchema — body_type", () => {
 
   it("body_type is optional on update (partial schema)", () => {
     expect(vehicleUpdateSchema.safeParse({ colour: "Blue" }).success).toBe(true);
+  });
+});
+
+// ── Public listing fields (WordPress migration Part 1) ────────────────────────
+
+describe("vehicleCreateSchema — drive_type", () => {
+  it.each(DRIVE_TYPES)("accepts valid drive_type '%s'", (dt) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, drive_type: dt }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised drive_type", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, drive_type: "fourwd" }).success).toBe(false);
+  });
+
+  it("is optional (create succeeds without it)", () => {
+    expect(vehicleCreateSchema.safeParse(BASE_VEHICLE).success).toBe(true);
+  });
+});
+
+describe("vehicleCreateSchema — transmission", () => {
+  it.each(TRANSMISSIONS)("accepts valid transmission '%s'", (t) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, transmission: t }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised transmission", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, transmission: "semi_auto" }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — fuel_type", () => {
+  it.each(FUEL_TYPES)("accepts valid fuel_type '%s'", (ft) => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, fuel_type: ft }).success).toBe(true);
+  });
+
+  it("rejects an unrecognised fuel_type", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, fuel_type: "propane" }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — cylinders", () => {
+  it("accepts a positive integer", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, cylinders: 4 }).success).toBe(true);
+  });
+
+  it("rejects zero", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, cylinders: 0 }).success).toBe(false);
+  });
+
+  it("rejects a non-integer", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, cylinders: 4.5 }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — doors", () => {
+  it("accepts a value within range", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, doors: 4 }).success).toBe(true);
+  });
+
+  it("rejects a value below range", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, doors: 1 }).success).toBe(false);
+  });
+
+  it("rejects a value above range", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, doors: 7 }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — features", () => {
+  it("accepts an array of strings", () => {
+    expect(
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, features: ["Backup Camera", "Heated Seats"] }).success
+    ).toBe(true);
+  });
+
+  it("accepts an empty array", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, features: [] }).success).toBe(true);
+  });
+
+  it("rejects a non-array value", () => {
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, features: "Backup Camera" }).success).toBe(false);
+  });
+});
+
+describe("vehicleCreateSchema — description", () => {
+  it("accepts a public description string", () => {
+    expect(
+      vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, description: "Well maintained, single owner." }).success
+    ).toBe(true);
+  });
+
+  it("is optional", () => {
+    expect(vehicleCreateSchema.safeParse(BASE_VEHICLE).success).toBe(true);
+  });
+});
+
+describe("PUBLIC_COLUMNS — public listing fields", () => {
+  it("includes all new public spec fields", () => {
+    for (const col of ["body_type", "drive_type", "transmission", "fuel_type", "cylinders", "doors", "features", "description"]) {
+      expect(PUBLIC_COLUMNS).toContain(col);
+    }
   });
 });
