@@ -4,8 +4,14 @@
  * (docs/WORDPRESS_MIGRATION.md Part 2).
  *
  * Fetches every vehicle from the WordPress Vehica "cars" custom post type,
- * resolves its taxonomy terms, maps the result onto the `vehicles` schema via
- * src/lib/wordpress-migration.ts, and inserts each row into Supabase by VIN.
+ * resolves its taxonomy terms, and maps the result onto the `vehicles` schema
+ * via src/lib/wordpress-migration.ts. For a VIN that doesn't exist yet, this
+ * INSERTs a new row. For a VIN that already exists (e.g. imported earlier via
+ * the CSV importer, which never carries drive_type/transmission/fuel_type/
+ * cylinders/doors/features/description), this fills in ONLY the fields that
+ * are currently empty on that row — it never overwrites a field the DMS
+ * already has a value for, and it never touches `status` (staff-managed
+ * operational state, not vehicle spec data). See buildFillPatch().
  * Does NOT touch images_json/videos_json/photography_status — photo
  * migration is Part 4, run separately after this.
  *
@@ -27,11 +33,18 @@
  *   - report.json         machine-readable version of the same
  *   - slug-to-vin.json    old WP slug → VIN, for Part 5's redirect table
  *   - skipped.json        every skipped row with its reason
+ *   - filled.json         every existing vehicle that got 1+ empty field filled in, and which fields
  */
 
 import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { mapWpCarToVehicleRow, summarizeMigrationResults, buildReconciliationArtifacts } from "../src/lib/wordpress-migration.ts";
+import {
+  mapWpCarToVehicleRow,
+  summarizeMigrationResults,
+  buildReconciliationArtifacts,
+  buildFillPatch,
+  FILLABLE_FIELDS,
+} from "../src/lib/wordpress-migration.ts";
 import { vehicleCreateSchema } from "../src/lib/vehicles.ts";
 
 const DEFAULT_WP_API_BASE = "https://media.alfursanauto.ca/wp-json";
@@ -220,34 +233,62 @@ async function main() {
     }
   }
 
-  // ── Collision detection + insert (write mode only — dry-run never touches Supabase) ──
+  // ── Existing-vehicle lookup + insert/fill (write mode only — dry-run never touches Supabase) ──
   const candidateVins = results.filter((r) => r.row).map((r) => r.vin);
-  let collisionVins = new Set();
+  let existingVins = new Set();
   const insertErrors = [];
+  const updateErrors = [];
+  const filled = []; // { vin, fields: string[] } — existing vehicles that got 1+ empty field populated
+  let insertedCount = 0;
+  let unchangedCount = 0;
 
   if (!DRY_RUN && candidateVins.length > 0) {
-    const db = createClient(supabaseUrl, serviceKey ?? "", {
+    const db = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data, error } = await db.from("vehicles").select("vin").in("vin", candidateVins);
+    const { data: existingRows, error } = await db
+      .from("vehicles")
+      .select(`vin, ${FILLABLE_FIELDS.join(", ")}`)
+      .in("vin", candidateVins);
     if (error) throw error;
-    collisionVins = new Set((data ?? []).map((v) => v.vin));
+
+    const existingByVin = new Map((existingRows ?? []).map((row) => [row.vin, row]));
+    existingVins = new Set(existingByVin.keys());
 
     for (const r of results) {
-      if (!r.row || collisionVins.has(r.vin)) continue;
-      const { error: insertError } = await db.from("vehicles").insert(r.row);
-      if (insertError) {
-        insertErrors.push({ vin: r.vin, error: insertError.message });
-        collisionVins.add(r.vin); // don't double-count in the summary below
+      if (!r.row) continue;
+      const existing = existingByVin.get(r.vin);
+
+      if (!existing) {
+        const { error: insertError } = await db.from("vehicles").insert(r.row);
+        if (insertError) {
+          insertErrors.push({ vin: r.vin, error: insertError.message });
+        } else {
+          insertedCount++;
+        }
+        continue;
+      }
+
+      const patch = buildFillPatch(existing, r.row);
+      const fields = Object.keys(patch);
+      if (fields.length === 0) {
+        unchangedCount++;
+        continue;
+      }
+      const { error: updateError } = await db.from("vehicles").update(patch).eq("vin", r.vin);
+      if (updateError) {
+        updateErrors.push({ vin: r.vin, error: updateError.message });
+      } else {
+        filled.push({ vin: r.vin, fields });
       }
     }
   } else if (DRY_RUN) {
-    console.log("[migrate] Dry run — skipping Supabase collision check and insert entirely.");
+    console.log("[migrate] Dry run — skipping Supabase lookup, insert, and fill entirely.");
   }
 
   // ── Report ───────────────────────────────────────────────────────────────────
-  const summary = summarizeMigrationResults(results, collisionVins);
+  const summary = summarizeMigrationResults(results, existingVins);
   const { skipped, warned, slugToVin } = buildReconciliationArtifacts(results, resolved);
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -256,9 +297,14 @@ async function main() {
 
   writeFileSync(`${outDir}/slug-to-vin.json`, JSON.stringify(slugToVin, null, 2));
   writeFileSync(`${outDir}/skipped.json`, JSON.stringify(skipped, null, 2));
+  writeFileSync(`${outDir}/filled.json`, JSON.stringify(filled, null, 2));
   writeFileSync(
     `${outDir}/report.json`,
-    JSON.stringify({ ...summary, insertErrors, warned, mode: DRY_RUN ? "dry-run" : "write" }, null, 2)
+    JSON.stringify(
+      { ...summary, insertedCount, filledCount: filled.length, unchangedCount, insertErrors, updateErrors, warned, mode: DRY_RUN ? "dry-run" : "write" },
+      null,
+      2
+    )
   );
 
   const reportMd = [
@@ -268,15 +314,18 @@ async function main() {
     `Mode: ${DRY_RUN ? "dry-run (no writes)" : "write"}`,
     ``,
     `- Total WP cars fetched: ${summary.totalFetched}`,
-    `- ${DRY_RUN ? "Would migrate" : "Migrated"}: ${summary.migrated}`,
-    `- Skipped: ${summary.skipped}`,
+    `- Skipped (missing/invalid required data): ${summary.skipped}`,
     DRY_RUN
-      ? `- VIN collisions with existing DMS vehicles: not checked (dry run never queries Supabase)`
-      : `- VIN collisions with existing DMS vehicles: ${summary.collisions}`,
+      ? `- New vehicles (would insert): ${summary.newVehicles}`
+      : `- New vehicles inserted: ${insertedCount}`,
+    DRY_RUN
+      ? `- Already in the DMS (would fill empty fields — not checked in dry run): ${summary.matchedExisting}`
+      : `- Already in the DMS: ${summary.matchedExisting} (${filled.length} got 1+ empty field filled in, ${unchangedCount} already complete)`,
     `- Rows with warnings: ${warned.length} (${summary.warningCount} total warnings)`,
     `- Insert errors: ${insertErrors.length}`,
+    `- Update (fill) errors: ${updateErrors.length}`,
     ``,
-    `See skipped.json for skip reasons, report.json for warnings/insert errors, slug-to-vin.json for the old-URL redirect table.`,
+    `See skipped.json for skip reasons, filled.json for which fields were filled on existing vehicles, report.json for warnings/errors, slug-to-vin.json for the old-URL redirect table.`,
   ].join("\n");
   writeFileSync(`${outDir}/report.md`, reportMd);
 

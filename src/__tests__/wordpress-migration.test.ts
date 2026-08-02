@@ -10,6 +10,7 @@ import {
   mapWpCarToVehicleRow,
   summarizeMigrationResults,
   buildReconciliationArtifacts,
+  buildFillPatch,
   type ResolvedWpCarFields,
 } from "../lib/wordpress-migration";
 
@@ -254,18 +255,18 @@ describe("mapWpCarToVehicleRow — soft warnings (row still included)", () => {
 // ── summarizeMigrationResults ───────────────────────────────────────────────────
 
 describe("summarizeMigrationResults", () => {
-  it("counts migrated, skipped, collisions, and warnings", () => {
+  it("counts newVehicles, skipped, matchedExisting, and warnings", () => {
     const results = [
-      mapWpCarToVehicleRow(FULL_FIELDS), // migrated
+      mapWpCarToVehicleRow(FULL_FIELDS), // new vehicle
       mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: undefined }), // skipped
-      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "2HGCM82633A004352", driveTypeRaw: "2WD" }), // migrated w/ 1 warning
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "2HGCM82633A004352", driveTypeRaw: "2WD" }), // matches existing, w/ 1 warning
     ];
     const summary = summarizeMigrationResults(results, new Set(["2HGCM82633A004352"]));
 
     expect(summary.totalFetched).toBe(3);
-    expect(summary.migrated).toBe(1);
+    expect(summary.newVehicles).toBe(1);
     expect(summary.skipped).toBe(1);
-    expect(summary.collisions).toBe(1);
+    expect(summary.matchedExisting).toBe(1);
     expect(summary.warningCount).toBe(1);
   });
 });
@@ -321,5 +322,80 @@ describe("buildReconciliationArtifacts", () => {
 
     const { slugToVin } = buildReconciliationArtifacts(results, resolved);
     expect(slugToVin).toEqual({});
+  });
+});
+
+// ── buildFillPatch ────────────────────────────────────────────────────────────
+
+describe("buildFillPatch", () => {
+  const mappedRow = mapWpCarToVehicleRow(FULL_FIELDS).row!;
+
+  it("fills fields the CSV sheet never carries (cylinders, drive_type, etc.) when they're empty on the existing row", () => {
+    const existingRow = {
+      vin: mappedRow.vin, make: "Honda", model: "Civic", year: 2020, body_type: "sedan",
+      drive_type: null, transmission: null, fuel_type: null, cylinders: null, doors: null,
+      colour: null, odometer: null, features: [], description: null,
+      advertised_price_cargurus: null, status: null,
+    };
+
+    const patch = buildFillPatch(existingRow, mappedRow);
+
+    expect(patch).toMatchObject({
+      drive_type: "fwd", transmission: "automatic", fuel_type: "gasoline",
+      cylinders: 4, doors: 4, colour: "Blue", odometer: 45000,
+      features: ["Backup Camera", "Heated Seats"],
+      description: "Well maintained, single owner.",
+      advertised_price_cargurus: 22500,
+    });
+  });
+
+  it("never overwrites a field the existing row already has a value for", () => {
+    const existingRow = {
+      vin: mappedRow.vin, make: "Honda", model: "Civic", year: 2020, body_type: "sedan",
+      colour: "Red", odometer: 99999, drive_type: "awd",
+    };
+
+    const patch = buildFillPatch(existingRow, mappedRow);
+
+    expect(patch.colour).toBeUndefined();
+    expect(patch.odometer).toBeUndefined();
+    expect(patch.drive_type).toBeUndefined();
+  });
+
+  it("never includes status, even when the existing row's status is null", () => {
+    const existingRow = { status: null };
+    const patch = buildFillPatch(existingRow, mappedRow);
+    expect(patch).not.toHaveProperty("status");
+  });
+
+  it("never includes vin", () => {
+    const existingRow = {};
+    const patch = buildFillPatch(existingRow, mappedRow);
+    expect(patch).not.toHaveProperty("vin");
+  });
+
+  it("returns an empty patch when the existing row already has every field populated", () => {
+    const existingRow = {
+      make: "Honda", model: "Civic", year: 2020, body_type: "sedan",
+      drive_type: "awd", transmission: "manual", fuel_type: "diesel",
+      cylinders: 6, doors: 2, colour: "Black", odometer: 1,
+      features: ["Something"], description: "Already has one", advertised_price_cargurus: 1,
+    };
+
+    const patch = buildFillPatch(existingRow, mappedRow);
+    expect(patch).toEqual({});
+  });
+
+  it("treats an empty features array on the existing row as empty (fills it)", () => {
+    const existingRow = { features: [] };
+    const patch = buildFillPatch(existingRow, mappedRow);
+    expect(patch.features).toEqual(["Backup Camera", "Heated Seats"]);
+  });
+
+  it("does not fill a field WordPress itself had nothing for", () => {
+    const sparseMappedRow = mapWpCarToVehicleRow({ ...FULL_FIELDS, driveTypeRaw: undefined }).row!;
+    const existingRow = { drive_type: null };
+    const patch = buildFillPatch(existingRow, sparseMappedRow);
+    expect(patch).not.toHaveProperty("drive_type");
   });
 });

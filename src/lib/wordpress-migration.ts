@@ -265,19 +265,21 @@ export function mapWpCarToVehicleRow(fields: ResolvedWpCarFields): MappedVehicle
 
 export interface MigrationSummary {
   totalFetched: number;
-  migrated: number;
+  /** Candidate rows with no existing VIN match — will be freshly INSERTed. */
+  newVehicles: number;
   skipped: number;
-  collisions: number;
+  /** Candidate rows whose VIN already exists in the DMS — filled via buildFillPatch(), never skipped outright. */
+  matchedExisting: number;
   warningCount: number;
 }
 
 export function summarizeMigrationResults(
   results: MappedVehicleResult[],
-  collisionVins: Set<string>
+  existingVins: Set<string>
 ): MigrationSummary {
-  let migrated = 0;
+  let newVehicles = 0;
   let skipped = 0;
-  let collisions = 0;
+  let matchedExisting = 0;
   let warningCount = 0;
 
   for (const r of results) {
@@ -286,14 +288,56 @@ export function summarizeMigrationResults(
       skipped++;
       continue;
     }
-    if (r.vin && collisionVins.has(r.vin)) {
-      collisions++;
+    if (r.vin && existingVins.has(r.vin)) {
+      matchedExisting++;
       continue;
     }
-    migrated++;
+    newVehicles++;
   }
 
-  return { totalFetched: results.length, migrated, skipped, collisions, warningCount };
+  return { totalFetched: results.length, newVehicles, skipped, matchedExisting, warningCount };
+}
+
+// ── Fill-in-the-gaps patch for vehicles that already exist in the DMS ──────────
+
+// Fields WordPress can supply that the CSV/OpenLane import sheet never does
+// (drive_type, transmission, fuel_type, cylinders, doors, features,
+// description), plus the handful of overlapping spec fields — filled only
+// when the existing DMS row doesn't already have a value. `status` is
+// deliberately excluded: it's staff-managed operational state, not vehicle
+// spec data, and this migration never touches it on an existing vehicle.
+export const FILLABLE_FIELDS = [
+  "make", "model", "year", "body_type",
+  "drive_type", "transmission", "fuel_type", "cylinders", "doors",
+  "colour", "odometer", "features", "description", "advertised_price_cargurus",
+] as const;
+
+function isEmptyValue(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+/**
+ * Compares an existing `vehicles` row (already in the DMS, e.g. from a CSV
+ * import) against a freshly-mapped WordPress row for the same VIN, and
+ * returns a patch containing only the fields that are empty on the existing
+ * row and populated on the WP side. Never overwrites a field the DMS already
+ * has a value for — WP data only fills gaps, it never wins a conflict.
+ */
+export function buildFillPatch(
+  existingRow: Record<string, unknown>,
+  mappedRow: Record<string, unknown>
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const field of FILLABLE_FIELDS) {
+    if (!(field in mappedRow)) continue; // WP had nothing for this field either
+    if (isEmptyValue(existingRow[field])) {
+      patch[field] = mappedRow[field];
+    }
+  }
+  return patch;
 }
 
 // ── Reconciliation artifacts (skipped/warned/slug→VIN) ─────────────────────────
