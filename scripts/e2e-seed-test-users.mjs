@@ -11,6 +11,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { appendFileSync } from "node:fs";
+import { TEST_USERS } from "../e2e/test-users.mjs";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY;
@@ -44,18 +45,16 @@ const anon = createClient(SUPABASE_URL, ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const PASSWORD = "E2E-test-password-1!";
-
 async function findExistingUserId(email) {
   const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
   if (error) throw new Error(`listUsers(): ${error.message}`);
   return data.users.find((u) => u.email === email)?.id ?? null;
 }
 
-async function seedUser(email, role) {
+async function seedUser({ email, password, role }) {
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
-    password: PASSWORD,
+    password,
     email_confirm: true,
   });
 
@@ -74,7 +73,7 @@ async function seedUser(email, role) {
     .upsert({ id: userId, email, role, is_active: true }, { onConflict: "id" });
   if (profileErr) throw new Error(`user_profiles upsert(${email}): ${profileErr.message}`);
 
-  const { data: signedIn, error: signInErr } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
+  const { data: signedIn, error: signInErr } = await anon.auth.signInWithPassword({ email, password });
   if (signInErr) throw new Error(`signInWithPassword(${email}): ${signInErr.message}`);
   if (!signedIn.session?.access_token) {
     throw new Error(`signInWithPassword(${email}): sign-in succeeded but no session access token was returned`);
@@ -83,8 +82,8 @@ async function seedUser(email, role) {
   return signedIn.session.access_token;
 }
 
-const managerToken = await seedUser("e2e-manager@example.test", "manager");
-const salesToken = await seedUser("e2e-sales@example.test", "sales");
+const managerToken = await seedUser(TEST_USERS.manager);
+const salesToken = await seedUser(TEST_USERS.sales);
 
 const lines = [
   `E2E_SERVICE_TOKEN=${managerToken}`,

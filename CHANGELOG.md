@@ -61,6 +61,7 @@ All notable changes to this project will be documented in this file.
 
 - CI (`.github/workflows/ci.yml`): every pull request and push to `main` now spins up a real local Supabase stack, builds, runs unit tests, and runs the full Playwright e2e suite against a local dev server — previously e2e tests only ran once a day against production via `daily-smoke.yml`, and `npm run build`/`npm test` weren't enforced by CI at all. The latest e2e HTML report from `main` publishes to GitHub Pages; every run also uploads it as a downloadable artifact. README gained a CI status badge and a link to the published report.
 - `scripts/e2e-seed-test-users.mjs`: seeds a manager and a sales test user against the running local Supabase stack and signs them in for real JWTs, so the RBAC/CRUD e2e suite (`e2e/vehicles-api.spec.ts`) — previously only runnable by manually exporting `E2E_SERVICE_TOKEN`/`E2E_MANAGER_TOKEN`/`E2E_SALES_TOKEN` — now runs automatically in CI with no secrets to configure. Wired into `ci.yml` right after `supabase db reset`.
+- `e2e/helpers/admin-auth.ts`: signs in as a seeded test user and injects the same `sb-access-token`/`sb-refresh-token` cookies `/api/admin/set-session` would write, so e2e tests can drive authenticated `/admin/**` pages directly — magic-link sign-in can't be automated, so until now no test had ever exercised the admin UI past the login page. Added `e2e/admin-authenticated-smoke.spec.ts` as a proof that the helper works end-to-end (manager reaches `/admin/dashboard/` instead of being redirected to login).
 
 ### Fixed
 
