@@ -139,24 +139,33 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         height: 1px;
         background: #e4e7ec;
       }
-      .btn-secondary {
-        display: block;
+      .btn-passkey {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
         width: 100%;
         padding: 11px;
         background: #fff;
         color: #1a1d23;
-        border: 1px solid #e4e7ec;
-        border-radius: 6px;
+        border: 1.5px solid #1a1d23;
+        border-radius: 999px;
         font-size: 15px;
         font-weight: 600;
         font-family: inherit;
         cursor: pointer;
-        transition: background 0.15s, opacity 0.15s;
+        transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
       }
-      .btn-secondary:hover:not(:disabled) {
-        background: #f8f9fb;
+      .btn-passkey svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
       }
-      .btn-secondary:disabled {
+      .btn-passkey:hover:not(:disabled) {
+        background: #1a1d23;
+        color: #fff;
+      }
+      .btn-passkey:disabled {
         opacity: 0.6;
         cursor: not-allowed;
       }
@@ -183,8 +192,12 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       </form>
 
       <div class="divider" id="passkey-divider" hidden>or</div>
-      <button type="button" id="passkey-btn" class="btn-secondary" hidden>
-        Sign in with a passkey
+      <button type="button" id="passkey-btn" class="btn-passkey" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15.5 7.5a4.5 4.5 0 1 0-4.415 4.5L7 16.085V19h3v-2h2v-2h2l1.585-1.585A4.5 4.5 0 0 0 15.5 7.5Z" />
+          <circle cx="16.5" cy="7.5" r="0.75" fill="currentColor" stroke="none" />
+        </svg>
+        <span id="passkey-btn-label">Sign in with a passkey</span>
       </button>
 
       <p id="message"></p>
@@ -218,6 +231,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       const form = document.getElementById("signin-form") as HTMLFormElement;
       const btn = document.getElementById("submit-btn") as HTMLButtonElement;
       const passkeyBtn = document.getElementById("passkey-btn") as HTMLButtonElement;
+      const passkeyBtnLabel = document.getElementById("passkey-btn-label") as HTMLElement;
       const passkeyDivider = document.getElementById("passkey-divider") as HTMLElement;
       const msg = document.getElementById("message") as HTMLElement;
 
@@ -257,7 +271,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       passkeyBtn.addEventListener("click", async () => {
         if (!supabase) return;
         passkeyBtn.disabled = true;
-        passkeyBtn.textContent = "Waiting for passkey…";
+        passkeyBtnLabel.textContent = "Waiting for passkey…";
         msg.textContent = "";
         msg.className = "";
 
@@ -266,13 +280,13 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
           msg.textContent = error?.message || "Passkey sign-in failed. Please try again.";
           msg.className = "msg-error";
           passkeyBtn.disabled = false;
-          passkeyBtn.textContent = "Sign in with a passkey";
+          passkeyBtnLabel.textContent = "Sign in with a passkey";
           return;
         }
         await completeSignIn(data.session);
         if (msg.className === "msg-error") {
           passkeyBtn.disabled = false;
-          passkeyBtn.textContent = "Sign in with a passkey";
+          passkeyBtnLabel.textContent = "Sign in with a passkey";
         }
       });
 
