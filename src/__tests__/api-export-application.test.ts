@@ -3,8 +3,11 @@ import type { Mock } from "vitest";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 vi.mock("../lib/supabase-admin");
+vi.mock("../lib/request-user");
 
 import { getAdminClient } from "../lib/supabase-admin";
+import { getRequestUser } from "../lib/request-user";
+import type { RequestUser } from "../lib/request-user";
 import { GET } from "../pages/api/admin/export-application";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -29,15 +32,22 @@ const SAMPLE_APP = {
   license_consent: true,
 };
 
-/** Build a mock Astro GET context */
+/**
+ * Build a mock Astro GET context. Also configures the getRequestUser() mock
+ * as a side effect — this route authenticates itself directly (see comment
+ * in export-application.ts on why it can't rely on Astro.locals).
+ * Pass role: undefined to simulate an unauthenticated request.
+ */
 function makeContext({
   role = "owner" as string | undefined,
   email = "admin@alfursanauto.ca",
   id = "app-abc-123",
   ip = "1.2.3.4",
 } = {}) {
+  (getRequestUser as Mock).mockResolvedValue(
+    role === undefined ? null : ({ email, role, userId: "user-1" } as RequestUser)
+  );
   return {
-    locals: { adminRole: role, adminEmail: email },
     url: new URL(`https://alfursanauto.ca/api/admin/export-application?id=${id}`),
     request: new Request("https://alfursanauto.ca/api/admin/export-application", {
       headers: { "x-forwarded-for": ip },
@@ -80,16 +90,17 @@ describe("GET /api/admin/export-application", () => {
       expect(body.error).toMatch(/forbidden/i);
     });
 
-    it("returns 403 when adminRole is undefined", async () => {
-      // Cannot pass undefined through the helper (destructuring default kicks in),
-      // so build the context manually.
-      const ctx = {
-        locals: { adminRole: undefined as string | undefined, adminEmail: "admin@test.com" },
-        url: new URL("https://alfursanauto.ca/api/admin/export-application?id=app-abc-123"),
-        request: new Request("https://alfursanauto.ca/"),
-      };
+    it("returns 401 when unauthenticated", async () => {
+      // This route lives under /api/**, which src/middleware.ts's /admin/**
+      // session check does not cover, so it must authenticate itself via
+      // getRequestUser() rather than relying on Astro.locals.
+      // Note: makeContext({ role: undefined }) would NOT work here — JS
+      // destructuring defaults kick in for an explicit `undefined` too, so
+      // the mock must be overridden after makeContext() runs.
+      const ctx = makeContext();
+      (getRequestUser as Mock).mockResolvedValue(null);
       const res = await GET(ctx as never);
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(401);
     });
 
     it("allows owner role", async () => {
@@ -111,8 +122,8 @@ describe("GET /api/admin/export-application", () => {
 
   describe("input validation", () => {
     it("returns 400 when id param is missing", async () => {
+      (getRequestUser as Mock).mockResolvedValue({ email: "admin@test.com", role: "owner", userId: "user-1" } as RequestUser);
       const ctx = {
-        locals: { adminRole: "owner", adminEmail: "admin@test.com" },
         url: new URL("https://alfursanauto.ca/api/admin/export-application"),
         request: new Request("https://alfursanauto.ca/"),
       };
@@ -198,8 +209,8 @@ describe("GET /api/admin/export-application", () => {
     it("uses 'unknown' as IP when header is absent", async () => {
       const { client, auditInsertFn } = makeSupabaseMock();
       (getAdminClient as Mock).mockReturnValue(client);
+      (getRequestUser as Mock).mockResolvedValue({ email: "admin@test.com", role: "owner", userId: "user-1" } as RequestUser);
       const ctx = {
-        locals: { adminRole: "owner", adminEmail: "admin@test.com" },
         url: new URL("https://alfursanauto.ca/api/admin/export-application?id=app-abc-123"),
         request: new Request("https://alfursanauto.ca/"),
       };
