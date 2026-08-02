@@ -101,6 +101,11 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
   - **Validation:** Verified against three real WP posts fetched live from `media.alfursanauto.ca` — all three embed the Carfax link as an in-body `<a>` with no dedicated ACF field, confirming there was no existing structured source for `carfax_link` this migration was missing.
   - **Test:** `src/__tests__/wordpress-migration.test.ts` — new coverage for `extractCarfaxLink` (finds the link, case-insensitive domain match, decodes HTML entities in the href, ignores non-Carfax links), `stripHtmlToPlainText` (preserves paragraph/`<br>` breaks as blank lines, drops empty spacer paragraphs), `mapWpCarToVehicleRow` (sets `carfax_link` and produces a clean multi-line description when a Carfax link is present, omits `carfax_link` when absent), and `buildFillPatch` (fills an empty `carfax_link`, never overwrites an existing one).
 
+- [x] **Fix: repair descriptions already corrupted by a prior (buggy) run — `--refresh-description`**
+  - **Description:** Both the local dev Supabase stack and production had already been migrated once with the buggy `stripHtmlToPlainText` above, so their `description` columns are no longer empty — `buildFillPatch`'s normal fill-only-if-empty rule will never revisit them, meaning the fix above alone wouldn't repair anything already written. Added a `--refresh-description` flag to `scripts/migrate-wordpress-inventory.mjs`. For an already-existing vehicle, if its current `description` matches byte-for-byte what the *old, buggy* migration would have produced from the current WP content (`isUnrefreshedLegacyDescription()`, backed by `legacyStripHtmlToPlainTextV1()` — a frozen, intentionally-buggy reproduction of the original algorithm, kept only for this comparison), it's safe to assume no one has touched it since, and the description is replaced with the corrected version. If it doesn't match — an admin may have hand-edited the public description since, or the WP content itself changed — the row is left untouched and reported in `description-needs-review.json` instead of being silently overwritten.
+  - **Validation:** Ran `--refresh-description` against the local dev Supabase stack (the same one confirmed to have the old buggy data): 37 of 38 existing vehicles had their description safely repaired (paragraph breaks restored, Carfax link extracted into `carfax_link`); 1 was correctly flagged in `description-needs-review.json` instead of being overwritten — its current description already had real paragraph breaks the old buggy algorithm could never have produced, consistent with a staff member having manually cleaned it up in the admin UI after the original bad migration ran. That vehicle's empty `carfax_link` was still safely backfilled via the normal fill-patch path, since that check is independent of the description-refresh logic.
+  - **Test:** `src/__tests__/wordpress-migration.test.ts` covers `legacyStripHtmlToPlainTextV1` (reproduces the old flattening, including its lack of `&nbsp;` decoding) and `isUnrefreshedLegacyDescription` (true only on an exact match; false when empty, hand-edited, or already in the new corrected format).
+
 - [x] **Map `vehicleType`/taxonomy terms → new enum values**
   - **Description:** `src/lib/wordpress-migration.ts` has an alias table per field (body type, drive type, transmission, fuel type) translating WP's free-text taxonomy terms to the new constrained enum values, plus digit-extraction for cylinders/doors. Unmapped terms produce a warning and leave that one field `null` — they never fail the whole row.
   - **Validation:** Confirmed via the dry run above: real WP data uses a combined `"AWD/4WD"` drive-type term the initial alias table didn't cover — found via the actual dry run, added as an alias (defaults to `awd`), verified the warning count dropped from 15 to 0 on re-run. No unmapped terms are silently dropped without logging.
@@ -175,15 +180,17 @@ Each of the above:
 
 ## 9. Part 6 — Static content: About Us & Contact Us
 
-- [ ] **Rebuild `/about-us` as a native static Astro page**
-  - **Description:** Pull the current published content from WP (`getAboutPageContent()` / `about-us` slug) one last time, and hardcode it directly into `src/pages/about-us/index.astro` (plain markup/content, no fetch). Remove the `getAboutPageContent` WP call.
-  - **Validation:** Page renders identically (or intentionally updated copy, if desired) with zero runtime dependency on WordPress.
-  - **Test:** `npm run build` passes; manual visual check against the current live page.
+**Status: implemented — see PR `worktree-wp-migration-part6-static-pages` (Part 6).**
 
-- [ ] **Rebuild `/contact-us` as a native static Astro page**
-  - **Description:** `getContactPageContent()` currently regex-scrapes address/phone/email/map/social links out of WP's rendered HTML (`extractContactModel`) — replace with a small hardcoded config object (address, phone, email, map URL, social links) directly in the page or a `src/lib/contact-info.ts` constants file. Remove the WP call and the regex-extraction logic entirely.
-  - **Validation:** All contact details (address, phone, email, map link, social links) render correctly and match current published values.
-  - **Test:** `npm run build` passes; manual check that `tel:`/`mailto:` links and the map link are correct.
+- [x] **Rebuild `/about-us` as a native static Astro page**
+  - **Description:** `src/pages/about-us/index.astro` already hardcoded its intro/CEO copy in an earlier pass, but still called the live `getFaqPageContent()` WP endpoint for its on-page FAQ preview, with a try/catch fallback to a hardcoded copy of the same 11 items. Fetched the live WordPress `about-us` and `faq` pages via the REST API to diff word-for-word against the hardcoded copy: content matched except several straight `'` apostrophes that WordPress renders as curly `'` (`&#8217;`). Removed the `getFaqPageContent` import/call and the fetch-state/error-banner logic entirely — the page now always renders the local `faqLeft`/`faqRight` arrays, corrected to match WordPress's exact typography. `getAboutPageContent` was already dead code (never imported anywhere) and has been deleted from `wordpress.ts`.
+  - **Validation:** Page renders identically to the live WordPress page (content diffed via the WP REST API — see PR description) with zero runtime dependency on WordPress. `npm run build` produces `/about-us/index.html` with no network call.
+  - **Test:** `npm run build`/`npm run astro:check`/`npm test` pass. Manual diff against `https://media.alfursanauto.ca/wp-json/wp/v2/pages?slug=about-us` and `?slug=faq` content confirmed exact text match.
+
+- [x] **Rebuild `/contact-us` as a native static Astro page**
+  - **Description:** Added `src/lib/contact-info.ts` as the single source of truth for address, phone (display + digits-only `tel:` href), email, map URL, and social links. Fetched the live WordPress `contact-us` page via the REST API and confirmed the existing hardcoded fallback values (address, phone, email, map URL, Facebook/Instagram links) were already byte-for-byte correct — they were just previously discarded whenever the live WP fetch succeeded, since `getContactPageContent()`'s raw `tel:` extraction returned an unformatted digit string that would silently override the nicely formatted fallback. `getContactPageContent`, `extractContactModel`, `ContactModel`, and the now-unused `extractFirstMatch` helper were deleted from `wordpress.ts`.
+  - **Validation:** All contact details render correctly and match the live published WordPress values (confirmed via REST API fetch, not just visual inspection). `tel:` href now uses the digits-only number while the visible text stays human-formatted.
+  - **Test:** `src/__tests__/contact-info.test.ts` (new) locks in the exact address/phone/email/social-link values as a regression guard. `npm run build`/`npm run astro:check`/`npm test` pass.
 
 ---
 
@@ -224,7 +231,7 @@ Each of the above:
 - [ ] Public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS — zero requests to `alfursanauto.ca`/`media.alfursanauto.ca`
 - [ ] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear
 - [ ] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
-- [ ] About Us and Contact Us are static native Astro content
+- [x] About Us and Contact Us are static native Astro content
 - [ ] Blog, Team, FAQ routes removed
 - [ ] `src/lib/wordpress.ts` deleted
 - [ ] ISR/cache staleness for public inventory pages resolved

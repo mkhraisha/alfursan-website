@@ -47,6 +47,7 @@ const SECURITY_HEADERS: Record<string, string> = {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https:",
     `connect-src ${buildConnectSrc(import.meta.env.DEV, import.meta.env.SUPABASE_URL ?? "")}`,
+    "frame-src https://www.google.com",
     "frame-ancestors 'none'",
   ].join("; "),
 };

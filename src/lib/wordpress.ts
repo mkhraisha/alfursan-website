@@ -124,15 +124,6 @@ export interface TeamPageContent {
   sourceSlug: string | null;
 }
 
-export interface ContactModel {
-  page: CmsPageContent | null;
-  address?: string;
-  phone?: string;
-  email?: string;
-  mapUrl?: string;
-  socialLinks: string[];
-}
-
 type VehicaTermKey =
   | "condition"
   | "vehicleType"
@@ -570,52 +561,6 @@ const extractFaqItems = (html: string): FaqItem[] => {
     .filter((item) => item.question && item.answer);
 };
 
-const extractFirstMatch = (
-  input: string,
-  pattern: RegExp,
-): string | undefined => {
-  const match = input.match(pattern);
-  return match?.[1]?.trim();
-};
-
-const extractContactModel = (page: CmsPageContent | null): ContactModel => {
-  if (!page) {
-    return {
-      page: null,
-      socialLinks: [],
-    };
-  }
-
-  const html = page.htmlContent;
-  const phoneHref = extractFirstMatch(html, /href=["']tel:([^"']+)["']/i);
-  const emailHref = extractFirstMatch(html, /href=["']mailto:([^"']+)["']/i);
-  const mapHref = extractFirstMatch(
-    html,
-    /href=["'](https?:\/\/maps\.google\.[^"']+)["']/i,
-  );
-  const addressLabel = extractFirstMatch(
-    html,
-    /Address<\/strong>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i,
-  );
-
-  const socialLinks = [...html.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)]
-    .map((m) => m[1])
-    .filter((link) => /facebook|instagram|x\.com|twitter/i.test(link));
-
-  return {
-    page,
-    address: addressLabel ? cleanText(addressLabel) : undefined,
-    phone: phoneHref ? decodeURIComponent(phoneHref) : undefined,
-    email: emailHref ? decodeURIComponent(emailHref) : undefined,
-    mapUrl: mapHref,
-    socialLinks,
-  };
-};
-
-export const getAboutPageContent = async (): Promise<CmsPageContent | null> => {
-  return getPageBySlug("about-us");
-};
-
 export const getFaqPageContent = async (): Promise<FaqPageContent> => {
   const page = await getPageBySlug("faq");
   return {
@@ -636,11 +581,6 @@ export const getTeamPageContent = async (): Promise<TeamPageContent> => {
   }
 
   return { page: null, sourceSlug: null };
-};
-
-export const getContactPageContent = async (): Promise<ContactModel> => {
-  const page = await getPageBySlug("contact-us");
-  return extractContactModel(page);
 };
 
 export const getPosts = async (limit = 20): Promise<BlogPost[]> => {

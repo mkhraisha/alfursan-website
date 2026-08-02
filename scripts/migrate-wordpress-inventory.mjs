@@ -27,11 +27,18 @@
  *   node scripts/migrate-wordpress-inventory.mjs --allow-production [--limit=N]  # writes to a non-local SUPABASE_URL — prompts for confirmation, see below
  *
  * Options:
- *   --dry-run           Fetch + map + validate only. Never writes to Supabase.
- *   --allow-production  Required to write to a non-local SUPABASE_URL. Still prompts for typed confirmation before writing anything.
- *   --limit=N           Only process the first N WP cars (after fetching all pages).
- *   --wp-api-base=URL   Override the WordPress REST API base (default matches
- *                       src/lib/wordpress.ts: https://media.alfursanauto.ca/wp-json)
+ *   --dry-run             Fetch + map + validate only. Never writes to Supabase.
+ *   --allow-production    Required to write to a non-local SUPABASE_URL. Still prompts for typed confirmation before writing anything.
+ *   --refresh-description One-time repair for vehicles migrated before the description/Carfax-link fix (see CHANGELOG). For an
+ *                         already-existing vehicle whose `description` still matches byte-for-byte what the OLD, buggy migration
+ *                         would have produced from the current WP content, replaces it with the corrected, better-formatted
+ *                         version. If it doesn't match (an admin likely hand-edited the public description since, or the WP
+ *                         content itself changed), the row is left untouched and reported in description-needs-review.json
+ *                         instead of being silently overwritten. Without this flag, already-populated descriptions are never
+ *                         touched (same as any other already-filled field).
+ *   --limit=N             Only process the first N WP cars (after fetching all pages).
+ *   --wp-api-base=URL     Override the WordPress REST API base (default matches
+ *                         src/lib/wordpress.ts: https://media.alfursanauto.ca/wp-json)
  *
  * Output: docs/migration/wordpress-inventory/<timestamp>/
  *   - report.md          human-readable reconciliation report
@@ -39,6 +46,7 @@
  *   - slug-to-vin.json    old WP slug → VIN, for Part 5's redirect table
  *   - skipped.json        every skipped row with its reason
  *   - filled.json         every existing vehicle that got 1+ empty field filled in, and which fields
+ *   - description-needs-review.json  existing descriptions that differ from the old buggy output — can't be safely auto-corrected
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -49,6 +57,7 @@ import {
   summarizeMigrationResults,
   buildReconciliationArtifacts,
   buildFillPatch,
+  isUnrefreshedLegacyDescription,
   FILLABLE_FIELDS,
 } from "../src/lib/wordpress-migration.ts";
 import { vehicleCreateSchema } from "../src/lib/vehicles.ts";
@@ -84,6 +93,7 @@ const CAR_FIELDS = [
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
 const ALLOW_PRODUCTION = args.includes("--allow-production");
+const REFRESH_DESCRIPTION = args.includes("--refresh-description");
 const LIMIT = (() => {
   const arg = args.find((a) => a.startsWith("--limit="));
   if (!arg) return undefined;
@@ -269,6 +279,8 @@ async function main() {
   const insertErrors = [];
   const updateErrors = [];
   const filled = []; // { vin, fields: string[] } — existing vehicles that got 1+ empty field populated
+  const descriptionRefreshed = []; // vins whose old-buggy description was corrected this run
+  const descriptionNeedsReview = []; // { vin, reason } — existing description differs from the old buggy output, can't auto-correct
   let insertedCount = 0;
   let unchangedCount = 0;
 
@@ -286,7 +298,8 @@ async function main() {
     const existingByVin = new Map((existingRows ?? []).map((row) => [row.vin, row]));
     existingVins = new Set(existingByVin.keys());
 
-    for (const r of results) {
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
       if (!r.row) continue;
       const existing = existingByVin.get(r.vin);
 
@@ -301,6 +314,34 @@ async function main() {
       }
 
       const patch = buildFillPatch(existing, r.row);
+
+      // description is a special case: a prior (buggy) run of this script may
+      // already have written the old, flattened description into this row,
+      // so buildFillPatch's normal fill-only-if-empty rule will never revisit
+      // it. Only ever auto-correct it when the existing value still matches
+      // byte-for-byte what that old bug would have produced — otherwise an
+      // admin may have hand-edited it since, so leave it alone and report it.
+      if (
+        !("description" in patch) &&
+        typeof r.row.description === "string" &&
+        typeof existing.description === "string" &&
+        existing.description.trim() !== "" &&
+        existing.description !== r.row.description
+      ) {
+        if (isUnrefreshedLegacyDescription(existing.description, resolved[i].htmlDescription)) {
+          if (REFRESH_DESCRIPTION) {
+            patch.description = r.row.description;
+            descriptionRefreshed.push(r.vin);
+          }
+          // else: safely refreshable, but --refresh-description wasn't passed — leave for a rerun with the flag.
+        } else {
+          descriptionNeedsReview.push({
+            vin: r.vin,
+            reason: "existing description doesn't match the pre-fix migration output — likely hand-edited, or WP content changed since; left untouched",
+          });
+        }
+      }
+
       const fields = Object.keys(patch);
       if (fields.length === 0) {
         unchangedCount++;
@@ -328,10 +369,16 @@ async function main() {
   writeFileSync(`${outDir}/slug-to-vin.json`, JSON.stringify(slugToVin, null, 2));
   writeFileSync(`${outDir}/skipped.json`, JSON.stringify(skipped, null, 2));
   writeFileSync(`${outDir}/filled.json`, JSON.stringify(filled, null, 2));
+  writeFileSync(`${outDir}/description-needs-review.json`, JSON.stringify(descriptionNeedsReview, null, 2));
   writeFileSync(
     `${outDir}/report.json`,
     JSON.stringify(
-      { ...summary, insertedCount, filledCount: filled.length, unchangedCount, insertErrors, updateErrors, warned, mode: DRY_RUN ? "dry-run" : "write" },
+      {
+        ...summary, insertedCount, filledCount: filled.length, unchangedCount, insertErrors, updateErrors, warned,
+        descriptionRefreshedCount: descriptionRefreshed.length,
+        descriptionNeedsReviewCount: descriptionNeedsReview.length,
+        mode: DRY_RUN ? "dry-run" : "write",
+      },
       null,
       2
     )
@@ -351,12 +398,18 @@ async function main() {
     DRY_RUN
       ? `- Already in the DMS (would fill empty fields — not checked in dry run): ${summary.matchedExisting}`
       : `- Already in the DMS: ${summary.matchedExisting} (${filled.length} got 1+ empty field filled in, ${unchangedCount} already complete)`,
+    !DRY_RUN && REFRESH_DESCRIPTION
+      ? `- Descriptions repaired (matched the pre-fix migration output): ${descriptionRefreshed.length}`
+      : null,
+    !DRY_RUN
+      ? `- Descriptions needing manual review (don't match the pre-fix output — likely hand-edited): ${descriptionNeedsReview.length}`
+      : null,
     `- Rows with warnings: ${warned.length} (${summary.warningCount} total warnings)`,
     `- Insert errors: ${insertErrors.length}`,
     `- Update (fill) errors: ${updateErrors.length}`,
     ``,
-    `See skipped.json for skip reasons, filled.json for which fields were filled on existing vehicles, report.json for warnings/errors, slug-to-vin.json for the old-URL redirect table.`,
-  ].join("\n");
+    `See skipped.json for skip reasons, filled.json for which fields were filled on existing vehicles, description-needs-review.json for descriptions that couldn't be safely auto-corrected, report.json for warnings/errors, slug-to-vin.json for the old-URL redirect table.`,
+  ].filter((line) => line !== null).join("\n");
   writeFileSync(`${outDir}/report.md`, reportMd);
 
   console.log(`\n${reportMd}\n`);
