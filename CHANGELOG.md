@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Passkey sign-in for the admin portal, as an alternative to the magic-link email flow. A new **Account** page (`/admin/account/`, linked from the topbar) lets a signed-in admin register a passkey (fingerprint/face/security key) via `auth.registerPasskey()` and manage (list/remove) their registered passkeys via `auth.passkey.*`. The login page (`/admin/`) gets a "Sign in with a passkey" button (hidden on browsers without WebAuthn support) that calls `auth.signInWithPasskey()` and completes sign-in through the same `/api/admin/set-session` cookie flow the magic-link callback already uses. Requires enabling the `@supabase/auth-js` `experimental.passkey` client flag.
 - `docs/WORDPRESS_MIGRATION.md` — detailed plan for decommissioning WordPress: migrating vehicle inventory/status/photos into the DMS, rebuilding About Us/Contact Us as static Astro pages, and removing the unused Blog/Team/FAQ. `docs/DMS_PHASE2_PLAN.md` Sprint 2 now points here for the full task list.
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.

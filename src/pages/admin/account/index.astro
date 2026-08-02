@@ -1,0 +1,12 @@
+---
+export const prerender = false;
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import PasskeyManager from "../../../components/admin/PasskeyManager";
+
+const SUPABASE_URL = import.meta.env.SUPABASE_URL ?? "";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
+---
+
+<AdminLayout title="Account">
+  <PasskeyManager supabaseUrl={SUPABASE_URL} supabaseKey={SUPABASE_PUBLISHABLE_KEY} client:load />
+</AdminLayout>

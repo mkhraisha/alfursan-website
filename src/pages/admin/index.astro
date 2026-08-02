@@ -124,6 +124,42 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         color: #99a1b2;
         text-align: center;
       }
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 20px 0;
+        color: #99a1b2;
+        font-size: 12px;
+      }
+      .divider::before,
+      .divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #e4e7ec;
+      }
+      .btn-secondary {
+        display: block;
+        width: 100%;
+        padding: 11px;
+        background: #fff;
+        color: #1a1d23;
+        border: 1px solid #e4e7ec;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      .btn-secondary:hover:not(:disabled) {
+        background: #f8f9fb;
+      }
+      .btn-secondary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -145,6 +181,11 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         />
         <button type="submit" id="submit-btn">Send Magic Link</button>
       </form>
+
+      <div class="divider">or</div>
+      <button type="button" id="passkey-btn" class="btn-secondary" hidden>
+        Sign in with a passkey
+      </button>
 
       <p id="message"></p>
       <p class="footer-note">
@@ -170,17 +211,64 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       const supabaseUrl = config.dataset.url ?? "";
       const supabaseKey = config.dataset.key ?? "";
       const hasSupabaseConfig = !!supabaseUrl && !!supabaseKey;
-      const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : null;
+      const supabase = hasSupabaseConfig
+        ? createClient(supabaseUrl, supabaseKey, { auth: { experimental: { passkey: true } } })
+        : null;
 
       const form = document.getElementById("signin-form") as HTMLFormElement;
       const btn = document.getElementById("submit-btn") as HTMLButtonElement;
+      const passkeyBtn = document.getElementById("passkey-btn") as HTMLButtonElement;
       const msg = document.getElementById("message") as HTMLElement;
 
       if (!hasSupabaseConfig) {
         msg.textContent = "Admin auth is not configured on this environment.";
         msg.className = "msg-error";
         btn.disabled = true;
+      } else if ("PublicKeyCredential" in window) {
+        passkeyBtn.hidden = false;
       }
+
+      async function completeSignIn(session: {
+        access_token: string;
+        expires_in?: number;
+        refresh_token?: string | null;
+        expires_at?: number;
+      }) {
+        const res = await fetch("/api/admin/set-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: session.access_token,
+            expiresIn: session.expires_in ?? 28800,
+            refreshToken: session.refresh_token ?? undefined,
+            expiresAt: session.expires_at,
+          }),
+        });
+        if (!res.ok) {
+          msg.textContent = "Sign-in error. Please try again.";
+          msg.className = "msg-error";
+          return;
+        }
+        window.location.replace("/admin/dashboard/");
+      }
+
+      passkeyBtn.addEventListener("click", async () => {
+        if (!supabase) return;
+        passkeyBtn.disabled = true;
+        passkeyBtn.textContent = "Waiting for passkey…";
+        msg.textContent = "";
+        msg.className = "";
+
+        const { data, error } = await supabase.auth.signInWithPasskey();
+        if (error || !data?.session) {
+          msg.textContent = error?.message || "Passkey sign-in failed. Please try again.";
+          msg.className = "msg-error";
+          passkeyBtn.disabled = false;
+          passkeyBtn.textContent = "Sign in with a passkey";
+          return;
+        }
+        await completeSignIn(data.session);
+      });
 
       // If middleware bounced us back with an error, clear the stale session
       // so we don't loop: /admin/ → dashboard → middleware rejects → /admin/ → ...
