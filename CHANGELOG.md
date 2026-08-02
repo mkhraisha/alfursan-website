@@ -86,3 +86,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Fixed the vehicle CSV importer silently rejecting valid rows whose `status` column contained a slash, e.g. "On Lot / Work Needed" — `normalizeEnum` only converted spaces and hyphens to underscores, so the value normalized to `on_lot_/_work_needed` instead of the valid `on_lot_work_needed` enum value and failed schema validation. Slashes (and any run of whitespace/hyphens/slashes) now collapse to a single underscore.
+
+### Fixed
+
+- Fixed magic-link admin sign-in never completing against a local Supabase stack: `supabase/config.toml`'s `[auth] site_url`/`additional_redirect_urls` were set to `http://127.0.0.1:3000` / `https://127.0.0.1:3000`, but the dev server (and the login page's `emailRedirectTo`) actually run on `http://localhost:4321`, so GoTrue rejected the magic-link redirect target. `site_url` now points at `http://localhost:4321` and `additional_redirect_urls` includes the actual callback path on both `localhost` and `127.0.0.1`.
