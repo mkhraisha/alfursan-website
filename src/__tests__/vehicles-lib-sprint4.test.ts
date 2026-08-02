@@ -76,6 +76,10 @@ describe("expenseCreateSchema", () => {
       const result = businessExpenseCreateSchema.safeParse({ ...BASE, tax_type: "HST_ON", tax_rate: 0.05 });
       expect(result.success).toBe(false);
     });
+
+    it("accepts a zero tax_amount for vendors that don't charge tax", () => {
+      expect(businessExpenseCreateSchema.safeParse({ ...BASE, tax_type: "NONE", tax_rate: 0, tax_amount: 0 }).success).toBe(true);
+    });
   });
 
   it("accepts all valid categories", () => {
@@ -140,6 +144,10 @@ describe("expenseCreateSchema", () => {
     for (const t of TAX_TYPES) {
       expect(expenseCreateSchema.safeParse({ ...BASE, tax_type: t.code, tax_rate: t.rate }).success).toBe(true);
     }
+  });
+
+  it("accepts a zero tax_amount for vendors that don't charge tax", () => {
+    expect(expenseCreateSchema.safeParse({ ...BASE, tax_type: "NONE", tax_rate: 0, tax_amount: 0 }).success).toBe(true);
   });
 
   it("rejects empty description", () => {

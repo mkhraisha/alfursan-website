@@ -3,7 +3,11 @@ import {
   matchesInventoryFilters,
   EMPTY_INVENTORY_FILTERS,
   STATUS_NOT_SOLD,
+  compareInventoryRows,
+  DEFAULT_SORT_KEY,
+  DEFAULT_SORT_DIR,
   type VehicleListItem,
+  type SortableInventoryRow,
 } from "../components/admin/InventoryTable";
 
 function makeVehicle(overrides: Partial<VehicleListItem> = {}): VehicleListItem {
@@ -130,6 +134,52 @@ describe("matchesInventoryFilters — STATUS_NOT_SOLD (default inventory view)",
   it("includes vehicles with no status set", () => {
     const v = makeVehicle({ status: null });
     expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, status: STATUS_NOT_SOLD })).toBe(true);
+  });
+});
+
+describe("default inventory sort", () => {
+  it("defaults to purchase_date, oldest first", () => {
+    expect(DEFAULT_SORT_KEY).toBe("purchase_date");
+    expect(DEFAULT_SORT_DIR).toBe("asc");
+  });
+});
+
+describe("compareInventoryRows", () => {
+  function makeRow(overrides: Partial<SortableInventoryRow> = {}): SortableInventoryRow {
+    return {
+      vin: "1HGCM82633A004352", make: "Honda", year: 2022,
+      advertised_price_cargurus: 25_000, totalCost: 20_000, profitLoss: 5_000,
+      purchase_date: "2026-01-10",
+      ...overrides,
+    };
+  }
+
+  it("sorts by purchase_date descending (most recent first) when toggled", () => {
+    const older = makeRow({ vin: "A", purchase_date: "2026-01-01" });
+    const newer = makeRow({ vin: "B", purchase_date: "2026-06-01" });
+    const sorted = [older, newer].sort((a, b) => compareInventoryRows(a, b, "purchase_date", "desc"));
+    expect(sorted.map((r) => r.vin)).toEqual(["B", "A"]);
+  });
+
+  it("sorts by purchase_date ascending (oldest first) — the default", () => {
+    const older = makeRow({ vin: "A", purchase_date: "2026-01-01" });
+    const newer = makeRow({ vin: "B", purchase_date: "2026-06-01" });
+    const sorted = [newer, older].sort((a, b) => compareInventoryRows(a, b, "purchase_date", "asc"));
+    expect(sorted.map((r) => r.vin)).toEqual(["A", "B"]);
+  });
+
+  it("sorts a vehicle with no purchase_date to the end when ascending", () => {
+    const withDate = makeRow({ vin: "A", purchase_date: "2026-01-01" });
+    const noDate   = makeRow({ vin: "B", purchase_date: null });
+    const sorted = [noDate, withDate].sort((a, b) => compareInventoryRows(a, b, "purchase_date", "asc"));
+    expect(sorted.map((r) => r.vin)).toEqual(["A", "B"]);
+  });
+
+  it("still sorts correctly by the other existing keys (e.g. year)", () => {
+    const older = makeRow({ vin: "A", year: 2018 });
+    const newer = makeRow({ vin: "B", year: 2022 });
+    const sorted = [newer, older].sort((a, b) => compareInventoryRows(a, b, "year", "asc"));
+    expect(sorted.map((r) => r.vin)).toEqual(["A", "B"]);
   });
 });
 
