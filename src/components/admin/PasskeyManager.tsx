@@ -18,12 +18,29 @@ export function fmtDate(iso?: string) {
   return new Date(iso).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
 }
 
+/**
+ * Turns a `supabase.auth.passkey.list()` result into either a passkey list or
+ * an error message — pulled out as a pure function so this branch can be unit
+ * tested without a DOM (a prior refactor silently dropped the API call here,
+ * leaving the Account page stuck on "Loading…" forever).
+ */
+export function parsePasskeyListResult(
+  result: { data: Passkey[] | null; error: { message?: string } | null }
+): { passkeys: Passkey[]; error: string | null } {
+  if (result.error) {
+    return { passkeys: [], error: result.error.message ?? "Failed to load passkeys" };
+  }
+  return { passkeys: result.data ?? [], error: null };
+}
+
 export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
   const [supabase] = useState(() =>
     createClient(supabaseUrl, supabaseKey, { auth: { experimental: { passkey: true } } })
   );
   const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [passkeys, setPasskeys] = useState<Passkey[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const supportsWebAuthn = typeof window !== "undefined" && "PublicKeyCredential" in window;
@@ -34,23 +51,30 @@ export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
   }
 
   async function loadPasskeys() {
-    if (error) {
-      show(error.message ?? "Failed to load passkeys", false);
-      setPasskeys([]);
-      return;
-    }
-    setPasskeys(data ?? []);
+    const result = await supabase.auth.passkey.list();
+    const { passkeys: list, error } = parsePasskeyListResult(result);
+    setPasskeys(list);
+    setLoadError(error);
   }
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        setHasSession(false);
-        return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          setHasSession(false);
+          return;
+        }
+        setHasSession(true);
+        setEmail(data.session.user.email ?? null);
+        await loadPasskeys();
+      } catch (err) {
+        // Guard against any unexpected throw (e.g. a misconfigured client) so
+        // the page never gets stuck on "Loading…" with no explanation.
+        setHasSession(true);
+        setPasskeys([]);
+        setLoadError(err instanceof Error ? err.message : "Failed to load passkeys");
       }
-      setHasSession(true);
-      await loadPasskeys();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -88,7 +112,9 @@ export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
       <h1>Passkeys</h1>
       <p className="pk-sub">
         Sign in to the admin portal without a magic link, using your device's built-in authentication
-        (fingerprint, face, or security key).
+        (fingerprint, face, or security key) — a passkey is tied to the device/browser you register it
+        from, so add one on every device you regularly sign in with.
+        {email && <> Managing passkeys for <strong>{email}</strong>.</>}
       </p>
 
       {hasSession === false && (
@@ -99,7 +125,17 @@ export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
       )}
 
       {!supportsWebAuthn && (
-        <div className="pk-notice">This browser does not support passkeys.</div>
+        <div className="pk-notice">
+          This browser doesn't support passkeys. Try a recent version of Chrome, Safari, or Edge.
+        </div>
+      )}
+
+      {loadError && (
+        <div className="pk-notice">
+          Couldn't load your passkeys: {loadError}. This usually means passkeys aren't enabled on this
+          Supabase project yet, or the connection to Supabase failed.{" "}
+          <button type="button" className="pk-retry" onClick={loadPasskeys}>Retry</button>
+        </div>
       )}
 
       {hasSession && (
@@ -114,9 +150,11 @@ export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
           </button>
 
           <div className="pk-list">
-            {passkeys === null && <p className="pk-empty">Loading…</p>}
+            {passkeys === null && !loadError && <p className="pk-empty">Loading…</p>}
             {passkeys !== null && passkeys.length === 0 && (
-              <p className="pk-empty">No passkeys registered yet.</p>
+              <p className="pk-empty">
+                No passkeys registered yet. Click "+ Add a Passkey" above to create one for this device.
+              </p>
             )}
             {passkeys && passkeys.length > 0 && (
               <table>
@@ -157,6 +195,10 @@ export default function PasskeyManager({ supabaseUrl, supabaseKey }: Props) {
           border-radius: 8px; padding: 12px 16px; font-size: 14px; margin-bottom: 20px;
         }
         .pk-notice a { color: #b92111; font-weight: 600; }
+        .pk-retry {
+          background: none; border: none; color: #b92111; font-weight: 700;
+          font-size: 14px; cursor: pointer; text-decoration: underline; padding: 0;
+        }
         .pk-list { margin-top: 20px; }
         .pk-empty { font-size: 14px; color: #99a1b2; }
         .pk-list table {
