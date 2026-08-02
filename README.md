@@ -181,10 +181,22 @@ supabase start
 # Apply all migrations to local DB
 npm run db:reset
 
-# Seed first admin user (after creating the Supabase auth user)
-# Run this SQL in the Supabase local studio: http://localhost:54323
-# INSERT INTO admin_users (id, email, role)
-# SELECT id, email, 'owner' FROM auth.users WHERE email = 'you@example.com';
+# Seed your first admin user:
+# 1. Create the auth user. Signups are disabled locally (auth.enable_signup =
+#    false in supabase/config.toml, to mirror production), so magic-link
+#    sign-in won't auto-create one for a brand-new email — instead, go to
+#    the local Studio (http://localhost:54323) → Authentication → Users →
+#    "Add user" → create with your email, auto-confirmed.
+# 2. Give that user a role by inserting into `user_profiles` (NOT `admin_users`
+#    — that table was replaced by `user_profiles` in
+#    supabase/migrations/20260517000001_create_user_profiles.sql). Run this SQL
+#    in the local Studio → SQL Editor:
+#    INSERT INTO user_profiles (id, email, role)
+#    SELECT id, email, 'owner' FROM auth.users WHERE email = 'you@example.com';
+#    (valid roles: owner, manager, staff, admin, sales — see the migration
+#    above for the full CHECK constraint)
+# 3. Sign in at http://localhost:4321/admin/ via magic link (see "Signing in
+#    locally" above for where the email lands).
 ```
 
 ### Deploy to production
