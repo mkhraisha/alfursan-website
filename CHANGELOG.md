@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 - Drag-and-drop support on the vehicle and expense CSV importer upload zones, in addition to click-to-select.
 - `suv`, `hatchback`, `truck`, and `wagon` body types on vehicles, alongside sedan/van/coupe/convertible — selectable on the Add Vehicle form, the vehicle Purchase tab, and mappable in the vehicle CSV importer.
 - WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 1 — new vehicle fields needed for the public listing page: `drive_type` (fwd/rwd/awd/4wd), `transmission` (automatic/manual/cvt), `fuel_type` (gasoline/diesel/hybrid/electric), `cylinders`, `doors`, `features` (a tag list, e.g. "Backup Camera"), and a public-facing `description`. All editable on the vehicle Basics tab (features via an add/remove tag editor, description auto-saving on blur). Not mappable in the vehicle CSV importer — the OpenLane import sheet doesn't carry this data; it only exists on WordPress today and will come in via the one-time WordPress data migration instead. `body_type` and all seven new fields are now included in `PUBLIC_COLUMNS` for the unauthenticated vehicles API.
+- Regression tests confirming a `tax_amount` of `0` (and the `NONE`/exempt `tax_type`) is accepted end-to-end — schema validation, the expense CSV importer, and the DB constraints already allowed it, for vendors that don't charge tax.
 
 ### Changed
 
@@ -53,6 +54,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed the expense CSV importer rejecting rows whose `tax_amount`/`amount` column contained sub-cent floating-point residue from a spreadsheet formula (e.g. `-0.0000000000004`, displayed as `$0.00`) — `parseCurrency` now rounds parsed values to the nearest cent, so this no longer trips the `tax_amount >= 0` check for vendors that charge no tax.
 - Fixed the admin **Account** page (`/admin/account/`) getting stuck on "Loading…" forever and never showing registered passkeys — an automated PR-finding autofix had silently dropped the `supabase.auth.passkey.list()` call in `loadPasskeys()`, leaving it reference undeclared variables (a runtime `ReferenceError` that `npm run build` doesn't catch, since it doesn't type-check). The page now also shows a persistent, dismissable error message with a Retry button instead of failing silently, and displays which account's passkeys are being managed. Added `npm run astro:check` as an npm script so the project's full TypeScript check (which *would* have caught this) is actually runnable.
 - Stopped creating a Sentry release/deploy on every build (including PR preview deploys) — `astro.config.mjs` now only creates and finalizes a Sentry release, and records a deploy, when `VERCEL_ENV` is `production`. Preview builds still upload source maps for the runtime SDK's error reporting.
 - Fixed the "Listing" link on the admin finance application view, which pointed at the non-existent `/listings/` route instead of `/listing/`.

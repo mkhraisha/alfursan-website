@@ -49,10 +49,17 @@ export function parseExpenseDate(raw: string): string | null {
   return `${year}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
 }
 
-/** Parse a currency-formatted cell (handles $, CA$, commas, negative amounts). */
+/**
+ * Parse a currency-formatted cell (handles $, CA$, commas, negative amounts).
+ * Rounds to the nearest cent — spreadsheet tax formulas often leave sub-cent
+ * floating-point residue (e.g. -0.0000000000004) that displays as "$0.00"
+ * but would otherwise fail a `>= 0` check on tax_amount.
+ */
 function parseCurrency(raw: string): number | null {
   const n = parseFloat(raw.replace(/[^0-9.-]/g, ""));
-  return isNaN(n) ? null : n;
+  if (isNaN(n)) return null;
+  // `|| 0` normalizes -0 (e.g. from rounding a tiny negative residue) to 0.
+  return Math.round(n * 100) / 100 || 0;
 }
 
 /**
