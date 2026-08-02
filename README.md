@@ -133,15 +133,18 @@ npm run dev
 | `npm run test:e2e:ui` | Open the Playwright UI runner |
 | `npm run test:e2e:report` | Open the last local HTML report |
 
-**CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: it spins up a real local Supabase stack (`supabase start` + `supabase db reset` — schema-only, no production data involved), builds, runs unit tests, then runs the full Playwright suite against a local dev server. RBAC/CRUD tests in `e2e/vehicles-api.spec.ts` that need real user tokens (`E2E_SERVICE_TOKEN`, `E2E_MANAGER_TOKEN`, `E2E_SALES_TOKEN`) self-skip until those repo secrets are configured.
+**CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: it spins up a real local Supabase stack (`supabase start` + `supabase db reset` — schema-only, no production data involved), seeds manager/sales test users, builds, runs unit tests, then runs the full Playwright suite (including the RBAC/CRUD suite in `e2e/vehicles-api.spec.ts`) against a local dev server. No secrets to configure — the test users and their JWTs are minted fresh against the ephemeral local stack every run and thrown away with it.
 
 The latest HTML report from `main` is published at **[mkhraisha.github.io/alfursan-website](https://mkhraisha.github.io/alfursan-website/)** — every run also uploads the report as a downloadable workflow artifact (Actions tab → run → Artifacts) for PR branches.
 
-To run e2e tests locally, `supabase start` first so the API routes have a real backend:
+To run the full e2e suite locally, including RBAC/CRUD:
 
 ```bash
 supabase start
 supabase db reset
+node scripts/e2e-seed-test-users.mjs   # prints E2E_SERVICE_TOKEN / E2E_MANAGER_TOKEN / E2E_SALES_TOKEN
+export SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... SUPABASE_SECRET_KEY=...  # from `supabase status -o env`
+export E2E_SERVICE_TOKEN=... E2E_MANAGER_TOKEN=... E2E_SALES_TOKEN=...       # from the seed script's output
 npm run test:e2e
 ```
 

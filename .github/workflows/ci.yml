@@ -58,6 +58,9 @@ jobs:
                 -e 's/^\([A-Z_]*\)="\(.*\)"$/\1=\2/' \
             >> "$GITHUB_ENV"
 
+      - name: Seed e2e test users (manager/sales) and export their tokens
+        run: node scripts/e2e-seed-test-users.mjs
+
       - name: Build
         run: npm run build
 
