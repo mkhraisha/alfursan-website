@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 2 — `scripts/migrate-wordpress-inventory.mjs`, a one-time script that fetches every vehicle from the WordPress site, maps it onto the DMS `vehicles` schema (including translating WP's taxonomy terms for drive type/transmission/fuel type/body type into the new enums), and inserts it by VIN. Reports skipped rows (missing VIN/make/model/year/body type) and VIN collisions instead of silently dropping or overwriting them. `--dry-run` never writes anywhere — including no Supabase reads — so it's always safe to run against the live site. Deliberately leaves photos/`photography_status` untouched; that's Part 4.
 - `docs/WORDPRESS_MIGRATION.md` — detailed plan for decommissioning WordPress: migrating vehicle inventory/status/photos into the DMS, rebuilding About Us/Contact Us as static Astro pages, and removing the unused Blog/Team/FAQ. `docs/DMS_PHASE2_PLAN.md` Sprint 2 now points here for the full task list.
 - Search by VIN on the public search page (matches the `vehica_6671` WordPress custom field, exposed as `CarSummary.vin`).
 - Video previews in the admin vehicle Media tab — existing uploaded videos now render as playable `<video>` elements instead of a bare text label.

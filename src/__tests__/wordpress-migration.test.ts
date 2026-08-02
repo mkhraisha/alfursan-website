@@ -1,0 +1,263 @@
+import { describe, it, expect } from "vitest";
+import {
+  normalizeBodyType,
+  normalizeDriveType,
+  normalizeTransmission,
+  normalizeFuelType,
+  isSoldOfferType,
+  parseLeadingInt,
+  stripHtmlToPlainText,
+  mapWpCarToVehicleRow,
+  summarizeMigrationResults,
+  type ResolvedWpCarFields,
+} from "../lib/wordpress-migration";
+
+// ── Enum normalization ─────────────────────────────────────────────────────────
+
+describe("normalizeBodyType", () => {
+  it("accepts an already-canonical value", () => {
+    expect(normalizeBodyType("sedan")).toBe("sedan");
+  });
+
+  it("maps common WP taxonomy aliases", () => {
+    expect(normalizeBodyType("Crossover")).toBe("suv");
+    expect(normalizeBodyType("Mini-Van")).toBe("van");
+    expect(normalizeBodyType("Pick-Up")).toBe("truck");
+    expect(normalizeBodyType("Hatch")).toBe("hatchback");
+    expect(normalizeBodyType("Estate")).toBe("wagon");
+  });
+
+  it("is case/whitespace insensitive", () => {
+    expect(normalizeBodyType("  SUV  ")).toBe("suv");
+  });
+
+  it("returns undefined for an unrecognised term", () => {
+    expect(normalizeBodyType("Roadster")).toBeUndefined();
+  });
+
+  it("returns undefined for undefined input", () => {
+    expect(normalizeBodyType(undefined)).toBeUndefined();
+  });
+});
+
+describe("normalizeDriveType", () => {
+  it("maps display-text aliases", () => {
+    expect(normalizeDriveType("All Wheel Drive")).toBe("awd");
+    expect(normalizeDriveType("Front Wheel Drive")).toBe("fwd");
+    expect(normalizeDriveType("Rear-Wheel Drive")).toBe("rwd");
+    expect(normalizeDriveType("4x4")).toBe("4wd");
+  });
+
+  it("returns undefined for an unrecognised term", () => {
+    expect(normalizeDriveType("2WD")).toBeUndefined();
+  });
+
+  it("defaults a combined 'AWD/4WD' term (seen in real WP data) to awd", () => {
+    expect(normalizeDriveType("AWD/4WD")).toBe("awd");
+  });
+});
+
+describe("normalizeTransmission", () => {
+  it("maps aliases", () => {
+    expect(normalizeTransmission("Auto")).toBe("automatic");
+    expect(normalizeTransmission("Standard")).toBe("manual");
+    expect(normalizeTransmission("CVT")).toBe("cvt");
+  });
+});
+
+describe("normalizeFuelType", () => {
+  it("maps aliases", () => {
+    expect(normalizeFuelType("Petrol")).toBe("gasoline");
+    expect(normalizeFuelType("EV")).toBe("electric");
+    expect(normalizeFuelType("Plug-in Hybrid")).toBe("hybrid");
+    expect(normalizeFuelType("Diesel")).toBe("diesel");
+  });
+});
+
+describe("isSoldOfferType", () => {
+  it("detects sold regardless of casing", () => {
+    expect(isSoldOfferType("Sold")).toBe(true);
+    expect(isSoldOfferType("SOLD")).toBe(true);
+  });
+
+  it("is false for available/other offer types", () => {
+    expect(isSoldOfferType("Available")).toBe(false);
+    expect(isSoldOfferType(undefined)).toBe(false);
+  });
+});
+
+describe("parseLeadingInt", () => {
+  it("extracts a digit sequence from mixed text", () => {
+    expect(parseLeadingInt("V6")).toBe(6);
+    expect(parseLeadingInt("4-Cylinder")).toBe(4);
+    expect(parseLeadingInt("4 Door")).toBe(4);
+  });
+
+  it("returns undefined when no digits are present", () => {
+    expect(parseLeadingInt("N/A")).toBeUndefined();
+  });
+});
+
+describe("stripHtmlToPlainText", () => {
+  it("strips tags and decodes entities", () => {
+    expect(stripHtmlToPlainText("<p>Clean &amp; tidy &#8212; one owner</p>")).toBe(
+      "Clean & tidy — one owner"
+    );
+  });
+
+  it("collapses repeated whitespace", () => {
+    expect(stripHtmlToPlainText("<p>Line one</p>\n\n<p>Line two</p>")).toBe("Line one Line two");
+  });
+});
+
+// ── mapWpCarToVehicleRow ────────────────────────────────────────────────────────
+
+const FULL_FIELDS: ResolvedWpCarFields = {
+  wpId: 123,
+  slug: "2020-honda-civic",
+  vin: "1hgcm82633a004352",
+  make: "Honda",
+  model: "Civic",
+  year: "2020",
+  odometerRaw: "45,000",
+  priceObject: { plugin_default: 22500 },
+  bodyTypeRaw: "Sedan",
+  driveTypeRaw: "Front Wheel Drive",
+  transmissionRaw: "Automatic",
+  fuelTypeRaw: "Gasoline",
+  cylindersRaw: "4 Cylinder",
+  doorsRaw: "4 Door",
+  colour: "Blue",
+  features: ["Backup Camera", "Heated Seats", "Backup Camera"],
+  offerTypeRaw: "Available",
+  htmlDescription: "<p>Well maintained, single owner.</p>",
+};
+
+describe("mapWpCarToVehicleRow — happy path", () => {
+  it("maps a fully-populated car with no warnings", () => {
+    const result = mapWpCarToVehicleRow(FULL_FIELDS);
+    expect(result.skipReason).toBeNull();
+    expect(result.warnings).toEqual([]);
+    expect(result.vin).toBe("1HGCM82633A004352");
+    expect(result.row).toMatchObject({
+      vin: "1HGCM82633A004352",
+      make: "Honda",
+      model: "Civic",
+      year: 2020,
+      body_type: "sedan",
+      drive_type: "fwd",
+      transmission: "automatic",
+      fuel_type: "gasoline",
+      cylinders: 4,
+      doors: 4,
+      colour: "Blue",
+      odometer: 45000,
+      advertised_price_cargurus: 22500,
+      description: "Well maintained, single owner.",
+      status: "frontline_ready",
+    });
+    expect(result.row?.features).toEqual(["Backup Camera", "Heated Seats"]);
+  });
+
+  it("uppercases and trims the VIN", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: " 1hgcm82633a004352 " });
+    expect(result.vin).toBe("1HGCM82633A004352");
+  });
+
+  it("sets status to sold when the offer type is sold", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, offerTypeRaw: "Sold" });
+    expect(result.row?.status).toBe("sold");
+  });
+
+  it("never sets images_json, videos_json, or photography_status", () => {
+    const result = mapWpCarToVehicleRow(FULL_FIELDS);
+    expect(result.row).not.toHaveProperty("images_json");
+    expect(result.row).not.toHaveProperty("videos_json");
+    expect(result.row).not.toHaveProperty("photography_status");
+  });
+});
+
+describe("mapWpCarToVehicleRow — blocking issues (row skipped)", () => {
+  it("skips a car with a missing VIN", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: undefined });
+    expect(result.row).toBeNull();
+    expect(result.skipReason).toContain("VIN");
+  });
+
+  it("skips a car with an invalid VIN", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "not-a-vin" });
+    expect(result.row).toBeNull();
+    expect(result.skipReason).toContain("VIN");
+  });
+
+  it("skips a car with a missing make", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, make: undefined });
+    expect(result.row).toBeNull();
+    expect(result.skipReason).toContain("make");
+  });
+
+  it("skips a car with a missing model", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, model: undefined });
+    expect(result.row).toBeNull();
+    expect(result.skipReason).toContain("model");
+  });
+
+  it("skips a car with a missing/invalid year", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, year: undefined });
+    expect(result.row).toBeNull();
+    expect(result.skipReason).toContain("year");
+  });
+
+  it("skips a car with an unrecognised body type", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, bodyTypeRaw: "Roadster" });
+    expect(result.row).toBeNull();
+    expect(result.skipReason).toContain("body type");
+  });
+
+  it("combines multiple blockers into one reason", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: undefined, make: undefined });
+    expect(result.skipReason).toContain("VIN");
+    expect(result.skipReason).toContain("make");
+  });
+});
+
+describe("mapWpCarToVehicleRow — soft warnings (row still included)", () => {
+  it("warns but keeps the row when drive_type is unmapped", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, driveTypeRaw: "2WD" });
+    expect(result.row).not.toBeNull();
+    expect(result.row).not.toHaveProperty("drive_type");
+    expect(result.warnings.some((w) => w.includes("drive_type"))).toBe(true);
+  });
+
+  it("warns but keeps the row when doors is out of range", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, doorsRaw: "1 Door" });
+    expect(result.row).not.toBeNull();
+    expect(result.row).not.toHaveProperty("doors");
+    expect(result.warnings.some((w) => w.includes("doors"))).toBe(true);
+  });
+
+  it("omits optional fields entirely when not present on WP, without warning", () => {
+    const result = mapWpCarToVehicleRow({ ...FULL_FIELDS, driveTypeRaw: undefined });
+    expect(result.row).not.toHaveProperty("drive_type");
+    expect(result.warnings).toEqual([]);
+  });
+});
+
+// ── summarizeMigrationResults ───────────────────────────────────────────────────
+
+describe("summarizeMigrationResults", () => {
+  it("counts migrated, skipped, collisions, and warnings", () => {
+    const results = [
+      mapWpCarToVehicleRow(FULL_FIELDS), // migrated
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: undefined }), // skipped
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "2HGCM82633A004352", driveTypeRaw: "2WD" }), // migrated w/ 1 warning
+    ];
+    const summary = summarizeMigrationResults(results, new Set(["2HGCM82633A004352"]));
+
+    expect(summary.totalFetched).toBe(3);
+    expect(summary.migrated).toBe(1);
+    expect(summary.skipped).toBe(1);
+    expect(summary.collisions).toBe(1);
+    expect(summary.warningCount).toBe(1);
+  });
+});
