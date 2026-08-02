@@ -361,9 +361,9 @@ export function aggregateMonthlySales(vehicles: SoldVehicle[]): MonthlySales[] {
  * boundary as isPubliclyVisible() below.
  */
 export function soldVisibilityCutoff(now: Date = new Date()): string {
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - 30);
+  // Use UTC date math to avoid timezone-dependent off-by-one errors.
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() - 30);
   return d.toISOString().slice(0, 10);
 }
 
