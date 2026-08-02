@@ -11,14 +11,23 @@ const db = getAdminClient();
 const { adminRole } = Astro.locals;
 const canSeeFinancials = can(adminRole, "vehicles:financials:read");
 
-const { data: rawVehicles } = await db
-  .from("vehicles")
-  .select(
-    canSeeFinancials
-      ? "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, purchase_date, sale_date, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)"
-      : "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_date, sale_date, commission_user_id, vehicle_expenses(amount)"
-  )
-  .order("created_at", { ascending: false });
+// A dedicated branch per role (rather than a shared, conditionally-selected
+// query) keeps each `.select()` call a single string literal, which Supabase's
+// type-level query parser needs to infer a real row type instead of falling
+// back to a ParserError.
+const { data: rawVehicles } = canSeeFinancials
+  ? await db
+      .from("vehicles")
+      .select(
+        "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_price, sale_price, purchase_date, sale_date, commission_user_id, vehicle_expenses(amount), commission_user:user_profiles!commission_user_id(commission_percentage)"
+      )
+      .order("created_at", { ascending: false })
+  : await db
+      .from("vehicles")
+      .select(
+        "vin, make, model, year, trim, status, ownership_status, photography_status, advertised_price_cargurus, advertised_price_facebook, purchase_date, sale_date, commission_user_id, vehicle_expenses(amount)"
+      )
+      .order("created_at", { ascending: false });
 
 const vehicles: VehicleListItem[] = (rawVehicles ?? []).map((v: Record<string, unknown>) => {
   const expenseRows = (v.vehicle_expenses as { amount: number }[] | null) ?? [];

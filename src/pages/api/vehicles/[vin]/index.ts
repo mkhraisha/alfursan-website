@@ -68,19 +68,28 @@ export const GET: APIRoute = async ({ params, request }) => {
   const db   = getAdminClient();
   const vin  = params.vin!;
 
+  // A dedicated branch per auth state (rather than a shared, conditionally-selected
+  // query) keeps each `.select()` call a single string literal, which Supabase's
+  // type-level query parser needs to infer a real row type instead of falling
+  // back to a ParserError.
+  if (!user) {
+    const { data, error } = await db
+      .from("vehicles")
+      .select(PUBLIC_COLUMNS)
+      .eq("vin", vin)
+      .single();
+
+    if (error || !data) return json({ error: "Vehicle not found" }, 404);
+    return json(data);
+  }
+
   const { data, error } = await db
     .from("vehicles")
-    .select(
-      user
-        ? "*, commission_user:user_profiles!commission_user_id(commission_percentage)"
-        : PUBLIC_COLUMNS
-    )
+    .select("*, commission_user:user_profiles!commission_user_id(commission_percentage)")
     .eq("vin", vin)
     .single();
 
   if (error || !data) return json({ error: "Vehicle not found" }, 404);
-
-  if (!user) return json(data);
 
   return json(await enrichVehicle(db, data as Record<string, unknown>, user.role));
 };

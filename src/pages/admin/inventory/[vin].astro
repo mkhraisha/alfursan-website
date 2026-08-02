@@ -15,11 +15,19 @@ if (!vin) return Astro.redirect("/admin/inventory/");
 
 const db = getAdminClient();
 
+// A dedicated branch per role (rather than a shared, conditionally-selected
+// query) keeps each `.select()` call a single string literal, which Supabase's
+// type-level query parser needs to infer a real row type instead of falling
+// back to a ParserError.
+const usersQuery = canSeeFinancials
+  ? db.from("user_profiles").select("id, email, commission_percentage").eq("is_active", true).order("email", { ascending: true })
+  : db.from("user_profiles").select("id, email").eq("is_active", true).order("email", { ascending: true });
+
 const [vehicleRes, expensesRes, docsRes, usersRes] = await Promise.all([
   db.from("vehicles").select("*").eq("vin", vin).single(),
   db.from("vehicle_expenses").select("id, category, description, amount, receipt_file_path, reimbursed, vendor, expense_date, tax_amount, tax_type, tax_rate, created_at").eq("vin", vin).order("created_at", { ascending: true }),
   db.from("vehicle_documents").select("id, document_type, file_path, description, created_at").eq("vin", vin).order("created_at", { ascending: true }),
-  db.from("user_profiles").select(canSeeFinancials ? "id, email, commission_percentage" : "id, email").eq("is_active", true).order("email", { ascending: true }),
+  usersQuery,
 ]);
 
 if (!vehicleRes.data) return Astro.redirect("/admin/inventory/");

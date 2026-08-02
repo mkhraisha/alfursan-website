@@ -50,7 +50,7 @@ beforeEach(() => {
 // ── 401 — all write endpoints require authentication ──────────────────────────
 
 describe("401 — all write endpoints reject unauthenticated requests", () => {
-  const cases: [string, () => Promise<Response>][] = [
+  const cases: [string, () => Response | Promise<Response>][] = [
     [
       "POST /api/vehicles",
       () => vehiclesPOST({ request: jsonReq("/api/vehicles", "POST", {}) } as never),
@@ -118,7 +118,7 @@ describe("403 — admin-only endpoints reject the sales role", () => {
     (getRequestUser as Mock).mockResolvedValue(SALES_USER);
   });
 
-  const cases: [string, () => Promise<Response>][] = [
+  const cases: [string, () => Response | Promise<Response>][] = [
     [
       "DELETE /api/vehicles/:vin",
       () => vinDELETE({ params: { vin: VIN }, request: jsonReq(`/api/vehicles/${VIN}`, "DELETE") } as never),

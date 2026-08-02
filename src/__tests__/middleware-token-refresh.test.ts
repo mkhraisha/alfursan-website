@@ -35,7 +35,7 @@ vi.mock("@supabase/supabase-js", () => ({
 
 import { onRequest } from "../middleware";
 
-function makeContext(path: string, cookie = "") {
+function makeContext(path: string, cookie = ""): Parameters<typeof onRequest>[0] {
   const url = new URL(`https://alfursanauto.ca${path}`);
   const request = new Request(url, {
     headers: cookie ? { Cookie: cookie } : {},
@@ -46,10 +46,19 @@ function makeContext(path: string, cookie = "") {
     url,
     redirect: (location: string) =>
       new Response(null, { status: 302, headers: { Location: location } }),
-  };
+  } as unknown as Parameters<typeof onRequest>[0];
 }
 
 const next = vi.fn(async () => new Response("ok", { status: 200 }));
+
+// The mocked `defineMiddleware` (see `vi.mock("astro:middleware", ...)` above)
+// makes `onRequest` a plain async function at runtime, but its imported type
+// is still the real `MiddlewareHandler`, which types its return as `void |
+// Response`. Route calls through this helper to get back a concrete `Response`.
+async function callMiddleware(context: Parameters<typeof onRequest>[0]): Promise<Response> {
+  const result = await onRequest(context, next);
+  return result as Response;
+}
 
 beforeEach(() => {
   vi.stubEnv("SUPABASE_URL", "https://test.supabase.co");
@@ -83,12 +92,11 @@ describe("admin middleware — transparent token refresh cookies", () => {
       error: null,
     });
 
-    const res = await onRequest(
+    const res = await callMiddleware(
       makeContext(
         "/admin/dashboard/",
         "sb-access-token=expired-token; sb-refresh-token=valid-refresh-token"
-      ),
-      next
+      )
     );
 
     expect(res.status).toBe(200);
