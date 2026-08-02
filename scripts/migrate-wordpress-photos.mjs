@@ -216,7 +216,7 @@ async function withRetry(attemptFn, label) {
     try {
       outcome = await attemptFn();
     } catch (err) {
-      outcome = { ok: false, error: err?.message ?? String(err) };
+      outcome = { ok: false, error: describeError(err) };
     }
     if (outcome.ok) return outcome;
     lastError = outcome.error;
@@ -226,6 +226,24 @@ async function withRetry(attemptFn, label) {
     }
   }
   return { ok: false, error: lastError };
+}
+
+// A bare "fetch failed" (thrown by Node's undici for any network-level
+// failure — connection reset, timeout, DNS, TLS, etc.) hides the actual
+// cause behind `err.cause`, and Supabase's client wraps that same thrown
+// error in `.originalError` on top of its own generic "fetch failed"
+// message. Surfacing the real code (e.g. ECONNRESET, UND_ERR_CONNECT_TIMEOUT)
+// turns "it failed" into an actionable diagnosis (rate limiting/connection
+// resets look very different from a real timeout) instead of a dead end.
+function describeError(err) {
+  if (!err) return String(err);
+  const parts = [err.message ?? String(err)];
+  const cause = err.cause ?? err.originalError?.cause;
+  if (cause?.code) parts.push(`cause: ${cause.code}`);
+  else if (err.originalError?.message && err.originalError.message !== err.message) {
+    parts.push(`original: ${err.originalError.message}`);
+  }
+  return parts.join(" | ");
 }
 
 // ── Image download + upload ─────────────────────────────────────────────────────
@@ -253,7 +271,7 @@ async function uploadOnce(db, storagePath, buffer, contentType) {
     // wanted is already there — treat it as success rather than burning
     // through retries and eventually reporting a false failure.
     const alreadyExists = /already exists/i.test(error.message ?? "");
-    if (!alreadyExists) return { ok: false, error: error.message };
+    if (!alreadyExists) return { ok: false, error: describeError(error) };
   }
   return { ok: true, value: undefined };
 }
@@ -378,9 +396,21 @@ async function main() {
         images_json: finalImages,
         ...buildPhotographyStatusPatch(vehicle, uploadedPaths.length),
       };
-      const { error: updateError } = await db.from("vehicles").update(patch).eq("vin", plan.vin);
-      if (updateError) {
-        errors.push({ vin: plan.vin, sourceUrl: null, storagePath: null, error: `vehicles update failed: ${updateError.message}` });
+      // Writing the DB row is just as exposed to the same transient network
+      // failures as the image requests above (observed in practice: a run
+      // that hit connection trouble mid-way saw this update fail with the
+      // same bare "fetch failed" as the storage calls) — retry it too,
+      // rather than uploading every image successfully and then losing the
+      // result because the one write that persists it wasn't retried.
+      const updateResult = await withRetry(
+        async () => {
+          const { error } = await db.from("vehicles").update(patch).eq("vin", plan.vin);
+          return error ? { ok: false, error: describeError(error) } : { ok: true };
+        },
+        `vehicles update ${plan.vin}`
+      );
+      if (!updateResult.ok) {
+        errors.push({ vin: plan.vin, sourceUrl: null, storagePath: null, error: `vehicles update failed: ${updateResult.error}` });
         continue;
       }
 
