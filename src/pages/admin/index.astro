@@ -270,6 +270,10 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
           return;
         }
         await completeSignIn(data.session);
+        if (msg.className === "msg-error") {
+          passkeyBtn.disabled = false;
+          passkeyBtn.textContent = "Sign in with a passkey";
+        }
       });
 
       // If middleware bounced us back with an error, clear the stale session
