@@ -450,7 +450,7 @@ describe("POST /api/finance/upload-url — Phase 2 path", () => {
 
   it("returns 409 when status is already documents_submitted", async () => {
     const { client } = makeP2SupabaseMock({
-      appRow: { id: P2_APP_ID, status: "documents_submitted" },
+      appRow: { id: P2_APP_ID, status: "documents_submitted", phase2_token_expires_at: null },
     });
     (getAdminClient as Mock).mockReturnValue(client);
     const res = await POST({ request: makeP2Request(VALID_P2_BODY) } as never);

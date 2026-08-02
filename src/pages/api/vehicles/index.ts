@@ -38,47 +38,23 @@ export const GET: APIRoute = async ({ request }) => {
   const sortCol = ALLOWED_SORT_COLS.has(rawSortCol) ? rawSortCol : "created_at";
   const ascending = sortDir !== "desc";
 
-  // Build query
-  let query = db
-    .from("vehicles")
-    .select(isAuthenticated ? "*, commission_user:user_profiles!commission_user_id(commission_percentage)" : PUBLIC_COLUMNS, { count: "exact" })
-    .order(sortCol ?? "created_at", { ascending })
-    .range(offset, offset + limit - 1);
-
-  // Filters (authenticated only — public view isn't filterable by internal fields)
-  if (isAuthenticated) {
-    const ownership = url.searchParams.get("ownership_status");
-    const photo     = url.searchParams.get("photography_status");
-    const minPrice  = url.searchParams.get("min_price");
-    const maxPrice  = url.searchParams.get("max_price");
-    const minYear   = url.searchParams.get("min_year");
-    const maxYear   = url.searchParams.get("max_year");
-    const status    = url.searchParams.get("status"); // single value
-    const bodyType  = url.searchParams.get("body_type");
-
-    const minPriceValue = minPrice ? parseFloat(minPrice) : Number.NaN;
-    const maxPriceValue = maxPrice ? parseFloat(maxPrice) : Number.NaN;
-    const minYearValue = minYear ? parseInt(minYear, 10) : Number.NaN;
-    const maxYearValue = maxYear ? parseInt(maxYear, 10) : Number.NaN;
-
-    if (ownership) query = query.eq("ownership_status", ownership);
-    if (photo) query = query.eq("photography_status", photo);
-    if (Number.isFinite(minPriceValue)) query = query.gte("advertised_price_cargurus", minPriceValue);
-    if (Number.isFinite(maxPriceValue)) query = query.lte("advertised_price_cargurus", maxPriceValue);
-    if (Number.isFinite(minYearValue)) query = query.gte("year", minYearValue);
-    if (Number.isFinite(maxYearValue)) query = query.lte("year", maxYearValue);
-    if (status) query = query.eq("status", status);
-    if (bodyType) query = query.eq("body_type", bodyType);
-  }
-
-  const { data: vehicles, error, count } = await query;
-
-  if (error) {
-    console.error("[GET /api/vehicles]", error);
-    return json({ error: "Database error" }, 500);
-  }
-
+  // Public (unauthenticated) requests only ever see the public column set — a
+  // dedicated branch here (rather than a shared, conditionally-selected query)
+  // keeps each `.select()` call a single string literal, which Supabase's
+  // type-level query parser needs to infer a real row type instead of falling
+  // back to a ParserError.
   if (!isAuthenticated) {
+    const { data: vehicles, error, count } = await db
+      .from("vehicles")
+      .select(PUBLIC_COLUMNS, { count: "exact" })
+      .order(sortCol ?? "created_at", { ascending })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("[GET /api/vehicles]", error);
+      return json({ error: "Database error" }, 500);
+    }
+
     return new Response(JSON.stringify({ data: vehicles ?? [], total: count ?? 0 }), {
       status: 200,
       headers: {
@@ -86,6 +62,43 @@ export const GET: APIRoute = async ({ request }) => {
         "Cache-Control": "public, max-age=300, stale-while-revalidate=60",
       },
     });
+  }
+
+  // Build query (authenticated — full columns + filters)
+  let query = db
+    .from("vehicles")
+    .select("*, commission_user:user_profiles!commission_user_id(commission_percentage)", { count: "exact" })
+    .order(sortCol ?? "created_at", { ascending })
+    .range(offset, offset + limit - 1);
+
+  const ownership = url.searchParams.get("ownership_status");
+  const photo     = url.searchParams.get("photography_status");
+  const minPrice  = url.searchParams.get("min_price");
+  const maxPrice  = url.searchParams.get("max_price");
+  const minYear   = url.searchParams.get("min_year");
+  const maxYear   = url.searchParams.get("max_year");
+  const status    = url.searchParams.get("status"); // single value
+  const bodyType  = url.searchParams.get("body_type");
+
+  const minPriceValue = minPrice ? parseFloat(minPrice) : Number.NaN;
+  const maxPriceValue = maxPrice ? parseFloat(maxPrice) : Number.NaN;
+  const minYearValue = minYear ? parseInt(minYear, 10) : Number.NaN;
+  const maxYearValue = maxYear ? parseInt(maxYear, 10) : Number.NaN;
+
+  if (ownership) query = query.eq("ownership_status", ownership);
+  if (photo) query = query.eq("photography_status", photo);
+  if (Number.isFinite(minPriceValue)) query = query.gte("advertised_price_cargurus", minPriceValue);
+  if (Number.isFinite(maxPriceValue)) query = query.lte("advertised_price_cargurus", maxPriceValue);
+  if (Number.isFinite(minYearValue)) query = query.gte("year", minYearValue);
+  if (Number.isFinite(maxYearValue)) query = query.lte("year", maxYearValue);
+  if (status) query = query.eq("status", status);
+  if (bodyType) query = query.eq("body_type", bodyType);
+
+  const { data: vehicles, error, count } = await query;
+
+  if (error) {
+    console.error("[GET /api/vehicles]", error);
+    return json({ error: "Database error" }, 500);
   }
 
   // For authenticated requests, enrich with computed fields
