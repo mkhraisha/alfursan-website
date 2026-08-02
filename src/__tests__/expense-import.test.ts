@@ -207,6 +207,12 @@ describe("applyExpenseMapping", () => {
     expect(applyExpenseMapping(row, fullMapping).tax_amount).toBe(325);
   });
 
+  it("maps a zero tax_amount cell for vendors that don't charge tax", () => {
+    const fullMapping = { ...mapping, HST: "tax_amount" };
+    const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "100", HST: "0" };
+    expect(applyExpenseMapping(row, fullMapping).tax_amount).toBe(0);
+  });
+
   it("maps a tax rate column to tax_rate", () => {
     const fullMapping = { ...mapping, Rate: "tax_rate" };
     const row = { VIN: "1HGCM82633A123456", Category: "repair", Description: "x", Amount: "1", Rate: "13%" };
