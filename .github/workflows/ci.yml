@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Any base branch — needed so stacked PRs (feature branches opened against
+  # another feature branch, not yet against main) get CI too.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
