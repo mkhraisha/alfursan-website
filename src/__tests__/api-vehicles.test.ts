@@ -520,15 +520,15 @@ describe("POST /api/vehicles/import", () => {
     expect(body.valid_count).toBe(1);
   });
 
-  it("inserts valid rows and returns created count", async () => {
+  it("inserts new VINs and returns created count", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
-    const insertEqFn = vi.fn().mockResolvedValue({ error: null });
-    const insertFn   = vi.fn().mockReturnValue({ error: null });
-    const fromFn = vi.fn().mockReturnValue({ insert: insertFn });
-    // Direct insert mock (not chained with select/single for import)
+    // No existing rows match this VIN, so the upsert counts as a create.
     (getAdminClient as Mock).mockReturnValue({
       from: vi.fn().mockReturnValue({
-        insert: vi.fn().mockResolvedValue({ error: null }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
       }),
     });
 
@@ -540,14 +540,20 @@ describe("POST /api/vehicles/import", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.created).toBe(1);
+    expect(body.updated).toBe(0);
     expect(body.failed).toBe(0);
   });
 
-  it("skips duplicate VINs and reports in errors array", async () => {
+  it("updates rows whose VIN already exists instead of skipping them", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const upsertFn = vi.fn().mockResolvedValue({ error: null });
+    // The VIN in VALID_CSV already exists — the lookup returns it as a match.
     (getAdminClient as Mock).mockReturnValue({
       from: vi.fn().mockReturnValue({
-        insert: vi.fn().mockResolvedValue({ error: { code: "23505" } }),
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: [{ vin: "1HGCM82633A004352" }], error: null }),
+        }),
+        upsert: upsertFn,
       }),
     });
 
@@ -558,8 +564,12 @@ describe("POST /api/vehicles/import", () => {
     const res = await importPOST({ request } as never);
     const body = await res.json();
     expect(body.created).toBe(0);
-    expect(body.failed).toBe(1);
-    expect(body.errors[0].error).toContain("Duplicate");
+    expect(body.updated).toBe(1);
+    expect(body.failed).toBe(0);
+    expect(upsertFn).toHaveBeenCalledWith(
+      expect.objectContaining({ vin: "1HGCM82633A004352" }),
+      { onConflict: "vin" }
+    );
   });
 
   it("reports validation errors for rows missing required fields", async () => {
