@@ -389,7 +389,7 @@ describe("vehicleCreateSchema — body_type", () => {
   });
 
   it("rejects an unrecognised body_type", () => {
-    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, body_type: "suv" }).success).toBe(false);
+    expect(vehicleCreateSchema.safeParse({ ...BASE_VEHICLE, body_type: "truck" }).success).toBe(false);
   });
 
   it("rejects body_type with wrong capitalisation", () => {

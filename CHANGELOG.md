@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - **Export CSV** button on the admin Inventory table — exports all vehicles matching the currently applied filters (not just the current page).
 - **Export CSV** button on the admin Garage Register — exports all vehicles matching the current search.
 - Drag-and-drop support on the vehicle and expense CSV importer upload zones, in addition to click-to-select.
+- `suv` body type on vehicles, alongside sedan/van/coupe/convertible — selectable on the Add Vehicle form, the vehicle Purchase tab, and mappable in the vehicle CSV importer.
 
 ### Changed
 

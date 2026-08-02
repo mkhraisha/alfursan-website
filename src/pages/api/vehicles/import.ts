@@ -117,7 +117,7 @@ export const POST: APIRoute = async ({ request }) => {
   const mappedFields = new Set(Object.values(mapping));
   if (!mappedFields.has("body_type")) {
     return json({
-      error: "body_type is required but not mapped. Map a CSV column to 'Body Type' (accepted values: sedan, van, coupe, convertible).",
+      error: "body_type is required but not mapped. Map a CSV column to 'Body Type' (accepted values: sedan, van, coupe, convertible, suv).",
     }, 422);
   }
 
