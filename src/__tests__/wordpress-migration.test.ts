@@ -9,6 +9,7 @@ import {
   stripHtmlToPlainText,
   mapWpCarToVehicleRow,
   summarizeMigrationResults,
+  buildReconciliationArtifacts,
   type ResolvedWpCarFields,
 } from "../lib/wordpress-migration";
 
@@ -38,6 +39,13 @@ describe("normalizeBodyType", () => {
   it("returns undefined for undefined input", () => {
     expect(normalizeBodyType(undefined)).toBeUndefined();
   });
+
+  it.each(["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"])(
+    "does not resolve to an inherited Object.prototype value for term '%s'",
+    (term) => {
+      expect(normalizeBodyType(term)).toBeUndefined();
+    }
+  );
 });
 
 describe("normalizeDriveType", () => {
@@ -259,5 +267,59 @@ describe("summarizeMigrationResults", () => {
     expect(summary.skipped).toBe(1);
     expect(summary.collisions).toBe(1);
     expect(summary.warningCount).toBe(1);
+  });
+});
+
+// ── buildReconciliationArtifacts ─────────────────────────────────────────────────
+
+describe("buildReconciliationArtifacts", () => {
+  // Regression test for a real bug found in code review: filtering `results`
+  // before mapping with `(r, i) => resolved[i]` misaligns the index once
+  // anything earlier in the array was filtered out, so wpId/slug in
+  // skipped.json/slug-to-vin.json ends up pointing at the wrong WP car.
+  it("keeps wpId/slug aligned to the correct car even when an earlier row was skipped", () => {
+    const resolved = [
+      { wpId: 1, slug: "car-one" },   // will be skipped (missing VIN)
+      { wpId: 2, slug: "car-two" },   // valid
+      { wpId: 3, slug: "car-three" }, // valid
+    ];
+    const results = [
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: undefined }),
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "2HGCM82633A004352" }),
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "3HGCM82633A004352" }),
+    ];
+
+    const { skipped, slugToVin } = buildReconciliationArtifacts(results, resolved);
+
+    expect(skipped).toEqual([{ wpId: 1, slug: "car-one", reason: expect.stringContaining("VIN") }]);
+    expect(slugToVin).toEqual({
+      "car-two": "2HGCM82633A004352",
+      "car-three": "3HGCM82633A004352",
+    });
+  });
+
+  it("only includes rows with warnings in `warned`, still aligned to the correct car", () => {
+    const resolved = [
+      { wpId: 1, slug: "car-one" },
+      { wpId: 2, slug: "car-two" }, // has an unmapped drive_type — should appear in warned
+    ];
+    const results = [
+      mapWpCarToVehicleRow(FULL_FIELDS),
+      mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: "2HGCM82633A004352", driveTypeRaw: "2WD" }),
+    ];
+
+    const { warned } = buildReconciliationArtifacts(results, resolved);
+
+    expect(warned).toHaveLength(1);
+    expect(warned[0].slug).toBe("car-two");
+    expect(warned[0].vin).toBe("2HGCM82633A004352");
+  });
+
+  it("omits skipped rows from slugToVin", () => {
+    const resolved = [{ wpId: 1, slug: "car-one" }];
+    const results = [mapWpCarToVehicleRow({ ...FULL_FIELDS, vin: undefined })];
+
+    const { slugToVin } = buildReconciliationArtifacts(results, resolved);
+    expect(slugToVin).toEqual({});
   });
 });

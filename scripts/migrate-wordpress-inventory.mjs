@@ -31,7 +31,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { mapWpCarToVehicleRow, summarizeMigrationResults } from "../src/lib/wordpress-migration.ts";
+import { mapWpCarToVehicleRow, summarizeMigrationResults, buildReconciliationArtifacts } from "../src/lib/wordpress-migration.ts";
 import { vehicleCreateSchema } from "../src/lib/vehicles.ts";
 
 const DEFAULT_WP_API_BASE = "https://media.alfursanauto.ca/wp-json";
@@ -78,10 +78,14 @@ const WP_API_BASE = (
 
 // ── Safety guard — never write to a non-local Supabase project ────────────────
 
-function assertLocalSupabaseOrDryRun(supabaseUrl) {
+function assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey) {
   if (DRY_RUN) return;
   if (!supabaseUrl) {
     console.error("[migrate] Missing SUPABASE_URL. Run `supabase start` first, or pass --dry-run.");
+    process.exit(1);
+  }
+  if (!serviceKey) {
+    console.error("[migrate] Missing SUPABASE_SECRET_KEY. Run `supabase start` first, or pass --dry-run.");
     process.exit(1);
   }
   let hostname;
@@ -104,11 +108,24 @@ function assertLocalSupabaseOrDryRun(supabaseUrl) {
 // ── WordPress fetch helpers ─────────────────────────────────────────────────────
 
 async function fetchTermMap(taxonomy) {
-  const endpoint = `${WP_API_BASE}/wp/v2/${taxonomy}?per_page=100&_fields=id,name`;
-  const res = await fetch(endpoint);
-  if (!res.ok) throw new Error(`Fetching taxonomy ${taxonomy} failed: HTTP ${res.status}`);
-  const terms = await res.json();
-  return new Map(terms.map((t) => [t.id, t.name]));
+  const map = new Map();
+  let page = 1;
+  for (;;) {
+    const endpoint = `${WP_API_BASE}/wp/v2/${taxonomy}?per_page=100&page=${page}&_fields=id,name`;
+    const res = await fetch(endpoint);
+    if (!res.ok) {
+      // WP returns 400 once page exceeds total pages — normal loop termination.
+      if (res.status === 400 && page > 1) break;
+      throw new Error(`Fetching taxonomy ${taxonomy} page ${page} failed: HTTP ${res.status}`);
+    }
+    const terms = await res.json();
+    if (terms.length === 0) break;
+    for (const t of terms) map.set(t.id, t.name);
+    const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
+    if (page >= totalPages) break;
+    page++;
+  }
+  return map;
 }
 
 async function fetchAllTermMaps() {
@@ -176,7 +193,7 @@ function resolveCarFields(car, termMaps) {
 async function main() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SECRET_KEY;
-  assertLocalSupabaseOrDryRun(supabaseUrl);
+  assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey);
 
   console.log(`[migrate] WordPress API base: ${WP_API_BASE}`);
   console.log(`[migrate] Mode: ${DRY_RUN ? "DRY RUN (no writes)" : `WRITE to ${supabaseUrl}`}`);
@@ -231,15 +248,7 @@ async function main() {
 
   // ── Report ───────────────────────────────────────────────────────────────────
   const summary = summarizeMigrationResults(results, collisionVins);
-  const skipped = results
-    .filter((r) => r.row === null)
-    .map((r, i) => ({ wpId: resolved[i]?.wpId, slug: resolved[i]?.slug, reason: r.skipReason }));
-  const warned = results
-    .map((r, i) => ({ vin: r.vin, slug: resolved[i]?.slug, warnings: r.warnings }))
-    .filter((w) => w.warnings.length > 0);
-  const slugToVin = Object.fromEntries(
-    results.filter((r) => r.row && r.vin).map((r, i) => [resolved[i]?.slug, r.vin])
-  );
+  const { skipped, warned, slugToVin } = buildReconciliationArtifacts(results, resolved);
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const outDir = `docs/migration/wordpress-inventory/${timestamp}`;

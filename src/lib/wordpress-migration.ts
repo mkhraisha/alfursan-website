@@ -89,7 +89,11 @@ function normalizeEnumTerm<T extends string>(
 ): T | undefined {
   if (!raw) return undefined;
   const key = slugify(raw);
-  if (aliases[key]) return aliases[key];
+  // hasOwnProperty guard (not `if (aliases[key])`) — aliases is a plain object
+  // literal, so a WP term text that happens to slugify to "constructor" or
+  // "__proto__" would otherwise resolve to an inherited Object.prototype
+  // value instead of undefined.
+  if (Object.prototype.hasOwnProperty.call(aliases, key)) return aliases[key];
   // Fall back to an exact (already-canonical) match, e.g. raw is already "awd"
   return (validSet as readonly string[]).includes(key) ? (key as T) : undefined;
 }
@@ -290,4 +294,45 @@ export function summarizeMigrationResults(
   }
 
   return { totalFetched: results.length, migrated, skipped, collisions, warningCount };
+}
+
+// ── Reconciliation artifacts (skipped/warned/slug→VIN) ─────────────────────────
+
+export interface ReconciliationArtifacts {
+  skipped: Array<{ wpId: number | undefined; slug: string | undefined; reason: string | null }>;
+  warned: Array<{ vin: string | null; slug: string | undefined; warnings: string[] }>;
+  slugToVin: Record<string, string>;
+}
+
+/**
+ * Pairs each mapped result with its originating WP car (by array position —
+ * `results` and `resolved` must be the same length, produced by mapping the
+ * same source array) to build the three reconciliation artifacts.
+ *
+ * Deliberately does a single pass over the original arrays rather than
+ * filter().map(): filtering first and then mapping with the filtered
+ * array's own index would misalign wpId/slug against the wrong car for
+ * every skipped/matched row after the first one removed by the filter.
+ */
+export function buildReconciliationArtifacts(
+  results: MappedVehicleResult[],
+  resolved: Array<{ wpId: number; slug: string }>
+): ReconciliationArtifacts {
+  const skipped: ReconciliationArtifacts["skipped"] = [];
+  const warned: ReconciliationArtifacts["warned"] = [];
+  const slugToVin: Record<string, string> = {};
+
+  results.forEach((r, i) => {
+    const wp = resolved[i];
+    if (r.row === null) {
+      skipped.push({ wpId: wp?.wpId, slug: wp?.slug, reason: r.skipReason });
+    } else if (r.vin) {
+      slugToVin[wp?.slug ?? `wp-${wp?.wpId ?? i}`] = r.vin;
+    }
+    if (r.warnings.length > 0) {
+      warned.push({ vin: r.vin, slug: wp?.slug, warnings: r.warnings });
+    }
+  });
+
+  return { skipped, warned, slugToVin };
 }
