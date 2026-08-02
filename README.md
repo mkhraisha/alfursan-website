@@ -1,5 +1,8 @@
 # Alfursan Auto — Website
 
+[![CI](https://github.com/mkhraisha/alfursan-website/actions/workflows/ci.yml/badge.svg)](https://github.com/mkhraisha/alfursan-website/actions/workflows/ci.yml)
+[![E2E report](https://img.shields.io/badge/e2e_report-latest-blue)](https://mkhraisha.github.io/alfursan-website/)
+
 Toronto used car dealership website built with Astro v5, Supabase, Resend, and Upstash. Features public inventory browsing, a multi-step financing application form, and a private admin dashboard for the dealer.
 
 ## Tech Stack
@@ -120,6 +123,30 @@ npm run dev
 | `npm run db:reset` | Re-apply all migrations to local DB |
 | `npm run db:status` | Show applied vs pending migrations |
 | `npm run db:push` | Push pending migrations to production (**run yourself**) |
+
+## Testing
+
+| Command | Action |
+|---|---|
+| `npm test` | Run unit tests (Vitest, `src/__tests__/`) |
+| `npm run test:e2e` | Run Playwright e2e tests (`e2e/`) against a local dev server |
+| `npm run test:e2e:ui` | Open the Playwright UI runner |
+| `npm run test:e2e:report` | Open the last local HTML report |
+
+**CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: it spins up a real local Supabase stack (`supabase start` + `supabase db reset` — schema-only, no production data involved), seeds manager/sales test users, builds, runs unit tests, then runs the full Playwright suite (including the RBAC/CRUD suite in `e2e/vehicles-api.spec.ts`) against a local dev server. No secrets to configure — the test users and their JWTs are minted fresh against the ephemeral local stack every run and thrown away with it.
+
+The latest HTML report from `main` is published at **[mkhraisha.github.io/alfursan-website](https://mkhraisha.github.io/alfursan-website/)** — every run also uploads the report as a downloadable workflow artifact (Actions tab → run → Artifacts) for PR branches.
+
+To run the full e2e suite locally, including RBAC/CRUD:
+
+```bash
+supabase start
+supabase db reset
+export SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... SUPABASE_SECRET_KEY=...  # from `supabase status -o env`
+node scripts/e2e-seed-test-users.mjs   # prints E2E_SERVICE_TOKEN / E2E_MANAGER_TOKEN / E2E_SALES_TOKEN
+export E2E_SERVICE_TOKEN=... E2E_MANAGER_TOKEN=... E2E_SALES_TOKEN=...       # from the seed script's output
+npm run test:e2e
+```
 
 ## Database Migrations
 
