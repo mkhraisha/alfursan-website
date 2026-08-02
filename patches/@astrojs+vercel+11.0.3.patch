@@ -1,0 +1,26 @@
+diff --git a/node_modules/@astrojs/vercel/dist/index.js b/node_modules/@astrojs/vercel/dist/index.js
+index 4a370ba..dc0f4b9 100644
+--- a/node_modules/@astrojs/vercel/dist/index.js
++++ b/node_modules/@astrojs/vercel/dist/index.js
+@@ -276,14 +276,19 @@ function vercelAdapter({
+             if (isrConfig.exclude?.length) {
+               const expandedExclusions = isrConfig.exclude.flatMap((exclusion) => {
+                 if (exclusion instanceof RegExp) {
+-                  return routes.filter((route) => exclusion.test(route.pattern)).map((route) => route.pattern);
++                  return routes.filter((route) => exclusion.test(route.pattern));
+                 }
+                 return [exclusion];
+               });
+               const dest = _middlewareEntryPoint ? MIDDLEWARE_PATH : NODE_PATH;
+               for (const route of expandedExclusions) {
+                 routeDefinitions.push({
+-                  src: escapeRegex(route),
++                  // Route objects matched via a RegExp exclusion carry Astro's own
++                  // compiled patternRegex, which (unlike escapeRegex) accounts for
++                  // trailingSlash config and produces an optional trailing-slash
++                  // group. escapeRegex is only reachable here for a literal string
++                  // exclusion, which has no associated route object to draw from.
++                  src: typeof route === "string" ? escapeRegex(route) : route.patternRegex.source,
+                   dest
+                 });
+               }
