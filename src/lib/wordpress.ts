@@ -179,7 +179,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Fetch with automatic retry on transient failures (network errors, 5xx).
- * Returns null instead of throwing for non-retryable errors (4xx).
+ * Never throws: 4xx responses are returned as-is (not retried), and if every
+ * retry is exhausted (repeated 5xx or a network/DNS error) this returns a
+ * synthetic non-ok Response instead — every caller already treats
+ * `!response.ok` as "return an empty/null result", so a WordPress outage
+ * degrades the affected page instead of crashing the entire prerender build.
  */
 const fetchWithRetry = async (
   url: string,
@@ -213,9 +217,10 @@ const fetchWithRetry = async (
     }
     if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * (attempt + 1));
   }
-  throw new Error(
+  console.error(
     `[wordpress] ${label}: all ${MAX_RETRIES + 1} attempts failed — ${lastError}`,
   );
+  return new Response(null, { status: 503, statusText: "WordPress unavailable" });
 };
 
 const decodeEntities = (input: string): string => {
