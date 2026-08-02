@@ -16,6 +16,8 @@ This file provides instructions for AI coding agents (GitHub Copilot, Claude Cod
 
 ## Workflow
 
+
+- always do your work in git worktrees and branches, never commit directly to main
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) format
 - Create feature branches from `main`, do not commit straight to 'main', use githubs new stacked PR feature to break up large features into smaller PRs with clear dependencies
 - Always run `npm run build` before committing to verify no TypeScript errors
@@ -24,6 +26,8 @@ This file provides instructions for AI coding agents (GitHub Copilot, Claude Cod
 - do not push to main without asking the user for confirmation in the same conversation turn, even for hotfixes or small changes. Always ask: _"Ready to merge to main and push?"_ and wait for confirmation before running any `git push origin main`, `git merge`, or `git cherry-pick` onto main.
 - This applies to hotfixes, CI tweaks, and any other "small" changes — no exceptions.
 - if you are working and referencing a document with a checklist, make sure to check off each item as you complete it.
+- prior to committing make sure to run npm run build, npm run astro:check, and npm test to ensure that the code is valid and all tests pass.
+
 
 ## Branch Protection
 

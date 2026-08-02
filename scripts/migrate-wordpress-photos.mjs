@@ -46,9 +46,12 @@
  *   --allow-production  Required to write to a non-local SUPABASE_URL. Still prompts for typed confirmation.
  *   --limit=N           Only process the first N WP cars (after fetching all pages).
  *   --vin=VIN           Only process a single VIN (for spot-checking before a full run).
- *   --concurrency=N     Max images downloaded/uploaded in parallel (default 4). Lower this if you see
- *                       repeated "fetch failed" errors — that usually means the source/destination is
- *                       rate-limiting concurrent requests, not a permanent failure.
+ *   --concurrency=N     Max images downloaded/uploaded in parallel (default 4). Every request already
+ *                       forces HTTP/1.1 (see noH2Agent below) to avoid a Node HTTP/2 connection-reuse
+ *                       bug that caused sporadic ERR_SSL_ALERT_BAD_RECORD_MAC/ERR_HTTP2_INVALID_SESSION
+ *                       failures under concurrency in practice; lowering this further is a reasonable
+ *                       thing to try if a run still reports many transient errors, but isn't expected
+ *                       to be necessary for the HTTP/2 issue specifically anymore.
  *   --wp-api-base=URL   Override the WordPress REST API base (default: https://media.alfursanauto.ca/wp-json)
  *
  * Output: docs/migration/wordpress-photos/<timestamp>/
@@ -60,6 +63,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { fetch as undiciFetch, Agent } from "undici";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import {
@@ -70,6 +74,18 @@ import {
 
 const DEFAULT_WP_API_BASE = "https://media.alfursanauto.ca/wp-json";
 const STORAGE_BUCKET = "vehicle-images";
+
+// Forces plain HTTP/1.1 for every request this script makes (both the WP
+// downloads and the Supabase client below). Observed in a real run: uploads
+// were failing with ERR_SSL_ALERT_BAD_RECORD_MAC and
+// ERR_HTTP2_INVALID_SESSION under concurrency — Node-core error codes from
+// its HTTP/2 stack, not a rate limit or anything about the files themselves
+// (a plain database write hit the identical symptom in the same run). HTTP/2
+// connection reuse under concurrent load is a known trouble spot; HTTP/1.1
+// sidesteps it entirely and is more than fast enough for this one-time
+// migration's request volume.
+const noH2Agent = new Agent({ allowH2: false });
+const fetchH1 = (url, opts) => undiciFetch(url, { ...opts, dispatcher: noH2Agent });
 
 const CONTENT_TYPE_BY_EXT = {
   jpg: "image/jpeg",
@@ -170,7 +186,7 @@ async function fetchAllCars() {
   let page = 1;
   for (;;) {
     const endpoint = `${WP_API_BASE}/wp/v2/cars?per_page=100&page=${page}&_fields=id,slug,vehica_6671,vehica_6673`;
-    const res = await fetch(endpoint);
+    const res = await fetchH1(endpoint);
     if (!res.ok) {
       // WP returns 400 once page exceeds total pages — normal loop termination.
       if (res.status === 400 && page > 1) break;
@@ -216,7 +232,7 @@ async function withRetry(attemptFn, label) {
     try {
       outcome = await attemptFn();
     } catch (err) {
-      outcome = { ok: false, error: err?.message ?? String(err) };
+      outcome = { ok: false, error: describeError(err) };
     }
     if (outcome.ok) return outcome;
     lastError = outcome.error;
@@ -228,10 +244,28 @@ async function withRetry(attemptFn, label) {
   return { ok: false, error: lastError };
 }
 
+// A bare "fetch failed" (thrown by Node's undici for any network-level
+// failure — connection reset, timeout, DNS, TLS, etc.) hides the actual
+// cause behind `err.cause`, and Supabase's client wraps that same thrown
+// error in `.originalError` on top of its own generic "fetch failed"
+// message. Surfacing the real code (e.g. ECONNRESET, UND_ERR_CONNECT_TIMEOUT)
+// turns "it failed" into an actionable diagnosis (rate limiting/connection
+// resets look very different from a real timeout) instead of a dead end.
+function describeError(err) {
+  if (!err) return String(err);
+  const parts = [err.message ?? String(err)];
+  const cause = err.cause ?? err.originalError?.cause;
+  if (cause?.code) parts.push(`cause: ${cause.code}`);
+  else if (err.originalError?.message && err.originalError.message !== err.message) {
+    parts.push(`original: ${err.originalError.message}`);
+  }
+  return parts.join(" | ");
+}
+
 // ── Image download + upload ─────────────────────────────────────────────────────
 
 async function downloadOnce(sourceUrl) {
-  const res = await fetch(sourceUrl);
+  const res = await fetchH1(sourceUrl);
   if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
   const buffer = Buffer.from(await res.arrayBuffer());
   return { ok: true, value: { buffer, contentType: res.headers.get("content-type") ?? undefined } };
@@ -253,7 +287,7 @@ async function uploadOnce(db, storagePath, buffer, contentType) {
     // wanted is already there — treat it as success rather than burning
     // through retries and eventually reporting a false failure.
     const alreadyExists = /already exists/i.test(error.message ?? "");
-    if (!alreadyExists) return { ok: false, error: error.message };
+    if (!alreadyExists) return { ok: false, error: describeError(error) };
   }
   return { ok: true, value: undefined };
 }
@@ -304,7 +338,10 @@ async function main() {
   if (LIMIT) candidateVins = candidateVins.slice(0, LIMIT);
 
   const db = !DRY_RUN
-    ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    ? createClient(supabaseUrl, serviceKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: fetchH1 },
+      })
     : null;
 
   let vehicles = [];
@@ -378,9 +415,21 @@ async function main() {
         images_json: finalImages,
         ...buildPhotographyStatusPatch(vehicle, uploadedPaths.length),
       };
-      const { error: updateError } = await db.from("vehicles").update(patch).eq("vin", plan.vin);
-      if (updateError) {
-        errors.push({ vin: plan.vin, sourceUrl: null, storagePath: null, error: `vehicles update failed: ${updateError.message}` });
+      // Writing the DB row is just as exposed to the same transient network
+      // failures as the image requests above (observed in practice: a run
+      // that hit connection trouble mid-way saw this update fail with the
+      // same bare "fetch failed" as the storage calls) — retry it too,
+      // rather than uploading every image successfully and then losing the
+      // result because the one write that persists it wasn't retried.
+      const updateResult = await withRetry(
+        async () => {
+          const { error } = await db.from("vehicles").update(patch).eq("vin", plan.vin);
+          return error ? { ok: false, error: describeError(error) } : { ok: true };
+        },
+        `vehicles update ${plan.vin}`
+      );
+      if (!updateResult.ok) {
+        errors.push({ vin: plan.vin, sourceUrl: null, storagePath: null, error: `vehicles update failed: ${updateResult.error}` });
         continue;
       }
 
