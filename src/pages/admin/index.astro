@@ -218,6 +218,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
       const form = document.getElementById("signin-form") as HTMLFormElement;
       const btn = document.getElementById("submit-btn") as HTMLButtonElement;
       const passkeyBtn = document.getElementById("passkey-btn") as HTMLButtonElement;
+      const passkeyDivider = document.getElementById("passkey-divider") as HTMLElement;
       const msg = document.getElementById("message") as HTMLElement;
 
       if (!hasSupabaseConfig) {
@@ -226,6 +227,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.SUPABASE_PUBLISHABLE_KEY ?? "";
         btn.disabled = true;
       } else if ("PublicKeyCredential" in window) {
         passkeyBtn.hidden = false;
+        passkeyDivider.hidden = false;
       }
 
       async function completeSignIn(session: {
