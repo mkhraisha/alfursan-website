@@ -138,9 +138,9 @@ describe("matchesInventoryFilters — STATUS_NOT_SOLD (default inventory view)",
 });
 
 describe("default inventory sort", () => {
-  it("defaults to purchase_date, most recent first", () => {
+  it("defaults to purchase_date, oldest first", () => {
     expect(DEFAULT_SORT_KEY).toBe("purchase_date");
-    expect(DEFAULT_SORT_DIR).toBe("desc");
+    expect(DEFAULT_SORT_DIR).toBe("asc");
   });
 });
 
@@ -154,14 +154,14 @@ describe("compareInventoryRows", () => {
     };
   }
 
-  it("sorts by purchase_date descending (most recent first) — the default", () => {
+  it("sorts by purchase_date descending (most recent first) when toggled", () => {
     const older = makeRow({ vin: "A", purchase_date: "2026-01-01" });
     const newer = makeRow({ vin: "B", purchase_date: "2026-06-01" });
     const sorted = [older, newer].sort((a, b) => compareInventoryRows(a, b, "purchase_date", "desc"));
     expect(sorted.map((r) => r.vin)).toEqual(["B", "A"]);
   });
 
-  it("sorts by purchase_date ascending (oldest first) when toggled", () => {
+  it("sorts by purchase_date ascending (oldest first) — the default", () => {
     const older = makeRow({ vin: "A", purchase_date: "2026-01-01" });
     const newer = makeRow({ vin: "B", purchase_date: "2026-06-01" });
     const sorted = [newer, older].sort((a, b) => compareInventoryRows(a, b, "purchase_date", "asc"));

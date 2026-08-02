@@ -26,9 +26,9 @@ export type VehicleListItem = {
 export type SortKey = "vin" | "make" | "year" | "advertised_price_cargurus" | "total_cost" | "profit_loss" | "purchase_date";
 export type SortDir = "asc" | "desc";
 
-/** Default inventory sort — most recently purchased vehicle first. */
+/** Default inventory sort — oldest purchase first. */
 export const DEFAULT_SORT_KEY: SortKey = "purchase_date";
-export const DEFAULT_SORT_DIR: SortDir = "desc";
+export const DEFAULT_SORT_DIR: SortDir = "asc";
 
 export type SortableInventoryRow = {
   vin: string;
