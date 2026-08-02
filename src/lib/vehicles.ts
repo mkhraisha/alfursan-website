@@ -3,7 +3,7 @@ import { z } from "zod";
 // VIN: 17 alphanumeric characters excluding I, O, Q (ISO 3779)
 const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
 
-export const BODY_TYPES = ["sedan", "van", "coupe", "convertible", "suv", "hatchback", "truck"] as const;
+export const BODY_TYPES = ["sedan", "van", "coupe", "convertible", "suv", "hatchback", "truck", "wagon"] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
 
 export const vinSchema = z
