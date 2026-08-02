@@ -39,22 +39,23 @@ export const GET: APIRoute = async ({ request }) => {
   const sortCol = ALLOWED_SORT_COLS.has(rawSortCol) ? rawSortCol : "created_at";
   const ascending = sortDir !== "desc";
 
-  // Public (unauthenticated) requests get their own full query — a dedicated
-  // branch (rather than a shared, conditionally-selected query) keeps each
-  // `.select()` call a single string literal, which Supabase's type-level
-  // query parser needs to infer a real row type instead of falling back to
-  // a ParserError (see PR #68).
+  // Public (unauthenticated) requests only ever see the public column set — a
+  // dedicated branch here (rather than a shared, conditionally-selected query)
+  // keeps each `.select()` call a single string literal, which Supabase's
+  // type-level query parser needs to infer a real row type instead of falling
+  // back to a ParserError (see PR #68).
+  //
+  // Public visibility (WordPress migration Part 3): photography must be
+  // done, and a 'sold' vehicle must not be older than 30 days. Every other
+  // status (including no status set at all) is included as long as
+  // photography is ready — mirrors isPubliclyVisible() in lib/vehicles.ts,
+  // expressed as a DB filter so pagination/count stay correct. `status.is.null`
+  // is listed explicitly because SQL's <> doesn't match NULL the way JS's
+  // !== does — without it, a vehicle with no status set would be wrongly
+  // excluded. `status`/`photography_status`/`sale_date` are filtered on
+  // here but never selected (not in PUBLIC_COLUMNS), so the actual status
+  // is never exposed to the caller.
   if (!isAuthenticated) {
-    // Public visibility (WordPress migration Part 3): photography must be
-    // done, and a 'sold' vehicle must not be older than 30 days. Every other
-    // status (including no status set at all) is included as long as
-    // photography is ready — mirrors isPubliclyVisible() in lib/vehicles.ts,
-    // expressed as a DB filter so pagination/count stay correct. `status.is.null`
-    // is listed explicitly because SQL's <> doesn't match NULL the way JS's
-    // !== does — without it, a vehicle with no status set would be wrongly
-    // excluded. `status`/`photography_status`/`sale_date` are filtered on
-    // here but never selected (not in PUBLIC_COLUMNS), so the actual status
-    // is never exposed to the caller.
     const { data: vehicles, error, count } = await db
       .from("vehicles")
       .select(PUBLIC_COLUMNS, { count: "exact" })

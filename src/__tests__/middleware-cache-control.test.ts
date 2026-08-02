@@ -35,7 +35,7 @@ vi.mock("@supabase/supabase-js", () => ({
 
 import { onRequest } from "../middleware";
 
-function makeContext(path: string, cookie = "") {
+function makeContext(path: string, cookie = ""): Parameters<typeof onRequest>[0] {
   const url = new URL(`https://alfursanauto.ca${path}`);
   const request = new Request(url, {
     headers: cookie ? { Cookie: cookie } : {},
@@ -46,10 +46,19 @@ function makeContext(path: string, cookie = "") {
     url,
     redirect: (location: string) =>
       new Response(null, { status: 302, headers: { Location: location } }),
-  };
+  } as unknown as Parameters<typeof onRequest>[0];
 }
 
 const next = vi.fn(async () => new Response("ok", { status: 200 }));
+
+// The mocked `defineMiddleware` (see `vi.mock("astro:middleware", ...)` above)
+// makes `onRequest` a plain async function at runtime, but its imported type
+// is still the real `MiddlewareHandler`, which types its return as `void |
+// Response`. Route calls through this helper to get back a concrete `Response`.
+async function callMiddleware(context: Parameters<typeof onRequest>[0]): Promise<Response> {
+  const result = await onRequest(context, next);
+  return result as Response;
+}
 
 beforeEach(() => {
   vi.stubEnv("SUPABASE_URL", "https://test.supabase.co");
@@ -67,21 +76,20 @@ afterEach(() => {
 
 describe("admin middleware — Cache-Control", () => {
   it("sets no-store on the public login page", async () => {
-    const res = await onRequest(makeContext("/admin/"), next);
+    const res = await callMiddleware(makeContext("/admin/"));
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("sets no-store on the token-missing redirect", async () => {
-    const res = await onRequest(makeContext("/admin/dashboard/"), next);
+    const res = await callMiddleware(makeContext("/admin/dashboard/"));
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toBe("/admin/signout/?next=/admin/?error=no_token");
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("sets no-store on a successful authenticated page render", async () => {
-    const res = await onRequest(
-      makeContext("/admin/dashboard/", "sb-access-token=valid-token"),
-      next
+    const res = await callMiddleware(
+      makeContext("/admin/dashboard/", "sb-access-token=valid-token")
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
@@ -89,16 +97,15 @@ describe("admin middleware — Cache-Control", () => {
 
   it("sets no-store on the unauthorized redirect", async () => {
     mockSingle.mockResolvedValue({ data: { id: "u1", role: "admin", is_active: false }, error: null });
-    const res = await onRequest(
-      makeContext("/admin/dashboard/", "sb-access-token=valid-token"),
-      next
+    const res = await callMiddleware(
+      makeContext("/admin/dashboard/", "sb-access-token=valid-token")
     );
     expect(res.headers.get("Location")).toBe("/admin/?error=unauthorized");
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("does not force no-store on non-admin routes", async () => {
-    const res = await onRequest(makeContext("/"), next);
+    const res = await callMiddleware(makeContext("/"));
     expect(res.headers.get("Cache-Control")).not.toBe("no-store");
   });
 });
