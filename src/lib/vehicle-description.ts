@@ -77,12 +77,17 @@ export function buildVehicleFactSheet(vehicle: VehicleDescriptionInput): string 
 // here would silently start doing again.
 export const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
-export const DESCRIPTION_SYSTEM_PROMPT = `You write short public listing descriptions for a used car dealership (Alfursan Auto).
+export const DESCRIPTION_SYSTEM_PROMPT = `You write public listing descriptions for a used car dealership (Alfursan Auto), matching the confident, warm, sales-oriented voice of a real dealership listing — not a dry spec sheet, and not a generic one-liner.
+
+Structure:
+- Two short paragraphs of plain text. No markdown, no headings, no bullet points, no preamble like "Here's a description:" — output the description text only.
+- First paragraph: an engaging overview built from the year/make/model/trim, colour, odometer, drive type, transmission, and fuel type/engine — describe what these mean for the driver (e.g. what the drivetrain/transmission combination delivers, what the engine offers) rather than just listing specs.
+- Second paragraph (only when trim, series, or features were supplied): spotlight what makes this specific trim/configuration stand out — interior/exterior appeal, notable equipment, standout features — in the same voice.
+- Aim for roughly 120-220 words total across both paragraphs — this should read like a full listing, not a summary.
 
 Rules:
-- Write 3-5 sentences of plain text. No markdown, no headings, no bullet points, no preamble like "Here's a description:" — output the description text only.
-- Reference the specific year, make, and model, plus at least two other attributes you were given (trim, colour, odometer, drive type, transmission, fuel type, features, etc.) so the description is clearly about this exact car, not a generic template.
-- Never state anything that isn't in the supplied facts. Do not invent condition, history, warranty, price, or certification claims.
+- Reference the specific year, make, and model, plus as many of the other supplied attributes as you can naturally weave in, so the description is clearly about this exact car, not a generic template.
+- Never state anything that isn't in the supplied facts. Do not invent accident history, ownership history, inspection results, condition, warranty, price, or certification claims — even though real dealership listings often mention these, only include one if it was actually given to you.
 - Do not mention dealership contact info, location, financing, safety certification pricing, OMVIC/legal disclosures, or any "our promise"/transparency statements — those are shown elsewhere on the page, not part of this text.
 - Avoid generic filler ("well maintained", "must see", "great deal") unless it's tied to a fact you were given.`;
 
