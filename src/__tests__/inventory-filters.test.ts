@@ -1,15 +1,23 @@
 import { describe, it, expect } from "vitest";
 import { matchesFilters } from "../components/InventoryFilters";
-import type { CarSummary } from "../lib/wordpress";
+import type { DisplayVehicle } from "../lib/public-vehicle-view";
 
-function makeCar(overrides: Partial<CarSummary> & { id: number }): CarSummary {
+function makeCar(overrides: Partial<DisplayVehicle> & { vin: string }): DisplayVehicle {
   return {
-    slug: `car-${overrides.id}`,
-    title: `Car ${overrides.id}`,
-    htmlDescription: "",
+    title: `Car ${overrides.vin}`,
+    make: null,
+    model: null,
+    year: null,
+    price: null,
+    odometer: null,
+    colour: null,
+    cylinders: null,
+    doors: null,
+    features: [],
+    description: null,
     excerpt: "",
     images: [],
-    features: [],
+    createdAt: "2024-01-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -21,18 +29,17 @@ const EMPTY_FILTERS = {
   minPrice: "",
   maxPrice: "",
   maxMileage: "",
-  condition: "",
-  vehicleType: "",
+  bodyType: "",
   driveType: "",
   fuelType: "",
   transmission: "",
-  color: "",
+  colour: "",
   sort: "newest",
   page: 1,
 };
 
 describe("matchesFilters — search by VIN", () => {
-  const car = makeCar({ id: 1, vin: "2HKRM3H34FH003085" });
+  const car = makeCar({ vin: "2HKRM3H34FH003085" });
 
   it("matches on an exact VIN", () => {
     expect(
@@ -54,13 +61,6 @@ describe("matchesFilters — search by VIN", () => {
 
   it("excludes cars whose VIN does not contain the search text", () => {
     expect(matchesFilters(car, { ...EMPTY_FILTERS, vin: "ZZZZZZZ" })).toBe(
-      false,
-    );
-  });
-
-  it("excludes cars with no VIN when a VIN filter is set", () => {
-    const noVin = makeCar({ id: 2 });
-    expect(matchesFilters(noVin, { ...EMPTY_FILTERS, vin: "abc" })).toBe(
       false,
     );
   });

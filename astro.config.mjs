@@ -5,6 +5,20 @@ import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import sentry from "@sentry/astro";
 import { checkEnvIntegration } from "./src/lib/check-env.ts";
+import wpListingRedirects from "./src/data/wp-listing-redirects.json" with { type: "json" };
+
+// Old WordPress vehicle-listing slugs -> new VIN-based routes (WordPress
+// migration Part 5). Captured from the one-time inventory migration
+// (docs/WORDPRESS_MIGRATION.md Part 2) — a fixed, point-in-time snapshot,
+// not something that grows going forward, since WordPress inventory is being
+// decommissioned. `/listing/[vin].astro` has no fallback slug lookup of its
+// own; an old link not covered here just 404s, same as any other unknown path.
+export const LISTING_REDIRECTS = Object.fromEntries(
+  Object.entries(wpListingRedirects).map(([slug, vin]) => [
+    `/listing/${slug}/`,
+    `/listing/${vin}/`,
+  ]),
+);
 
 // Routes excluded from Vercel's ISR edge cache (see comment below). Exported
 // so it can be tested directly instead of via the adapter's internal config.
@@ -42,6 +56,9 @@ export default defineConfig({
   site: "https://alfursan-website.vercel.app",
   trailingSlash: "ignore",
   redirects: {
+    // Old WordPress vehicle listing slugs -> new VIN-based routes (Part 5)
+    ...LISTING_REDIRECTS,
+
     // Legacy utility/page aliases
     "/meet-the-team/": "/our-team/",
     "/compare/": "/search/",

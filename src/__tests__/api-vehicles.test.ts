@@ -202,6 +202,20 @@ describe("GET /api/vehicles — unauthenticated", () => {
     expect(orCall).toMatch(/sale_date\.gte\.\d{4}-\d{2}-\d{2}/);
   });
 
+  it("with ?sold=true, queries only recently-sold vehicles instead of the default visibility filter (WordPress migration Part 5)", async () => {
+    const { client, queryResult } = makeListMock();
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    await vehiclesGET({ request: req("/api/vehicles?sold=true") } as never);
+
+    expect(queryResult.eq).toHaveBeenCalledWith("photography_status", "done");
+    expect(queryResult.eq).toHaveBeenCalledWith("status", "sold");
+    const gteCall = (queryResult.gte as Mock).mock.calls[0];
+    expect(gteCall[0]).toBe("sale_date");
+    expect(gteCall[1]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(queryResult.or as Mock).not.toHaveBeenCalled();
+  });
+
   it("does not apply the visibility filter for authenticated requests", async () => {
     (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
     const { client, queryResult } = makeListMock();

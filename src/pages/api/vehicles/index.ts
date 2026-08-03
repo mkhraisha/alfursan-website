@@ -55,14 +55,27 @@ export const GET: APIRoute = async ({ request }) => {
   // excluded. `status`/`photography_status`/`sale_date` are filtered on
   // here but never selected (not in PUBLIC_COLUMNS), so the actual status
   // is never exposed to the caller.
+  //
+  // `?sold=true` (WordPress migration Part 5, the public "Recently Sold"
+  // page) flips this to the opposite slice: only vehicles that *are* sold
+  // within the same 30-day window, instead of everything else. It's a
+  // separate query rather than a client-side filter because `status`/
+  // `sale_date` are never part of the response body an unauthenticated
+  // caller receives — there'd be nothing in the payload to filter on.
   if (!isAuthenticated) {
-    const { data: vehicles, error, count } = await db
+    const onlySold = url.searchParams.get("sold") === "true";
+    let publicQuery = db
       .from("vehicles")
       .select(PUBLIC_COLUMNS, { count: "exact" })
       .order(sortCol ?? "created_at", { ascending })
       .range(offset, offset + limit - 1)
-      .eq("photography_status", "done")
-      .or(`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}`);
+      .eq("photography_status", "done");
+
+    publicQuery = onlySold
+      ? publicQuery.eq("status", "sold").gte("sale_date", soldVisibilityCutoff())
+      : publicQuery.or(`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}`);
+
+    const { data: vehicles, error, count } = await publicQuery;
 
     if (error) {
       console.error("[GET /api/vehicles]", error);

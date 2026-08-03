@@ -511,6 +511,10 @@ describe("PUBLIC_COLUMNS — public listing fields", () => {
     }
   });
 
+  it("includes created_at (public listing sort order — WordPress migration Part 5)", () => {
+    expect(PUBLIC_COLUMNS).toContain("created_at");
+  });
+
   it("never includes internal-only fields (status, photography_status, sale_date, prices, notes)", () => {
     for (const col of ["status", "ownership_status", "photography_status", "sale_date", "sale_price", "purchase_price", "internal_notes", "disclosures"]) {
       expect(PUBLIC_COLUMNS).not.toContain(col);

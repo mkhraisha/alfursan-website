@@ -218,9 +218,14 @@ export const commissionAssignSchema = z.object({
   commission_user_id: z.string().uuid().nullable(),
 });
 
-/** Columns returned for unauthenticated (public) requests */
+/**
+ * Columns returned for unauthenticated (public) requests.
+ * `created_at` is included so the public site can sort "newest first" (the
+ * WordPress migration's equivalent of a post's publish date) — it's not
+ * sensitive, just when a vehicle was added to inventory.
+ */
 export const PUBLIC_COLUMNS =
-  "vin, make, model, trim, series, year, colour, odometer, body_type, drive_type, transmission, fuel_type, cylinders, doors, features, description, advertised_price_cargurus, images_json, videos_json, carfax_link";
+  "vin, make, model, trim, series, year, colour, odometer, body_type, drive_type, transmission, fuel_type, cylinders, doors, features, description, advertised_price_cargurus, images_json, videos_json, carfax_link, created_at";
 
 /**
  * Compute total cost = purchase_price + sum of expenses.

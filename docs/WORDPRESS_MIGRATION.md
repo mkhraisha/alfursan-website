@@ -1,6 +1,6 @@
 # WordPress Migration Plan
 
-**Status:** In progress — Parts 1-4 and 6 done; Parts 5, 7, 8 remaining (Part 5, public page rewiring, is next)
+**Status:** In progress — Parts 1-6 done; Parts 7, 8 remaining (Part 7, decommissioning blog/team/FAQ, is next)
 **Date:** 2026-08-02
 **Supersedes/details:** `docs/DMS_PHASE2_PLAN.md` Sprint 2 ("Website Integration — Replace WordPress Inventory") — that sprint now just points here.
 **Related:** `docs/DEALER_MANAGEMENT_DECISIONS.md`, `docs/DEALER_MANAGEMENT_DESIGN.md`
@@ -169,19 +169,19 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
 
 ## 8. Part 5 — Public page rewiring
 
-**Status: not started — next up.** Parts 1-4 (schema, data, visibility rules, photos) are all done, so the DMS now has everything the public site needs; this part is where the public pages actually switch over to reading it instead of WordPress.
+**Status: implemented — homepage, search, sold, and the individual listing page all read from the DMS now. See `src/lib/public-vehicles.ts`, `src/lib/public-vehicle-view.ts`.**
 
-- [ ] **`GET /api/vehicles` becomes the public inventory source** — see Part 3's visibility filter; this endpoint (already unauthenticated-capable) replaces `getCars`/`getCarBySlug`.
-- [ ] **`search/index.astro`** — replace `getCars(100)` with a call to the vehicles API/DB, map DMS fields to what `InventoryFilters.tsx` expects (or refactor the component to accept the DMS shape directly — preferred, avoids a translation layer).
-- [ ] **`listing/[slug].astro` → `listing/[vin].astro`** — VIN-based routing. Add a redirect: since old WP slugs have no derivable VIN, keep a static slug→VIN lookup table generated during Part 2's migration (WP `slug` is known at import time) so old inbound links 301 to the new VIN URL instead of 404ing.
-- [ ] **`sold/index.astro`** — becomes "Recently Sold," querying vehicles matching Part 3's "recently sold" branch (30-day window) instead of WP's `offerType === "sold"`.
-- [ ] **`index.astro` (homepage)** — replace `getCars(100)` featured-vehicles section with the DMS query.
-- [ ] **`InventoryFilters.tsx` / `PopularMakes.tsx`** — update to consume the DMS vehicle shape (`drive_type`, `transmission`, `fuel_type`, `features`, etc. from Part 4) instead of `CarSummary` from `wordpress.ts`.
-- [ ] **Financing form / "Apply for Financing" links** — already tracked in `DMS_PHASE2_PLAN.md` Sprint 3; VIN-based listing URLs from this migration are a prerequisite, not duplicated here.
+- [x] **`GET /api/vehicles` becomes the public inventory source** — the pages don't self-fetch this endpoint over HTTP (avoids an extra network hop from SSR that already has direct DB access); instead `src/lib/public-vehicles.ts` runs the same query server-side (`fetchPublicVehicles`, `fetchRecentlySoldVehicles`, `fetchPublicVehicleByVin`), reusing `PUBLIC_COLUMNS`/`isPubliclyVisible`/`soldVisibilityCutoff` from `src/lib/vehicles.ts` so the visibility rule has one source of truth either way. The endpoint itself gained a `?sold=true` param so the public "Recently Sold" page has something to query — `status`/`sale_date` are never in the response body, so there was no other way to ask for just that slice.
+- [x] **`search/index.astro`** — now calls `fetchPublicVehicles()` and maps each row through `toDisplayVehicle()` (`src/lib/public-vehicle-view.ts`). `InventoryFilters.tsx` was refactored to consume the DMS shape (`DisplayVehicle`) directly instead of going through a `CarSummary`-shaped translation layer, per this doc's own preference.
+- [x] **`listing/[slug].astro` → `listing/[vin].astro`** — VIN-based routing via `fetchPublicVehicleByVin(vin)`; a non-visible/nonexistent VIN redirects to `/404` exactly like the old slug lookup did. Old WP slugs 301 to their VIN via a static lookup table (`src/data/wp-listing-redirects.json`, the real slug→VIN mapping captured during Part 2's production migration run) merged into `astro.config.mjs`'s existing static `redirects` map — a slug not covered by the table just 404s, same as any other unknown path.
+- [x] **`sold/index.astro`** — becomes "Recently Sold," calling `fetchRecentlySoldVehicles()` (the new `?sold=true` API query) instead of WP's `offerType === "sold"`.
+- [x] **`index.astro` (homepage)** — featured-vehicles section now calls `fetchPublicVehicles()`.
+- [x] **`InventoryFilters.tsx` / `PopularMakes.tsx`** — both consume `DisplayVehicle` (`drive_type`→`driveType`, etc., all display-labeled via `public-vehicle-view.ts`'s label helpers) instead of `CarSummary` from `wordpress.ts`. The "Sold" badge and sold-cars-sort-to-bottom logic were removed entirely — Part 3's decision was that `status` is never exposed to the public site at all, so there's nothing to badge. The body-type filter now offers all 8 `BODY_TYPES` (was hardcoded to WP's original 4) and the removed `condition` filter is gone (Decision 1 — used cars only, no condition field exists anymore).
+- [x] **Financing form / "Apply for Financing" links** — the query param the listing/search pages pass changed from `?slug=` to `?vin=` (matching the new routing), but `FinancingForm.tsx` still stores it in the existing `listingSlug` field/DB column unchanged — the admin application view's link (`/listing/${app.listing_slug}/`) still resolves correctly either way, since the route pattern is identical and only the value's meaning changed from slug to VIN. Actually auto-filling the applicant's own "Vehicle VIN" field from this remains tracked separately in `DMS_PHASE2_PLAN.md` Sprint 3, not duplicated here.
 
 Each of the above:
-- **Validation:** Page renders correctly from DMS data in local dev with seeded vehicles; no remaining `import ... from "../../lib/wordpress"` for inventory-related exports.
-- **Test:** Extend/adjust existing Playwright e2e coverage (`test: add e2e coverage for the public conversion path` already covers listing/finance flows) to run against DMS-seeded data instead of live WordPress.
+- **Validation:** Manually verified against a local Supabase stack with real migrated vehicle data (including real photos from Part 4) via the dev server: homepage featured cards, search results (20 results, all filters including the new 8-way body-type dropdown), sold page (7 recently-sold results), an individual listing page (real title/price/16 real images/attributes with no Condition row/plain-text description with paragraph breaks preserved), a 301 redirect from a real old WP slug to its VIN URL, a redirect-to-404 for a nonexistent VIN, and confirmed `GET /api/vehicles?sold=true` never includes `status` in its response body. No remaining `import ... from "../../lib/wordpress"` in any of the touched files.
+- **Test:** `src/__tests__/public-vehicle-view.test.ts` (new), `src/__tests__/astro-config-listing-redirects.test.ts` (new), `api-vehicles.test.ts` extended for `?sold=true`, `inventory-sort.test.ts`/`inventory-filters.test.ts` rewritten for the `DisplayVehicle` shape and the removed sold-sorting behavior, `e2e/public-listing-and-blog.spec.ts` updated for VIN-shaped listing URLs.
 
 ---
 
@@ -235,8 +235,8 @@ Each of the above:
 
 - [ ] `npm run build` passes with zero TypeScript errors
 - [ ] `npm run test` passes with zero test failures
-- [ ] Public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS — zero requests to `alfursanauto.ca`/`media.alfursanauto.ca`
-- [ ] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear
+- [ ] Public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS — zero requests to `alfursanauto.ca`/`media.alfursanauto.ca`. **Vehicle data** itself is now fully DMS-backed (Part 5) — the remaining gap is a handful of hardcoded decorative asset URLs still pointing at `media.alfursanauto.ca` (site logo, hero background/mascot images, UCDA badge) in `index.astro`/`Layout.astro`, unrelated to vehicle data and not part of any Part 1-6 checklist item. Worth picking up before decommissioning WordPress — see Part 8's grep sweep.
+- [x] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear (rule implemented in Part 3, now end-to-end reachable via the public "Recently Sold" page and general listings as of Part 5)
 - [x] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
 - [x] About Us and Contact Us are static native Astro content
 - [ ] Blog, Team, FAQ routes removed

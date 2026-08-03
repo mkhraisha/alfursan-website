@@ -34,6 +34,24 @@ export function buildConnectSrc(isDev: boolean, supabaseUrl: string): string {
   return sources.join(" ");
 }
 
+// Same local-dev gap as buildConnectSrc, but for <img> tags: the public
+// vehicle pages (WordPress migration Part 5) render photos straight from
+// Supabase Storage (`vehicle-images` bucket public URLs), which is plain
+// HTTP against a local Supabase stack in dev and blocked by the
+// production-only `https:` img-src source otherwise.
+export function buildImgSrc(isDev: boolean, supabaseUrl: string): string {
+  const sources = ["'self'", "data:", "https:"];
+  if (isDev) {
+    try {
+      const origin = new URL(supabaseUrl).origin;
+      if (!origin.startsWith("https:")) sources.push(origin);
+    } catch {
+      // Invalid/missing SUPABASE_URL — handled elsewhere (check-env, middleware guard below).
+    }
+  }
+  return sources.join(" ");
+}
+
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -45,7 +63,7 @@ const SECURITY_HEADERS: Record<string, string> = {
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: https:",
+    `img-src ${buildImgSrc(import.meta.env.DEV, import.meta.env.SUPABASE_URL ?? "")}`,
     `connect-src ${buildConnectSrc(import.meta.env.DEV, import.meta.env.SUPABASE_URL ?? "")}`,
     "frame-src https://www.google.com",
     "frame-ancestors 'none'",
