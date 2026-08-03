@@ -77,19 +77,26 @@ export function buildVehicleFactSheet(vehicle: VehicleDescriptionInput): string 
 // here would silently start doing again.
 export const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
-export const DESCRIPTION_SYSTEM_PROMPT = `You write public listing descriptions for a used car dealership (Alfursan Auto), matching the confident, warm, sales-oriented voice of a real dealership listing — not a dry spec sheet, and not a generic one-liner.
+export const DESCRIPTION_SYSTEM_PROMPT = `You write public listing descriptions for a used car dealership (Alfursan Auto). Match the voice of this real example from the dealership's own past listings, word for word in style:
+
+"This 2020 Ford Escape Titanium Hybrid maximizes fuel efficiency. It shows 157,223 KM on the odometer. The 2.5L 4-cylinder hybrid powertrain reduces your daily fuel costs. The automatic transmission and All-Wheel Drive system maintain secure traction across diverse Ontario weather conditions.
+
+The Titanium package represents the top tier of Ford design. This specific model features a clean black leather interior built for daily comfort. The striking blue exterior finish sets it apart from standard crossover SUVs."
+
+That voice is short, plain, declarative sentences — one concrete fact or benefit per sentence, no scene-setting, no rhetorical flourishes. Match it exactly, using only the facts you're given for this specific car.
 
 Structure:
-- Two short paragraphs of plain text. No markdown, no headings, no bullet points, no preamble like "Here's a description:" — output the description text only.
-- First paragraph: an engaging overview built from the year/make/model/trim, colour, odometer, drive type, transmission, and fuel type/engine — describe what these mean for the driver (e.g. what the drivetrain/transmission combination delivers, what the engine offers) rather than just listing specs.
-- Second paragraph (only when trim, series, or features were supplied): spotlight what makes this specific trim/configuration stand out — interior/exterior appeal, notable equipment, standout features — in the same voice.
-- Aim for roughly 120-220 words total across both paragraphs — this should read like a full listing, not a summary.
+- Two short paragraphs of plain text, in that voice. No markdown, no headings, no bullet points, no preamble like "Here's a description:" — output the description text only.
+- First paragraph: at least 5 sentences, each a separate short declarative fact — cover year/make/model/trim, colour, odometer, drive type, transmission, and fuel type/engine as individually as you can rather than combining several into one sentence.
+- Second paragraph (only when trim, series, or features were supplied): at least 3 sentences, each covering one thing the trim/configuration includes — interior, exterior finish, one sentence per standout feature — same short-sentence style.
+- Roughly 100-160 words total across both paragraphs. If you're short of that, add another short factual sentence about an attribute you haven't covered yet rather than making existing sentences longer.
 
-Rules:
-- Reference the specific year, make, and model, plus as many of the other supplied attributes as you can naturally weave in, so the description is clearly about this exact car, not a generic template.
+Absolutely do not use any of these words/phrases or anything like them — they are the #1 reason AI-written descriptions get rejected here: "turn heads", "step into", "experience the", "discover", "elevate"/"elevated", "unparalleled", "seamless", "versatile", "impressive", "thoughtfully designed", "stylish", "ideal choice for", "perfect for", "whether you're... or...", "built to adapt to your lifestyle", "represents a [adjective] choice", any sentence that just restates the whole car in general terms as a closer.
+
+Other rules:
+- Reference the specific year, make, and model, plus as many of the other supplied attributes as you can, so the description is clearly about this exact car, not a generic template.
 - Never state anything that isn't in the supplied facts. Do not invent accident history, ownership history, inspection results, condition, warranty, price, or certification claims — even though real dealership listings often mention these, only include one if it was actually given to you.
-- Do not mention dealership contact info, location, financing, safety certification pricing, OMVIC/legal disclosures, or any "our promise"/transparency statements — those are shown elsewhere on the page, not part of this text.
-- Avoid generic filler ("well maintained", "must see", "great deal") unless it's tied to a fact you were given.`;
+- Do not mention dealership contact info, location, financing, safety certification pricing, OMVIC/legal disclosures, or any "our promise"/transparency statements — those are shown elsewhere on the page, not part of this text.`;
 
 /**
  * Calls the Gemini API to write a description for one vehicle. Pure w.r.t.
@@ -119,7 +126,7 @@ export async function generateVehicleDescription(
       // INVALID_ARGUMENT on this model, so the budget here is sized generously
       // instead; the finishReason check below is the actual safety net against
       // whatever budget still isn't enough.
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
     },
   });
 
@@ -201,6 +208,7 @@ const BOILERPLATE_PARAGRAPH_PATTERNS: RegExp[] = [
   /certification\s+(?:is\s+)?available for \$800/i,
   /certification and pricing/i,
   /light wear consistent with age and mileage/i,
+  /book your test drive/i,
 ];
 
 /** True if `text` contains the mandatory OMVIC "sold as unfit" disclosure — per-vehicle legal content that must never be stripped. */
@@ -208,8 +216,14 @@ export function containsMandatoryDisclosure(text: string): boolean {
   return /\bomvic\b/i.test(text) || /\bsold as unfit\b/i.test(text);
 }
 
+// Matches the street number + street name regardless of how the rest of the
+// address is formatted/abbreviated ("Mayfield Rd, Caledon, ON" vs "Mayfield
+// Road, Caledon, Ontario", with or without a leading 📍) — the exact
+// CONTACT_INFO.address string only matches one specific formatting.
+const DEALER_ADDRESS_PATTERN = /5866\s+mayfield/i;
+
 function paragraphMentionsDealerContact(paragraph: string): boolean {
-  if (paragraph.includes(CONTACT_INFO.address)) return true;
+  if (DEALER_ADDRESS_PATTERN.test(paragraph)) return true;
   const dealerDigits = CONTACT_INFO.phone.replace(/\D/g, "").slice(-10);
   const paragraphDigits = paragraph.replace(/\D/g, "");
   return dealerDigits.length === 10 && paragraphDigits.includes(dealerDigits);

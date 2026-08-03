@@ -250,6 +250,19 @@ describe("stripDealerBoilerplate", () => {
     expect(result).not.toContain("we believe in honesty and transparency");
   });
 
+  it("strips an address variant with a different abbreviation style and a separate test-drive CTA line", () => {
+    const input =
+      "237,000 KM mileage should not worry you here. This van has been meticulously serviced and maintained, with full transparency through Carfax so you can review its history yourself.\n\nCarfax:\n\nDrives smooth and solid. Engine runs quietly. Transmission shifts clean. Interior is exceptionally well kept.\n\nKey features:\n\nSunroof\n\nRear entertainment system\n\nPower sliding doors and power trunk\n\nEX-L trim comfort and reliability\n\nA strong, practical family van offering excellent value and proven Honda dependability, ready for many more years on the road.\n\n📍 5866 Mayfield Road, Caledon, Ontario\n\nBook your test drive by calling or visiting us directly.\n\nMandatory OMVIC statement:\n\nAs per OMVIC regulations, this vehicle is being sold as unfit. Certification is available for a fee, or you’re welcome to have it completed by a mechanic of your choice.";
+
+    const result = stripDealerBoilerplate(input);
+
+    expect(result).toContain("Key features:");
+    expect(result).toContain("EX-L trim comfort and reliability");
+    expect(result).toContain("Mandatory OMVIC statement");
+    expect(result).not.toContain("Mayfield");
+    expect(result).not.toContain("Book your test drive");
+  });
+
   it("leaves a description with a non-standard certification price untouched", () => {
     const input =
       "$150 Admin fees\n\nSafety Certification available for $1300 (Includes a set of new tires)\n\nClean Carfax | Excellent Service";
