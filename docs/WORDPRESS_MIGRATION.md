@@ -1,6 +1,6 @@
 # WordPress Migration Plan
 
-**Status:** Parts 1-8 done — WordPress inventory/content code fully removed. One known gap remains before WordPress can actually be taken offline: a handful of hardcoded decorative asset URLs (logo, hero background, UCDA badge) still point at `media.alfursanauto.ca` — see Completion criteria below.
+**Status:** Parts 1-8 done — all completion criteria met. The public site has zero remaining code or asset dependencies on `alfursanauto.ca`/`media.alfursanauto.ca` (the one-time migration scripts in `scripts/` and their support modules are the sole intentional exception — historical tooling, not a live dependency). WordPress can be taken offline.
 **Date:** 2026-08-02
 **Supersedes/details:** `docs/DMS_PHASE2_PLAN.md` Sprint 2 ("Website Integration — Replace WordPress Inventory") — that sprint now just points here.
 **Related:** `docs/DEALER_MANAGEMENT_DECISIONS.md`, `docs/DEALER_MANAGEMENT_DESIGN.md`
@@ -237,6 +237,11 @@ Each of the above:
   - **Validation:** All four routes now match `ISR_EXCLUDE`; unrelated static paths (`/administrator-guide/`, near-miss prefixes like `/searching-tips/`, `/soldier-discount/`) do not.
   - **Test:** `src/__tests__/astro-config-isr-exclude.test.ts` extended with a `publicInventoryPaths` table covering `/`, `/search`, `/search/`, `/listing/{vin}/`, `/sold`, `/sold/`, plus a negative test for near-miss prefixes.
 
+- [x] **Migrate remaining decorative asset URLs off `media.alfursanauto.ca`**
+  - **Description:** Downloaded all 11 hardcoded decorative images (site logo x2, hero background, hero mascot, UCDA member badge, CEO photo, two About Us banner images, three homepage feature icons) from the live `media.alfursanauto.ca` and committed them to `public/brand/`, served same-origin. Updated every reference in `Layout.astro` (header/footer logo, hero background preload, default OG image), `index.astro` (hero mascot/background, UCDA badge, feature icons, `AutoDealer` JSON-LD `logo`/`image`), and `about-us/index.astro` (CEO photo, two banner backgrounds) to the local `/brand/...` path (absolute `https://alfursanauto.ca/brand/...` for the two JSON-LD fields, which require an absolute URL). Also removed `media.alfursanauto.ca` from the CORS-style origin allowlist in `src/pages/api/finance.ts`/`finance/phase2.ts`/`finance/upload-url.ts` — that subdomain never served the site's own pages (it was WordPress's media-only subdomain), so it was never a legitimate request origin; leaving it allow-listed after WordPress goes offline would just be dead surface area.
+  - **Validation:** `grep -rn "media.alfursanauto.ca\|alfursanauto.ca/wp-json" src/` now returns matches only inside `wordpress-photo-migration.ts`/its test (the standalone one-time Part 4 photo-migration script, which legitimately still fetches from WordPress and stays in the repo as historical tooling). `npm run build` succeeds and confirmed all 11 files land in `dist/client/brand/`.
+  - **Test:** No new test needed — this is a static-asset/URL swap, not new logic. Existing `npm run build`/`npm test` cover regressions.
+
 ---
 
 ## 12. Completion criteria
@@ -244,7 +249,7 @@ Each of the above:
 - [x] `npm run build` passes with zero TypeScript errors
 - [x] `npm run test` passes with zero test failures
 - [x] Vehicle data on the public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS (Part 5) — no vehicle-data requests to `alfursanauto.ca`/`media.alfursanauto.ca`
-- [ ] **Remaining gap, not yet closed:** a handful of hardcoded *decorative* asset URLs (site logo, hero background/mascot images, UCDA badge) still point at `media.alfursanauto.ca` in `index.astro`/`Layout.astro`/`about-us/index.astro` (and the same domain is still allow-listed in `src/pages/api/finance*.ts`'s upload-URL checks). Unrelated to vehicle data and not part of any Part 1-8 checklist item, but this is what actually blocks taking the WordPress/media server offline — every one of these images needs to be downloaded and re-hosted (`public/` or a Supabase Storage bucket) before cutover. `grep -rn "media.alfursanauto.ca\|alfursanauto.ca/wp-json" src/` should return zero matches once this is done.
+- [x] Public site has zero remaining references to `media.alfursanauto.ca`/`alfursanauto.ca/wp-json` — decorative assets re-hosted at `public/brand/`, origin allowlist entry removed (see Part 8's asset-migration item above)
 - [x] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear (rule implemented in Part 3, now end-to-end reachable via the public "Recently Sold" page and general listings as of Part 5)
 - [x] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
 - [x] About Us and Contact Us are static native Astro content
