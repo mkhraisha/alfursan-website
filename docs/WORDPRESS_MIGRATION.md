@@ -1,6 +1,6 @@
 # WordPress Migration Plan
 
-**Status:** Not Started
+**Status:** In progress — Parts 1-4 and 6 done; Parts 5, 7, 8 remaining (Part 5, public page rewiring, is next)
 **Date:** 2026-08-02
 **Supersedes/details:** `docs/DMS_PHASE2_PLAN.md` Sprint 2 ("Website Integration — Replace WordPress Inventory") — that sprint now just points here.
 **Related:** `docs/DEALER_MANAGEMENT_DECISIONS.md`, `docs/DEALER_MANAGEMENT_DESIGN.md`
@@ -146,23 +146,30 @@ End state: nothing on the public site fetches from `alfursanauto.ca`/`media.alfu
 
 ## 7. Part 4 — Photo/asset migration
 
-**Status: script implemented and validated end-to-end against real WordPress + a local Supabase stack — see `scripts/migrate-wordpress-photos.mjs`. Not yet run against production (that's a separate, later step — see note below).**
+**Status: done — run against production. See `scripts/migrate-wordpress-photos.mjs` / `src/lib/wordpress-photo-migration.ts` (PRs #71, #75, #76).**
 
 - [x] **One-time image migration: WP media → `vehicle-images` bucket**
   - **Description:** `scripts/migrate-wordpress-photos.mjs` fetches every WP `cars` post's `vehica_6673` image URLs, and for each DMS vehicle whose `images_json` is still empty (`planVehiclePhotoMigration` in `src/lib/wordpress-photo-migration.ts`), downloads each URL (resolved to `media.alfursanauto.ca` via `toMediaUrl`) and uploads it into the Supabase `vehicle-images` bucket at `vehicles/{vin}/wp-NN.{ext}` — same bucket and `vehicles/{vin}/...` prefix convention `upload-url.ts` uses for admin-uploaded photos. `images_json` is then set to the uploaded paths in WP order (index 0 = featured, matching the existing admin convention), and `photography_status` flips from `pending`/unset to `done` (`buildPhotographyStatusPatch`) so the vehicle becomes eligible for Part 3's visibility rule — but only then; a staff-set `na` or already-`done` value is never overridden. A vehicle whose `images_json` contains a path this script wouldn't itself generate is skipped entirely (admin-curated photos, since photo uploads happen only through the DMS going forward — decision 4). A vehicle with no WP images at all is also skipped. Every download and upload gets up to 4 attempts with backoff (real WordPress/Supabase runs do see transient `fetch failed`/timeout errors under concurrency), and an upload that comes back "already exists" after a retry is treated as success rather than a failure — a prior attempt's write can succeed server-side even when its response times out client-side, and re-uploading identical, deterministically-named content is pointless to fail on. **Partial migrations are resumable**: a vehicle whose `images_json` is a subset of what this script would generate for it (the result of an earlier run where some images kept failing) is picked up on the next run and only the still-missing images are attempted — already-uploaded ones are never re-fetched, and the final `images_json` preserves correct WP order regardless of which subset succeeded this time (`buildFinalImagesJson`). Same `--dry-run`/`--allow-production` local-only safety guard as Part 2's script, plus `--vin=X` to spot-check a single vehicle and `--concurrency=N` (default 4) to bound parallel downloads/uploads — worth lowering if a run reports many transient errors.
   - **Validation:** Every migrated vehicle's `images_json` resolves to a working public URL via `buildStorageUrl(supabaseUrl, "vehicle-images", path)` — same helper the admin Media tab already uses. Confirmed directly against a local Supabase stack: a real WP vehicle's 15 images uploaded successfully end to end, with the first path's public storage URL returning `200 image/jpeg` with real image bytes; re-running the same vehicle was a no-op (idempotent). Separately reproduced the exact partial-failure/resume scenario found during a real run: seeded a vehicle with 2 of 15 images already uploaded, ran the script — it correctly fetched only the 13 missing ones, and a genuine timeout on one image surfaced the "already exists on retry" case for real (a first attempt's write completed server-side despite a client-side timeout on the response); the fix treats that as success instead of exhausting retries and reporting a false failure. A second run then picked up the one image that had genuinely failed every attempt, reaching 15/15, in correct WP order throughout. `--dry-run` against live WordPress: 43 cars fetched, 37 candidates with a DMS-matching VIN and photos, 373 images total, 0 candidates missing from the DMS.
   - **Test:** `src/__tests__/wordpress-photo-migration.test.ts` covers the pure planning/decision logic (28 tests): media-URL rewriting, extension detection/fallback, ordered storage-path construction, skip-if-admin-curated / skip-if-no-images / skip-if-already-fully-migrated, resume-with-only-missing-paths, `buildFinalImagesJson`'s order-preserving merge of existing + newly-uploaded paths (including when some still fail), URL dedup, and the photography_status patch rules (done-on-pending, done-on-null, never-overrides-done-or-na).
 
+- [x] **Run the migration for real against production**
+  - **Description:** First production attempt surfaced a real bug: uploads intermittently failed with a bare `upload failed: fetch failed`, leaving some vehicles with no `images_json` written at all. Root-caused across two fixes (PRs #75, #76):
+    1. None of the download/upload/DB-update steps were retried, and a retried upload could legitimately come back `"the resource already exists"` (a prior attempt's write can succeed server-side even when its response errors client-side) — this was being counted as a fresh failure. Added retries with backoff to all three steps, treated "already exists" as success, and made partial migrations resumable (a vehicle with some-but-not-all images already uploaded picks up only what's missing on the next run — see `planVehiclePhotoMigration`'s `resume` action and `buildFinalImagesJson`).
+    2. Once error messages were improved to surface the underlying cause instead of just "fetch failed", the real culprit showed up: `ERR_SSL_ALERT_BAD_RECORD_MAC` / `ERR_HTTP2_INVALID_SESSION` — Node-core HTTP/2 stack error codes, not rate limiting and not anything about the files (confirmed directly: ordinary sub-500KB JPEGs). This is a known class of bug where Node's `fetch` (undici) misbehaves over HTTP/2 connection reuse under concurrent requests to the same host. Fixed by forcing plain HTTP/1.1 for every request the script makes (WP downloads and the Supabase client) via `undici`'s own `fetch` + `new Agent({ allowH2: false })`.
+  - **Validation:** After the HTTP/1.1 fix, a full production run completed with **zero errors**: 31 vehicles newly migrated (310 images uploaded) plus 6 already fully migrated from an earlier partial run — all 37 WP candidates with a DMS-matching VIN accounted for. Separately confirmed with the user that none of the 31 needed `photography_status` flipped to `done` because they were already `done` (or, where legitimately `na`, correctly left untouched per the user's confirmation that `na` is a deliberate staff exclusion, not an import artifact) — not a bug, working as designed.
+  - **Test:** N/A for the production run itself (one-time, not repeatable in CI); see the automated test coverage listed above, which covers the resume/retry/final-order logic exercised by this run.
+
 - [ ] **Confirm no public page references `media.alfursanauto.ca` after cutover**
   - **Description:** Final grep sweep (`grep -rn "media.alfursanauto.ca\|alfursanauto.ca/wp-json" src/`) after Part 8's rewiring is done.
   - **Validation:** Zero matches outside of this migration doc/scripts.
   - **Test:** N/A — grep-based check, run in CI or manually before decommission.
 
-**Note on running for real:** the script is ready but has deliberately not been run against production yet — doing so is a one-time, effectively irreversible data migration (it will populate `images_json` for every real vehicle) that should happen once, at a deliberate point close to cutover, not as a side effect of this PR. Run `node scripts/migrate-wordpress-photos.mjs --dry-run` against production WP first to review the plan, then `--allow-production` when ready (requires the typed confirmation phrase).
-
 ---
 
 ## 8. Part 5 — Public page rewiring
+
+**Status: not started — next up.** Parts 1-4 (schema, data, visibility rules, photos) are all done, so the DMS now has everything the public site needs; this part is where the public pages actually switch over to reading it instead of WordPress.
 
 - [ ] **`GET /api/vehicles` becomes the public inventory source** — see Part 3's visibility filter; this endpoint (already unauthenticated-capable) replaces `getCars`/`getCarBySlug`.
 - [ ] **`search/index.astro`** — replace `getCars(100)` with a call to the vehicles API/DB, map DMS fields to what `InventoryFilters.tsx` expects (or refactor the component to accept the DMS shape directly — preferred, avoids a translation layer).
@@ -230,7 +237,7 @@ Each of the above:
 - [ ] `npm run test` passes with zero test failures
 - [ ] Public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS — zero requests to `alfursanauto.ca`/`media.alfursanauto.ca`
 - [ ] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear
-- [ ] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
+- [x] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
 - [x] About Us and Contact Us are static native Astro content
 - [ ] Blog, Team, FAQ routes removed
 - [ ] `src/lib/wordpress.ts` deleted
