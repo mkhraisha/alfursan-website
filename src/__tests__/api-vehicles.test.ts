@@ -32,7 +32,7 @@ const VEHICLE = {
   ownership_status: "available",
   status: "frontline_ready",
   photography_status: "done",
-  images_json: [],
+  images_json: ["vehicles/1HGCM82633A004352/wp-00.jpg"],
   videos_json: [],
   carfax_link: null,
   commission_user_id: null,
@@ -189,13 +189,13 @@ describe("GET /api/vehicles — unauthenticated", () => {
     }
   });
 
-  it("applies the public visibility filter (photography done, not stale-sold)", async () => {
+  it("applies the public visibility filter (has photos, not stale-sold)", async () => {
     const { client, queryResult } = makeListMock();
     (getAdminClient as Mock).mockReturnValue(client);
 
     await vehiclesGET({ request: req("/api/vehicles") } as never);
 
-    expect(queryResult.eq).toHaveBeenCalledWith("photography_status", "done");
+    expect(queryResult.neq).toHaveBeenCalledWith("images_json", "[]");
     const orCall = (queryResult.or as Mock).mock.calls[0][0];
     expect(orCall).toContain("status.is.null");
     expect(orCall).toContain("status.neq.sold");
@@ -381,27 +381,36 @@ describe("GET /api/vehicles/:vin", () => {
     expect(res.status).toBe(200);
   });
 
-  it("never leaks status/photography_status/sale_date to an unauthenticated caller", async () => {
+  it("never leaks status/sale_date to an unauthenticated caller", async () => {
     const { client } = makeSingleMock(VEHICLE);
     (getAdminClient as Mock).mockReturnValue(client);
 
     const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
     const body = await res.json();
     expect(body).not.toHaveProperty("status");
-    expect(body).not.toHaveProperty("photography_status");
     expect(body).not.toHaveProperty("sale_date");
   });
 
-  it("returns 404 (unauthenticated) when photography is not done, regardless of status", async () => {
-    const { client } = makeSingleMock({ ...VEHICLE, photography_status: "pending" });
+  it("does not select photography_status at all (unauthenticated) — it no longer drives visibility", async () => {
+    const { client } = makeSingleMock(VEHICLE);
+    (getAdminClient as Mock).mockReturnValue(client);
+
+    await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
+
+    const selectFn = client.from("vehicles").select as Mock;
+    expect(selectFn.mock.calls[0][0]).not.toContain("photography_status");
+  });
+
+  it("returns 404 (unauthenticated) when images_json is empty, regardless of status", async () => {
+    const { client } = makeSingleMock({ ...VEHICLE, images_json: [] });
     (getAdminClient as Mock).mockReturnValue(client);
 
     const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
     expect(res.status).toBe(404);
   });
 
-  it("returns 200 (unauthenticated) for a non-frontline status as long as photography is done", async () => {
-    const { client } = makeSingleMock({ ...VEHICLE, status: "in_deal", photography_status: "done" });
+  it("returns 200 (unauthenticated) for a non-frontline status as long as a photo exists", async () => {
+    const { client } = makeSingleMock({ ...VEHICLE, status: "in_deal" });
     (getAdminClient as Mock).mockReturnValue(client);
 
     const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);
@@ -412,7 +421,7 @@ describe("GET /api/vehicles/:vin", () => {
     const soldRecently = new Date();
     soldRecently.setDate(soldRecently.getDate() - 10);
     const { client } = makeSingleMock({
-      ...VEHICLE, status: "sold", photography_status: "done",
+      ...VEHICLE, status: "sold",
       sale_date: soldRecently.toISOString().slice(0, 10),
     });
     (getAdminClient as Mock).mockReturnValue(client);
@@ -425,7 +434,7 @@ describe("GET /api/vehicles/:vin", () => {
     const soldLongAgo = new Date();
     soldLongAgo.setDate(soldLongAgo.getDate() - 40);
     const { client } = makeSingleMock({
-      ...VEHICLE, status: "sold", photography_status: "done",
+      ...VEHICLE, status: "sold",
       sale_date: soldLongAgo.toISOString().slice(0, 10),
     });
     (getAdminClient as Mock).mockReturnValue(client);
@@ -435,7 +444,7 @@ describe("GET /api/vehicles/:vin", () => {
   });
 
   it("returns 404 (unauthenticated) when sold with no sale_date on record", async () => {
-    const { client } = makeSingleMock({ ...VEHICLE, status: "sold", photography_status: "done", sale_date: null });
+    const { client } = makeSingleMock({ ...VEHICLE, status: "sold", sale_date: null });
     (getAdminClient as Mock).mockReturnValue(client);
 
     const res = await vinGET({ params: { vin: VEHICLE.vin }, request: req(`/api/vehicles/${VEHICLE.vin}`) } as never);

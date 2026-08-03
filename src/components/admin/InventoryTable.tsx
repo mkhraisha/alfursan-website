@@ -69,6 +69,7 @@ export function compareInventoryRows(
 }
 
 export type InventoryFilters = {
+  vin: string;
   status: string;
   ownership: string;
   photography: string;
@@ -83,7 +84,7 @@ export type InventoryFilters = {
 };
 
 export const EMPTY_INVENTORY_FILTERS: InventoryFilters = {
-  status: "", ownership: "", photography: "",
+  vin: "", status: "", ownership: "", photography: "",
   minPrice: "", maxPrice: "", minYear: "", maxYear: "",
   purchaseDateFrom: "", purchaseDateTo: "", saleDateFrom: "", saleDateTo: "",
 };
@@ -97,6 +98,7 @@ export const STATUS_NOT_SOLD = "__not_sold__";
  * lexicographic comparison is equivalent to chronological comparison.
  */
 export function matchesInventoryFilters(v: VehicleListItem, f: InventoryFilters): boolean {
+  if (f.vin && !v.vin.toLowerCase().includes(f.vin.trim().toLowerCase()))     return false;
   if (f.status === STATUS_NOT_SOLD) { if (v.status === "sold") return false; }
   else if (f.status               && v.status !== f.status)                         return false;
   if (f.ownership    && v.ownership_status !== f.ownership)                          return false;
@@ -207,6 +209,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
 
   // Filters — defaults to hiding sold vehicles; "All Statuses" or "Sold" opt back in.
+  const [filterVin,         setFilterVin]         = useState<string>("");
   const [filterStatus,      setFilterStatus]      = useState<string>(STATUS_NOT_SOLD);
   const [filterOwnership,   setFilterOwnership]   = useState<string>("");
   const [filterPhotography, setFilterPhotography] = useState<string>("");
@@ -222,6 +225,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   const rows = useMemo(() => vehicles.map(computeRow), [vehicles]);
 
   const filters: InventoryFilters = {
+    vin: filterVin,
     status: filterStatus, ownership: filterOwnership, photography: filterPhotography,
     minPrice: filterMinPrice, maxPrice: filterMaxPrice, minYear: filterMinYear, maxYear: filterMaxYear,
     purchaseDateFrom: filterPurchaseFrom, purchaseDateTo: filterPurchaseTo,
@@ -230,7 +234,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
 
   const filtered = useMemo(() => {
     return rows.filter((r) => matchesInventoryFilters(r, filters));
-  }, [rows, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear, filterPurchaseFrom, filterPurchaseTo, filterSaleFrom, filterSaleTo]);
+  }, [rows, filterVin, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear, filterPurchaseFrom, filterPurchaseTo, filterSaleFrom, filterSaleTo]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => compareInventoryRows(a, b, sortKey, sortDir));
@@ -254,6 +258,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   }
 
   function clearFilters() {
+    setFilterVin("");
     setFilterStatus(STATUS_NOT_SOLD); setFilterOwnership(""); setFilterPhotography("");
     setFilterMinPrice(""); setFilterMaxPrice(""); setFilterMinYear(""); setFilterMaxYear("");
     setFilterPurchaseFrom(""); setFilterPurchaseTo(""); setFilterSaleFrom(""); setFilterSaleTo("");
@@ -281,6 +286,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   }
 
   const hasFilters = Boolean(
+    filterVin ||
     (filterStatus && filterStatus !== STATUS_NOT_SOLD) || filterOwnership || filterPhotography ||
     filterMinPrice || filterMaxPrice || filterMinYear || filterMaxYear ||
     filterPurchaseFrom || filterPurchaseTo || filterSaleFrom || filterSaleTo
@@ -314,6 +320,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
 
       {/* Filters */}
       <div className="inv-filters">
+        <input type="text" className="inv-filter-vin" placeholder="Search by VIN" value={filterVin} onChange={(e) => { setFilterVin(e.target.value); setPage(1); }} />
         <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
           <option value={STATUS_NOT_SOLD}>All (Not Sold)</option>
           <option value="">All Statuses</option>
@@ -471,6 +478,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         }
         .inv-filters select { min-width: 140px; }
         .inv-filters input  { width: 110px; }
+        .inv-filters input.inv-filter-vin { width: 170px; }
 
         .inv-filter-date {
           display: flex; align-items: center; gap: 6px;

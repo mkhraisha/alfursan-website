@@ -375,18 +375,28 @@ export function soldVisibilityCutoff(now: Date = new Date()): string {
 /**
  * Whether a vehicle should appear on the public website.
  *
- * Rule: photography must be done, and the vehicle must not be a sale older
- * than 30 days. Every other status (in_deal, bodyshop, pending_delivery,
- * etc.) is publicly visible as long as photography is ready — the actual
- * status value itself is never exposed to the frontend, this only decides
- * inclusion. A 'sold' vehicle with no `sale_date` on record is treated as
- * not-recent (hidden) since recency can't be established.
+ * Rule: at least one photo must actually be uploaded (`images_json`
+ * non-empty), and the vehicle must not be a sale older than 30 days. Every
+ * other status (in_deal, bodyshop, pending_delivery, etc.) is publicly
+ * visible as long as photos exist — the actual status value itself is never
+ * exposed to the frontend, this only decides inclusion. A 'sold' vehicle
+ * with no `sale_date` on record is treated as not-recent (hidden) since
+ * recency can't be established.
+ *
+ * Deliberately checks `images_json` directly rather than
+ * `photography_status`: the latter is a staff-managed operational flag
+ * ("have we physically photographed this car"), set independently of
+ * whether those photos were ever actually uploaded into the DMS (e.g. via
+ * the CSV/OpenLane import sheet) — it can be `'done'` with zero photos on
+ * file, which would otherwise make an image-less vehicle publicly visible.
+ * `photography_status` still exists and is still staff-editable; it's just
+ * no longer part of the visibility decision.
  */
 export function isPubliclyVisible(
-  vehicle: { photography_status: string | null; status: string | null; sale_date: string | null },
+  vehicle: { images_json: string[] | null; status: string | null; sale_date: string | null },
   now: Date = new Date()
 ): boolean {
-  if (vehicle.photography_status !== "done") return false;
+  if (!vehicle.images_json || vehicle.images_json.length === 0) return false;
   if (vehicle.status !== "sold") return true;
   if (!vehicle.sale_date) return false;
   return vehicle.sale_date >= soldVisibilityCutoff(now);
