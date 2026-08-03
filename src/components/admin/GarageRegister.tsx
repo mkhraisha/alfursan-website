@@ -83,8 +83,31 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         .gr-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
 
         .gr-section { background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden; }
-        .gr-wrap { overflow-x: auto; }
         .gr-empty { padding: 40px; text-align: center; color: #99a1b2; font-size: 14px; }
+
+        /* Horizontally-scrollable table wrap. Edge shadows (via the two
+           scroll-attached gradients) only show through where the
+           local-attached white mask hasn't scrolled to cover them yet —
+           i.e. only while there's more content in that direction — so this
+           is the visual cue that the group headers are cut off, not broken. */
+        .gr-wrap {
+          overflow-x: auto;
+          scrollbar-width: thin;
+          scrollbar-color: #d0d5dd transparent;
+          background:
+            linear-gradient(to right, #fff 30%, rgba(255,255,255,0)),
+            linear-gradient(to left, #fff 30%, rgba(255,255,255,0)) right,
+            radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.18), rgba(0,0,0,0)),
+            radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.18), rgba(0,0,0,0)) right;
+          background-repeat: no-repeat;
+          background-color: #fff;
+          background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+          background-attachment: local, local, scroll, scroll;
+        }
+        .gr-wrap::-webkit-scrollbar { height: 10px; }
+        .gr-wrap::-webkit-scrollbar-track { background: transparent; }
+        .gr-wrap::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 5px; }
+        .gr-wrap::-webkit-scrollbar-thumb:hover { background: #b5bbc7; }
 
         .gr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 

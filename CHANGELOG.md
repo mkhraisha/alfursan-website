@@ -44,6 +44,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Admin **Garage Register** (`/admin/garage/`): the 12-column table (Purchased From / Used Motor Vehicle / Sold To) was hard-clipped at the page's right edge with no visible way to reach the remaining columns — the horizontal scroll worked, but macOS/Chromium's overlay scrollbar is invisible until you scroll, so the last group header ("Sold To — New Owner") looked like a rendering bug rather than a hint to scroll. The page now uses the full available width (`AdminLayout`'s new `fullWidth` prop) instead of the shared 1100px content cap, and the table's scroll container has an always-visible scrollbar plus a left/right edge shadow that only appears while there's more content in that direction.
 - WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 8 — `/`, `/search`, `/listing/{vin}`, and `/sold` (all SSR'd against the live DMS `vehicles` table since Part 5) were still subject to Vercel's 3-hour ISR edge cache, so a vehicle being sold, re-photographed, or re-priced in the admin could take up to 3 hours to show up on the public site. Added all four to `astro.config.mjs`'s `ISR_EXCLUDE`, so they now rely on `GET /api/vehicles`'s own `Cache-Control: public, max-age=300` instead — bounding staleness to 5 minutes.
 
 ### Changed
