@@ -70,7 +70,12 @@ export function buildVehicleFactSheet(vehicle: VehicleDescriptionInput): string 
 
 // ── Generation ──────────────────────────────────────────────────────────────
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+// "gemini-flash-latest" is a Google-maintained alias that always resolves to
+// the current flash model, rather than a pinned version — pinned versions
+// (e.g. "gemini-2.5-flash") get deprecated for new API keys over time and
+// start 404ing ("no longer available to new users"), which a fixed default
+// here would silently start doing again.
+export const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
 
 export const DESCRIPTION_SYSTEM_PROMPT = `You write short public listing descriptions for a used car dealership (Alfursan Auto).
 
@@ -100,9 +105,23 @@ export async function generateVehicleDescription(
     config: {
       systemInstruction: DESCRIPTION_SYSTEM_PROMPT,
       temperature: 0.8,
-      maxOutputTokens: 300,
+      // A reasoning-capable model (e.g. gemini-flash-latest currently resolves
+      // to gemini-3.6-flash) spends a variable, sometimes large share of the
+      // output budget on internal "thinking" tokens before writing any visible
+      // text — observed anywhere from ~300 to ~600+ thinking tokens for the
+      // same short prompt across repeated calls. thinkingConfig: {
+      // thinkingBudget: 0 } to disable that outright is rejected as
+      // INVALID_ARGUMENT on this model, so the budget here is sized generously
+      // instead; the finishReason check below is the actual safety net against
+      // whatever budget still isn't enough.
+      maxOutputTokens: 2048,
     },
   });
+
+  const finishReason = response.candidates?.[0]?.finishReason;
+  if (finishReason === "MAX_TOKENS") {
+    throw new Error("Gemini response was truncated (hit the output token limit before finishing)");
+  }
 
   const text = response.text?.trim();
   if (!text) {

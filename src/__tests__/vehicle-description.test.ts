@@ -115,6 +115,19 @@ describe("generateVehicleDescription", () => {
       /empty description/i
     );
   });
+
+  it("throws a clear error when the response was truncated by the token limit, instead of returning partial text", async () => {
+    // Reasoning-capable models can spend most/all of the output budget on
+    // internal "thinking" tokens, leaving `text` a truncated fragment — this
+    // must be treated as a failure, not a usable (if short) description.
+    generateContentMock.mockResolvedValue({
+      text: "This used 2020 Honda Civic",
+      candidates: [{ finishReason: "MAX_TOKENS" }],
+    });
+    await expect(generateVehicleDescription(BASE_VEHICLE, { apiKey: "key-123" })).rejects.toThrow(
+      /truncated/i
+    );
+  });
 });
 
 // ── Duplicate detection ─────────────────────────────────────────────────────────
