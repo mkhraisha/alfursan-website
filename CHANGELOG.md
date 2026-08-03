@@ -39,7 +39,12 @@ All notable changes to this project will be documented in this file.
 
 ### Removed
 
+- WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 8 — deleted `src/lib/wordpress.ts` and its test entirely (`getCars`, `getCarBySlug`, `CarSummary`, `formatPrice`, `clearWordpressCache`), now that Part 5 replaced every caller with the DMS-backed `src/lib/public-vehicles.ts`/`public-vehicle-view.ts`. The public site no longer has any runtime dependency on WordPress for vehicle data. Also re-hosted the last remaining decorative asset URLs (site logo, hero background/mascot, UCDA member badge, About Us CEO photo and banner images, homepage feature icons — 11 images total) from `media.alfursanauto.ca` to `public/brand/`, and removed that domain from the CORS-style origin allowlist in the finance upload-URL endpoints (it only ever served WordPress media, never the site's own pages, so it was never a legitimate request origin). This closes the last remaining reference to WordPress anywhere on the public site — `docs/WORDPRESS_MIGRATION.md`'s completion criteria are now fully met and WordPress can be taken offline.
 - WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 7 — the Blog and FAQ pages are removed (`src/pages/blog/`, `src/pages/faq/`), along with their `wordpress.ts` exports (`getPosts`, `getPostBySlug`, `BlogPost`) and the FAQ ones (`getFaqPageContent`, `FaqPageContent`, `extractFaqItems`), plus the never-used Team page exports (`getTeamPageContent`, `TeamPageContent` — no Team page was ever built). The footer's "FAQ" link and the About Us page's "Learn more" link to `/faq/` are removed; About Us keeps its own independent FAQ preview from Part 6, unaffected. Legacy blog post/category/tag URLs and `/meet-the-team/` now redirect straight to the homepage instead of to now-deleted `/blog/`/`/our-team/` destinations (`astro.config.mjs`'s `redirects`, plus `public/_redirects` for consistency).
+
+### Fixed
+
+- WordPress migration (`docs/WORDPRESS_MIGRATION.md`) Part 8 — `/`, `/search`, `/listing/{vin}`, and `/sold` (all SSR'd against the live DMS `vehicles` table since Part 5) were still subject to Vercel's 3-hour ISR edge cache, so a vehicle being sold, re-photographed, or re-priced in the admin could take up to 3 hours to show up on the public site. Added all four to `astro.config.mjs`'s `ISR_EXCLUDE`, so they now rely on `GET /api/vehicles`'s own `Cache-Control: public, max-age=300` instead — bounding staleness to 5 minutes.
 
 ### Changed
 

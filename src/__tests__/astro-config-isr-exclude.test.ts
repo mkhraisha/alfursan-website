@@ -35,4 +35,28 @@ describe("astro.config.mjs ISR_EXCLUDE", () => {
   it("still excludes /api/ routes", () => {
     expect(exclude.some((re) => re.test("/api/vehicles"))).toBe(true);
   });
+
+  // Public inventory pages (WordPress migration Part 8): SSR'd against the
+  // live DMS `vehicles` table, so a stale 3-hour ISR cache would directly
+  // hide a sold/re-priced/re-photographed vehicle from shoppers.
+  const publicInventoryPaths = [
+    "/",
+    "/search",
+    "/search/",
+    "/listing/1HGCM82633A123456/",
+    "/sold",
+    "/sold/",
+  ];
+
+  it.each(publicInventoryPaths)(
+    "excludes %s from ISR caching",
+    (path) => {
+      expect(exclude.some((re) => re.test(path))).toBe(true);
+    },
+  );
+
+  it("does not exclude unrelated static paths that merely start with a public inventory prefix", () => {
+    expect(exclude.some((re) => re.test("/searching-tips/"))).toBe(false);
+    expect(exclude.some((re) => re.test("/soldier-discount/"))).toBe(false);
+  });
 });

@@ -1,6 +1,6 @@
 # WordPress Migration Plan
 
-**Status:** In progress — Parts 1-7 done; Part 8 remaining (full `wordpress.ts` removal & ISR cache staleness — next up)
+**Status:** Parts 1-8 done — all completion criteria met. The public site has zero remaining code or asset dependencies on `alfursanauto.ca`/`media.alfursanauto.ca` (the one-time migration scripts in `scripts/` and their support modules are the sole intentional exception — historical tooling, not a live dependency). WordPress can be taken offline.
 **Date:** 2026-08-02
 **Supersedes/details:** `docs/DMS_PHASE2_PLAN.md` Sprint 2 ("Website Integration — Replace WordPress Inventory") — that sprint now just points here.
 **Related:** `docs/DEALER_MANAGEMENT_DECISIONS.md`, `docs/DEALER_MANAGEMENT_DESIGN.md`
@@ -225,27 +225,35 @@ Each of the above:
 
 ## 11. Part 8 — Full `wordpress.ts` removal & cache invalidation
 
-- [ ] **Delete `src/lib/wordpress.ts` and `src/__tests__/wordpress.test.ts`**
-  - **Description:** Once Parts 5–7 are complete, nothing should import from `wordpress.ts`. Delete the file, its test, the `PUBLIC_WP_API_BASE` env var references, and the WordpressBuild-resilience-specific CHANGELOG context (historical — leave CHANGELOG entries as-is, just stop needing the code).
-  - **Validation:** `grep -rn "wordpress" src/ --include="*.astro" --include="*.ts" --include="*.tsx"` returns nothing outside of this doc and `CHANGELOG.md`. `npm run build` passes.
+**Status: done.**
+
+- [x] **Delete `src/lib/wordpress.ts` and `src/__tests__/wordpress.test.ts`**
+  - **Description:** Confirmed nothing imported `getCars`/`getCarBySlug`/`CarSummary`/`formatPrice`/`clearWordpressCache` (Part 5 had already replaced every caller) before deleting both files. A few comments elsewhere (`wordpress-migration.ts`, `wordpress-photo-migration.ts`, `public-vehicles.ts`, `public-vehicle-view.ts`) that referenced `src/lib/wordpress.ts` by path were updated so they don't point at a deleted file. The `PUBLIC_WP_API_BASE` env var references in `scripts/migrate-wordpress-inventory.mjs`/`scripts/migrate-wordpress-photos.mjs` are untouched — those are the standalone one-time migration scripts (Parts 2/4), which stay in the repo as historical tooling and are not part of this deletion.
+  - **Validation:** `grep -rn "wordpress" src/ --include="*.astro" --include="*.ts" --include="*.tsx"` now only matches the migration scripts' own support files (`wordpress-migration.ts`, `wordpress-photo-migration.ts`) and historical "WordPress migration Part N" comments — no reference to the deleted `wordpress.ts` module itself. `npm run build` passes.
   - **Test:** Full `npm run build` + `npm test` pass with the file removed.
 
-- [ ] **Resolve ISR cache staleness for public inventory pages**
-  - **Description:** `astro.config.mjs`'s `ISR_EXCLUDE` currently only excludes `/api/**` and `/admin/**` — `/search`, `/listing/**`, and `/` are still subject to Vercel's 3-hour edge cache. Once these pages read live DMS data (vehicle sold, new photos, price change), that staleness becomes directly customer-visible. Pick one: (a) add `/search`, `/listing`, `/` to `ISR_EXCLUDE` and rely on `GET /api/vehicles`'s own `Cache-Control: public, max-age=300` instead, or (b) trigger on-demand revalidation from the vehicle PATCH/POST handlers.
-  - **Validation:** A vehicle status/price change in the admin is reflected on the public site within an acceptable window (≤5 min, matching the API's existing cache header, if option (a) is chosen).
-  - **Test:** `src/__tests__/astro-config-isr-exclude.test.ts` extended to cover the new exclusions (if option (a)).
+- [x] **Resolve ISR cache staleness for public inventory pages**
+  - **Description:** Chose option (a): added `/` (home), `/search`, `/listing`, and `/sold` to `ISR_EXCLUDE` in `astro.config.mjs` — all four are already SSR'd (`prerender = false`) against the live DMS `vehicles` table (Part 5), so excluding them from Vercel's edge cache and relying on `GET /api/vehicles`'s own `Cache-Control: public, max-age=300, stale-while-revalidate=60` bounds staleness to 5 minutes instead of 3 hours. (`/sold` wasn't named explicitly in this item's original description, but it's the "Recently Sold" page referenced in the Completion criteria and has the exact same staleness exposure, so it's included for consistency.)
+  - **Validation:** All four routes now match `ISR_EXCLUDE`; unrelated static paths (`/administrator-guide/`, near-miss prefixes like `/searching-tips/`, `/soldier-discount/`) do not.
+  - **Test:** `src/__tests__/astro-config-isr-exclude.test.ts` extended with a `publicInventoryPaths` table covering `/`, `/search`, `/search/`, `/listing/{vin}/`, `/sold`, `/sold/`, plus a negative test for near-miss prefixes.
+
+- [x] **Migrate remaining decorative asset URLs off `media.alfursanauto.ca`**
+  - **Description:** Downloaded all 11 hardcoded decorative images (site logo x2, hero background, hero mascot, UCDA member badge, CEO photo, two About Us banner images, three homepage feature icons) from the live `media.alfursanauto.ca` and committed them to `public/brand/`, served same-origin. Updated every reference in `Layout.astro` (header/footer logo, hero background preload, default OG image), `index.astro` (hero mascot/background, UCDA badge, feature icons, `AutoDealer` JSON-LD `logo`/`image`), and `about-us/index.astro` (CEO photo, two banner backgrounds) to the local `/brand/...` path (absolute `https://alfursanauto.ca/brand/...` for the two JSON-LD fields, which require an absolute URL). Also removed `media.alfursanauto.ca` from the CORS-style origin allowlist in `src/pages/api/finance.ts`/`finance/phase2.ts`/`finance/upload-url.ts` — that subdomain never served the site's own pages (it was WordPress's media-only subdomain), so it was never a legitimate request origin; leaving it allow-listed after WordPress goes offline would just be dead surface area.
+  - **Validation:** `grep -rn "media.alfursanauto.ca\|alfursanauto.ca/wp-json" src/` now returns matches only inside `wordpress-photo-migration.ts`/its test (the standalone one-time Part 4 photo-migration script, which legitimately still fetches from WordPress and stays in the repo as historical tooling). `npm run build` succeeds and confirmed all 11 files land in `dist/client/brand/`.
+  - **Test:** No new test needed — this is a static-asset/URL swap, not new logic. Existing `npm run build`/`npm test` cover regressions.
 
 ---
 
 ## 12. Completion criteria
 
-- [ ] `npm run build` passes with zero TypeScript errors
-- [ ] `npm run test` passes with zero test failures
-- [ ] Public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS — zero requests to `alfursanauto.ca`/`media.alfursanauto.ca`. **Vehicle data** itself is now fully DMS-backed (Part 5) — the remaining gap is a handful of hardcoded decorative asset URLs still pointing at `media.alfursanauto.ca` (site logo, hero background/mascot images, UCDA badge) in `index.astro`/`Layout.astro`, unrelated to vehicle data and not part of any Part 1-6 checklist item. Worth picking up before decommissioning WordPress — see Part 8's grep sweep.
+- [x] `npm run build` passes with zero TypeScript errors
+- [x] `npm run test` passes with zero test failures
+- [x] Vehicle data on the public site (`/`, `/search`, `/listing/{vin}`, "Recently Sold") reads entirely from the DMS (Part 5) — no vehicle-data requests to `alfursanauto.ca`/`media.alfursanauto.ca`
+- [x] Public site has zero remaining references to `media.alfursanauto.ca`/`alfursanauto.ca/wp-json` — decorative assets re-hosted at `public/brand/`, origin allowlist entry removed (see Part 8's asset-migration item above)
 - [x] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear (rule implemented in Part 3, now end-to-end reachable via the public "Recently Sold" page and general listings as of Part 5)
 - [x] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
 - [x] About Us and Contact Us are static native Astro content
 - [x] Blog, Team, FAQ routes removed
-- [ ] `src/lib/wordpress.ts` deleted
-- [ ] ISR/cache staleness for public inventory pages resolved
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`
+- [x] `src/lib/wordpress.ts` deleted
+- [x] ISR/cache staleness for public inventory pages resolved
+- [x] `CHANGELOG.md` updated under `[Unreleased]`

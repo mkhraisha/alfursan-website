@@ -23,7 +23,6 @@ function isAllowedOrigin(request: Request): boolean {
   if (check.startsWith("http://localhost:")) return true;
   return (
     check.startsWith("https://alfursanauto.ca") ||
-    check.startsWith("https://media.alfursanauto.ca") ||
     check.startsWith("https://alfursan-website.vercel.app") ||
     (check.includes(".vercel.app") && !check.includes("://vercel.app"))
   );
