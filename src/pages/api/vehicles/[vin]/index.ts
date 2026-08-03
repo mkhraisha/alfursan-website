@@ -74,24 +74,25 @@ export const GET: APIRoute = async ({ params, request }) => {
   // type-level query parser needs to infer a real row type instead of falling
   // back to a ParserError (see PR #68).
   if (!user) {
-    // Public visibility (WordPress migration Part 3): the visibility fields
-    // (status/photography_status/sale_date) are fetched alongside the public
-    // columns purely to run isPubliclyVisible() below, then stripped before the
+    // Public visibility (WordPress migration Part 3): `images_json` is
+    // already part of PUBLIC_COLUMNS (and stays in the response — it's
+    // meant to be public); `status`/`sale_date` are fetched alongside it
+    // purely to run isPubliclyVisible() below, then stripped before the
     // response is sent — the actual status is never exposed to an
     // unauthenticated caller, it only ever determines 404 vs. 200.
     const { data, error } = await db
       .from("vehicles")
-      .select(`${PUBLIC_COLUMNS}, status, photography_status, sale_date`)
+      .select(`${PUBLIC_COLUMNS}, status, sale_date`)
       .eq("vin", vin)
       .single();
 
     if (error || !data) return json({ error: "Vehicle not found" }, 404);
 
     const row = data as Record<string, unknown>;
-    if (!isPubliclyVisible(row as { photography_status: string | null; status: string | null; sale_date: string | null })) {
+    if (!isPubliclyVisible(row as { images_json: string[] | null; status: string | null; sale_date: string | null })) {
       return json({ error: "Vehicle not found" }, 404);
     }
-    const { status: _status, photography_status: _photo, sale_date: _saleDate, ...publicRow } = row;
+    const { status: _status, sale_date: _saleDate, ...publicRow } = row;
     return json(publicRow);
   }
 

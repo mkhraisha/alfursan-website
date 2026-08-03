@@ -528,10 +528,12 @@ describe("soldVisibilityCutoff", () => {
   });
 });
 
+const HAS_PHOTOS = ["vehicles/1HGCM82633A123456/wp-00.jpg"];
+
 describe("isPubliclyVisible", () => {
-  it("is visible when frontline_ready and photography is done", () => {
+  it("is visible when frontline_ready and at least one photo exists", () => {
     expect(
-      isPubliclyVisible({ status: "frontline_ready", photography_status: "done", sale_date: null }, FIXED_NOW)
+      isPubliclyVisible({ status: "frontline_ready", images_json: HAS_PHOTOS, sale_date: null }, FIXED_NOW)
     ).toBe(true);
   });
 
@@ -539,61 +541,61 @@ describe("isPubliclyVisible", () => {
     "in_deal", "on_lot_work_needed", "pending_delivery", "pending_pickup", "bodyshop",
     "mechanic_ssc", "detailing_shop", "mechanic_repairs", "openlane_arbitration",
     "sale_cancelled_by_arbitration", "openlane_auction",
-  ])("is visible for status '%s' as long as photography is done (only status is never shared)", (status) => {
-    expect(isPubliclyVisible({ status, photography_status: "done", sale_date: null }, FIXED_NOW)).toBe(true);
+  ])("is visible for status '%s' as long as a photo exists (only status is never shared)", (status) => {
+    expect(isPubliclyVisible({ status, images_json: HAS_PHOTOS, sale_date: null }, FIXED_NOW)).toBe(true);
   });
 
-  it("is not visible when photography_status is pending", () => {
+  it("is not visible when images_json is empty", () => {
     expect(
-      isPubliclyVisible({ status: "frontline_ready", photography_status: "pending", sale_date: null }, FIXED_NOW)
+      isPubliclyVisible({ status: "frontline_ready", images_json: [], sale_date: null }, FIXED_NOW)
     ).toBe(false);
   });
 
-  it("is not visible when photography_status is na", () => {
+  it("is not visible when images_json is null", () => {
     expect(
-      isPubliclyVisible({ status: "frontline_ready", photography_status: "na", sale_date: null }, FIXED_NOW)
+      isPubliclyVisible({ status: "frontline_ready", images_json: null, sale_date: null }, FIXED_NOW)
     ).toBe(false);
   });
 
-  it("is visible when sold 10 days ago and photography is done", () => {
+  it("is visible when sold 10 days ago and a photo exists, regardless of photography_status", () => {
     expect(
-      isPubliclyVisible({ status: "sold", photography_status: "done", sale_date: "2026-07-23" }, FIXED_NOW)
+      isPubliclyVisible({ status: "sold", images_json: HAS_PHOTOS, sale_date: "2026-07-23" }, FIXED_NOW)
     ).toBe(true);
   });
 
   it("is visible when sold exactly 30 days ago (boundary is inclusive)", () => {
     expect(
-      isPubliclyVisible({ status: "sold", photography_status: "done", sale_date: "2026-07-03" }, FIXED_NOW)
+      isPubliclyVisible({ status: "sold", images_json: HAS_PHOTOS, sale_date: "2026-07-03" }, FIXED_NOW)
     ).toBe(true);
   });
 
   it("is not visible when sold 31 days ago", () => {
     expect(
-      isPubliclyVisible({ status: "sold", photography_status: "done", sale_date: "2026-07-02" }, FIXED_NOW)
+      isPubliclyVisible({ status: "sold", images_json: HAS_PHOTOS, sale_date: "2026-07-02" }, FIXED_NOW)
     ).toBe(false);
   });
 
   it("is not visible when sold 40 days ago", () => {
     expect(
-      isPubliclyVisible({ status: "sold", photography_status: "done", sale_date: "2026-06-23" }, FIXED_NOW)
+      isPubliclyVisible({ status: "sold", images_json: HAS_PHOTOS, sale_date: "2026-06-23" }, FIXED_NOW)
     ).toBe(false);
   });
 
   it("is not visible when sold with no sale_date on record", () => {
     expect(
-      isPubliclyVisible({ status: "sold", photography_status: "done", sale_date: null }, FIXED_NOW)
+      isPubliclyVisible({ status: "sold", images_json: HAS_PHOTOS, sale_date: null }, FIXED_NOW)
     ).toBe(false);
   });
 
-  it("is not visible when sold recently but photography isn't done", () => {
+  it("is not visible when sold recently but images_json is empty", () => {
     expect(
-      isPubliclyVisible({ status: "sold", photography_status: "pending", sale_date: "2026-07-30" }, FIXED_NOW)
+      isPubliclyVisible({ status: "sold", images_json: [], sale_date: "2026-07-30" }, FIXED_NOW)
     ).toBe(false);
   });
 
-  it("is visible when status is null (not yet set) and photography is done", () => {
+  it("is visible when status is null (not yet set) and a photo exists", () => {
     expect(
-      isPubliclyVisible({ status: null, photography_status: "done", sale_date: null }, FIXED_NOW)
+      isPubliclyVisible({ status: null, images_json: HAS_PHOTOS, sale_date: null }, FIXED_NOW)
     ).toBe(true);
   });
 });
