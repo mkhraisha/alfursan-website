@@ -1583,12 +1583,20 @@ export default function FinancingForm() {
     // URL params override vehicle fields
     const params = new URLSearchParams(window.location.search);
     const urlOverrides: Partial<FormData> = {};
-    const slug = params.get("slug");
+    // The listing page now links here with the vehicle's VIN (WordPress
+    // migration Part 5 — VIN-based routing replaced the old WP slug), so
+    // this reads the "vin" query param, not "slug" — but still stores it in
+    // the existing listingSlug field/column unchanged: the admin view's link
+    // (`/listing/${app.listing_slug}/`) resolves correctly either way, since
+    // the route pattern is the same and only the value's meaning changed.
+    // Renaming the field/column throughout is tracked separately in
+    // DMS_PHASE2_PLAN.md Sprint 3, not duplicated here.
+    const listingRef = params.get("vin");
     const year = params.get("year");
     const make = params.get("make");
     const model = params.get("model");
     const price = params.get("price");
-    if (slug) urlOverrides.listingSlug = slug;
+    if (listingRef) urlOverrides.listingSlug = listingRef;
     if (year) urlOverrides.vehicleYear = year;
     if (make) urlOverrides.vehicleMake = make;
     if (model) urlOverrides.vehicleModel = model;

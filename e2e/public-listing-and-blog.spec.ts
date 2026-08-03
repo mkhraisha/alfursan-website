@@ -3,10 +3,10 @@ import { test, expect } from "playwright/test";
 /**
  * Public conversion-path smoke coverage: the individual vehicle listing page
  * (the actual page a shopper lands on from search/Google/social — previously
- * completely uncovered), /sold/, and /blog/. All are WordPress-backed and
- * SSR'd (prerender = false for listing/sold), so these exercise the real
- * getCars/getCarBySlug/getPosts/getPostBySlug pipeline against the live
- * WordPress API.
+ * completely uncovered), /sold/, and /blog/. The vehicle pages (listing,
+ * search, sold) are SSR'd (prerender = false) against the DMS `vehicles`
+ * table (WordPress migration Part 5 — VIN-based routing replaced the old
+ * WP-slug routing); /blog/ is still WordPress-backed pending Part 7.
  */
 test.describe("Vehicle listing detail page", () => {
   test("renders a real listing discovered from /search/", async ({ page }) => {
@@ -15,6 +15,8 @@ test.describe("Vehicle listing detail page", () => {
     await expect(listingLink).toBeVisible({ timeout: 10_000 });
     const href = await listingLink.getAttribute("href");
     expect(href).toBeTruthy();
+    // /listing/{VIN}/ — a 17-character VIN, not a WordPress slug
+    expect(href).toMatch(/^\/listing\/[A-HJ-NPR-Z0-9]{17}\/$/);
 
     const response = await page.goto(href!);
     expect(response?.status()).toBe(200);
@@ -25,9 +27,9 @@ test.describe("Vehicle listing detail page", () => {
     await expect(page.locator('a[href^="/finance"]').first()).toBeVisible();
   });
 
-  test("redirects to the 404 page for a nonexistent slug", async ({ page }) => {
-    const response = await page.goto("/listing/this-slug-does-not-exist-e2e/");
-    // getCarBySlug returns null -> Astro.redirect("/404")
+  test("redirects to the 404 page for a nonexistent VIN", async ({ page }) => {
+    const response = await page.goto("/listing/1HGCM82633A999999/");
+    // fetchPublicVehicleByVin returns null -> Astro.redirect("/404")
     expect(response?.status()).toBe(404);
     await expect(page).toHaveURL(/\/404\/?$/);
   });

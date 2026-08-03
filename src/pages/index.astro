@@ -3,9 +3,11 @@ export const prerender = false;
 
 import Layout from "../layouts/Layout.astro";
 import PopularMakes from "../components/PopularMakes";
-import { formatPrice, getCars } from "../lib/wordpress";
+import { fetchPublicVehicles } from "../lib/public-vehicles";
+import { formatVehiclePrice, toDisplayVehicle } from "../lib/public-vehicle-view";
 
-const cars = await getCars(100);
+const supabaseUrl = import.meta.env.SUPABASE_URL;
+const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supabaseUrl));
 const featuredCars = cars.slice(0, 5);
 const makeCounts = cars.reduce<Record<string, number>>((acc, car) => {
   if (!car.make) {
@@ -159,20 +161,17 @@ const localBusinessSchema = {
           featuredCars[0] && (
             <article class="card card-hero">
               <a
-                href={`/listing/${featuredCars[0].slug}/`}
+                href={`/listing/${featuredCars[0].vin}/`}
                 class="card-img-link"
               >
-                {featuredCars[0].image ? (
+                {featuredCars[0].images[0] ? (
                   <img
-                    src={featuredCars[0].image}
+                    src={featuredCars[0].images[0]}
                     alt={featuredCars[0].title}
                     loading="lazy"
                   />
                 ) : (
                   <div class="placeholder">No image</div>
-                )}
-                {featuredCars[0].offerType?.toLowerCase() === "sold" && (
-                  <span class="sold-badge">Sold</span>
                 )}
                 {featuredCars[0].images.length > 0 && (
                   <span class="img-count">{featuredCars[0].images.length}</span>
@@ -180,7 +179,7 @@ const localBusinessSchema = {
               </a>
               <div class="card-body">
                 <a
-                  href={`/listing/${featuredCars[0].slug}/`}
+                  href={`/listing/${featuredCars[0].vin}/`}
                   class="card-title-link"
                 >
                   <h3>{featuredCars[0].title}</h3>
@@ -190,11 +189,9 @@ const localBusinessSchema = {
                     {featuredCars[0].year && (
                       <span>{featuredCars[0].year}</span>
                     )}
-                    {featuredCars[0].mileageKm && (
+                    {featuredCars[0].odometer && (
                       <span>
-                        {Number(featuredCars[0].mileageKm).toLocaleString(
-                          "en-CA",
-                        )}
+                        {featuredCars[0].odometer.toLocaleString("en-CA")}
                         KM
                       </span>
                     )}
@@ -208,7 +205,7 @@ const localBusinessSchema = {
                       <span>{featuredCars[0].driveType}</span>
                     )}
                   </div>
-                  <p class="price">{formatPrice(featuredCars[0].price)}</p>
+                  <p class="price">{formatVehiclePrice(featuredCars[0].price)}</p>
                 </div>
               </div>
             </article>
@@ -219,29 +216,26 @@ const localBusinessSchema = {
           {
             featuredCars.slice(1, 5).map((car) => (
               <article class="card card-sm">
-                <a href={`/listing/${car.slug}/`} class="card-img-link">
-                  {car.image ? (
-                    <img src={car.image} alt={car.title} loading="lazy" />
+                <a href={`/listing/${car.vin}/`} class="card-img-link">
+                  {car.images[0] ? (
+                    <img src={car.images[0]} alt={car.title} loading="lazy" />
                   ) : (
                     <div class="placeholder">No image</div>
-                  )}
-                  {car.offerType?.toLowerCase() === "sold" && (
-                    <span class="sold-badge">Sold</span>
                   )}
                   {car.images.length > 0 && (
                     <span class="img-count">{car.images.length}</span>
                   )}
                 </a>
                 <div class="card-body">
-                  <a href={`/listing/${car.slug}/`} class="card-title-link">
+                  <a href={`/listing/${car.vin}/`} class="card-title-link">
                     <h3>{car.title}</h3>
                   </a>
-                  <p class="price">{formatPrice(car.price)}</p>
+                  <p class="price">{formatVehiclePrice(car.price)}</p>
                   <div class="card-specs">
                     {car.year && <span>{car.year}</span>}
-                    {car.mileageKm && (
+                    {car.odometer && (
                       <span>
-                        {Number(car.mileageKm).toLocaleString("en-CA")}KM
+                        {car.odometer.toLocaleString("en-CA")}KM
                       </span>
                     )}
                     {car.transmission && <span>{car.transmission}</span>}
@@ -618,26 +612,6 @@ const localBusinessSchema = {
     display: block;
     position: relative;
     overflow: hidden;
-  }
-
-  .sold-badge {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-30deg);
-    background: rgba(185, 33, 17, 0.92);
-    color: #fff;
-    font-size: 1.1rem;
-    font-weight: 900;
-    padding: 0.7rem 0;
-    width: 160%;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    border-top: 2px solid rgba(255, 255, 255, 0.45);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.45);
-    z-index: 2;
-    pointer-events: none;
   }
 
   .img-count {
@@ -1218,26 +1192,6 @@ const localBusinessSchema = {
     place-items: center;
     color: var(--placeholder);
     font-size: 0.9rem;
-  }
-
-  .pm-sold-badge {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-30deg);
-    background: rgba(185, 33, 17, 0.92);
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 900;
-    padding: 0.6rem 0;
-    width: 160%;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    border-top: 2px solid rgba(255, 255, 255, 0.45);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.45);
-    z-index: 2;
-    pointer-events: none;
   }
 
   .pm-img-count {

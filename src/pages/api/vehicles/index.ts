@@ -45,24 +45,40 @@ export const GET: APIRoute = async ({ request }) => {
   // type-level query parser needs to infer a real row type instead of falling
   // back to a ParserError (see PR #68).
   //
-  // Public visibility (WordPress migration Part 3): photography must be
-  // done, and a 'sold' vehicle must not be older than 30 days. Every other
-  // status (including no status set at all) is included as long as
-  // photography is ready — mirrors isPubliclyVisible() in lib/vehicles.ts,
-  // expressed as a DB filter so pagination/count stay correct. `status.is.null`
-  // is listed explicitly because SQL's <> doesn't match NULL the way JS's
-  // !== does — without it, a vehicle with no status set would be wrongly
-  // excluded. `status`/`photography_status`/`sale_date` are filtered on
-  // here but never selected (not in PUBLIC_COLUMNS), so the actual status
-  // is never exposed to the caller.
+  // Public visibility (WordPress migration Part 3): at least one photo must
+  // actually be uploaded, and a 'sold' vehicle must not be older than 30
+  // days. Every other status (including no status set at all) is included
+  // as long as photos exist — mirrors isPubliclyVisible() in lib/vehicles.ts,
+  // expressed as a DB filter so pagination/count stay correct. Checks
+  // `images_json` directly rather than `photography_status` — the latter is
+  // a staff-managed "have we photographed this car" flag set independently
+  // of whether those photos were ever uploaded into the DMS, so it can be
+  // 'done' with zero photos on file. `status.is.null` is listed explicitly
+  // because SQL's <> doesn't match NULL the way JS's !== does — without it,
+  // a vehicle with no status set would be wrongly excluded. `status`/
+  // `sale_date` are filtered on here but never selected (not in
+  // PUBLIC_COLUMNS), so the actual status is never exposed to the caller.
+  //
+  // `?sold=true` (WordPress migration Part 5, the public "Recently Sold"
+  // page) flips this to the opposite slice: only vehicles that *are* sold
+  // within the same 30-day window, instead of everything else. It's a
+  // separate query rather than a client-side filter because `status`/
+  // `sale_date` are never part of the response body an unauthenticated
+  // caller receives — there'd be nothing in the payload to filter on.
   if (!isAuthenticated) {
-    const { data: vehicles, error, count } = await db
+    const onlySold = url.searchParams.get("sold") === "true";
+    let publicQuery = db
       .from("vehicles")
       .select(PUBLIC_COLUMNS, { count: "exact" })
       .order(sortCol ?? "created_at", { ascending })
       .range(offset, offset + limit - 1)
-      .eq("photography_status", "done")
-      .or(`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}`);
+      .neq("images_json", "[]");
+
+    publicQuery = onlySold
+      ? publicQuery.eq("status", "sold").gte("sale_date", soldVisibilityCutoff())
+      : publicQuery.or(`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}`);
+
+    const { data: vehicles, error, count } = await publicQuery;
 
     if (error) {
       console.error("[GET /api/vehicles]", error);

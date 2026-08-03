@@ -2,43 +2,47 @@
 export const prerender = false;
 
 import Layout from "../../layouts/Layout.astro";
-import { formatPrice, getCars, getCarBySlug } from "../../lib/wordpress";
+import { fetchPublicVehicleByVin, fetchPublicVehicles } from "../../lib/public-vehicles";
+import { formatVehiclePrice, toDisplayVehicle } from "../../lib/public-vehicle-view";
 
-const { slug } = Astro.params;
+const { vin } = Astro.params;
+const supabaseUrl = import.meta.env.SUPABASE_URL;
 
-const [car, allCars] = await Promise.all([
-  getCarBySlug(slug!),
-  getCars(100),
+const [rawCar, rawAllCars] = await Promise.all([
+  fetchPublicVehicleByVin(vin!),
+  fetchPublicVehicles(),
 ]);
 
-if (!car) {
+if (!rawCar) {
   return Astro.redirect("/404");
 }
+
+const car = toDisplayVehicle(rawCar, supabaseUrl);
+const allCars = rawAllCars.map((v) => toDisplayVehicle(v, supabaseUrl));
 
 const attributes = [
   { label: "VIN", value: car.vin },
   { label: "Year", value: car.year },
   { label: "Make", value: car.make },
   { label: "Model", value: car.model },
-  { label: "Condition", value: car.condition },
   {
     label: "Mileage",
-    value: car.mileageKm ? `${car.mileageKm} KM` : undefined,
+    value: car.odometer ? `${car.odometer.toLocaleString("en-CA")} KM` : undefined,
   },
   { label: "Transmission", value: car.transmission },
   { label: "Fuel Type", value: car.fuelType },
   { label: "Drive Type", value: car.driveType },
   { label: "Cylinders", value: car.cylinders },
-  { label: "Color", value: car.color },
+  { label: "Colour", value: car.colour },
   { label: "Doors", value: car.doors },
-  { label: "Body Type", value: car.vehicleType },
+  { label: "Body Type", value: car.bodyType },
 ].filter((attr) => attr.value);
 
 const relatedCars = allCars
   .filter(
     (c) =>
-      c.id !== car.id &&
-      (c.make === car.make || c.vehicleType === car.vehicleType),
+      c.vin !== car.vin &&
+      (c.make === car.make || c.bodyType === car.bodyType),
   )
   .slice(0, 4);
 
@@ -46,34 +50,32 @@ const vehicleSchema: Record<string, unknown> = {
   "@context": "https://schema.org",
   "@type": "Vehicle",
   name: car.title,
-  url: `https://alfursanauto.ca/listing/${car.slug}/`,
-  image: car.images.length > 0 ? car.images : car.image,
+  url: `https://alfursanauto.ca/listing/${car.vin}/`,
+  image: car.images,
   description: car.excerpt,
   brand: car.make ? { "@type": "Brand", name: car.make } : undefined,
   model: car.model,
   modelDate: car.year,
-  mileageFromOdometer: car.mileageValue
-    ? { "@type": "QuantitativeValue", value: car.mileageValue, unitCode: "KMT" }
+  mileageFromOdometer: car.odometer
+    ? { "@type": "QuantitativeValue", value: car.odometer, unitCode: "KMT" }
     : undefined,
   vehicleTransmission: car.transmission,
   fuelType: car.fuelType,
   driveWheelConfiguration: car.driveType,
-  color: car.color,
+  color: car.colour,
   numberOfDoors: car.doors ? Number(car.doors) : undefined,
-  bodyType: car.vehicleType,
-  itemCondition:
-    car.condition === "New"
-      ? "https://schema.org/NewCondition"
-      : "https://schema.org/UsedCondition",
+  bodyType: car.bodyType,
+  // Every vehicle in the DMS is used (WordPress migration decision 1 — this
+  // dealership doesn't sell new). `status` is never exposed to the public
+  // site at all (decision confirmed during Part 3), so availability is
+  // always InStock regardless of the vehicle's actual internal status.
+  itemCondition: "https://schema.org/UsedCondition",
   offers: car.price
     ? {
         "@type": "Offer",
         price: car.price,
         priceCurrency: "CAD",
-        availability:
-          car.offerType?.toLowerCase() === "sold"
-            ? "https://schema.org/SoldOut"
-            : "https://schema.org/InStock",
+        availability: "https://schema.org/InStock",
         seller: { "@type": "AutoDealer", name: "Alfursan Auto" },
       }
     : undefined,
@@ -83,7 +85,7 @@ const vehicleSchema: Record<string, unknown> = {
 <Layout
   title={`${car.title} | Alfursan Auto`}
   description={car.excerpt}
-  image={car.image}
+  image={car.images[0]}
   schema={vehicleSchema}
 >
   <main id="main-content" class="container">
@@ -114,10 +116,9 @@ const vehicleSchema: Record<string, unknown> = {
     <h1>{car.title}</h1>
 
     <div class="price-row">
-      <span class="price">{formatPrice(car.price)}</span>
+      <span class="price">{formatVehiclePrice(car.price)}</span>
       {car.year && <span class="tag">{car.year}</span>}
-      {car.vehicleType && <span class="tag">{car.vehicleType}</span>}
-      {car.condition && <span class="tag">{car.condition}</span>}
+      {car.bodyType && <span class="tag">{car.bodyType}</span>}
     </div>
 
     <!-- Image Gallery -->
@@ -175,10 +176,10 @@ const vehicleSchema: Record<string, unknown> = {
 
         <!-- Description -->
         {
-          car.htmlDescription && (
+          car.description && (
             <section class="description-section">
               <h2>Description</h2>
-              <article class="description" set:html={car.htmlDescription} />
+              <article class="description">{car.description}</article>
             </section>
           )
         }
@@ -206,7 +207,7 @@ const vehicleSchema: Record<string, unknown> = {
             schedule a test drive.
           </p>
           <a
-            href={`/finance/?slug=${car.slug}${car.year ? `&year=${car.year}` : ""}${car.make ? `&make=${encodeURIComponent(car.make)}` : ""}${car.model ? `&model=${encodeURIComponent(car.model)}` : ""}${car.price ? `&price=${car.price}` : ""}`}
+            href={`/finance/?vin=${car.vin}${car.year ? `&year=${car.year}` : ""}${car.make ? `&make=${encodeURIComponent(car.make)}` : ""}${car.model ? `&model=${encodeURIComponent(car.model)}` : ""}${car.price ? `&price=${car.price}` : ""}`}
             class="btn-financing"
           >Apply for Financing</a>
           <a href="/contact-us/" class="btn-contact">Send a Message</a>
@@ -224,18 +225,18 @@ const vehicleSchema: Record<string, unknown> = {
           <div class="related-grid">
             {relatedCars.map((rc) => (
               <article class="related-card">
-                <a href={`/listing/${rc.slug}/`} class="related-img-link">
-                  {rc.image ? (
-                    <img src={rc.image} alt={rc.title} loading="lazy" />
+                <a href={`/listing/${rc.vin}/`} class="related-img-link">
+                  {rc.images[0] ? (
+                    <img src={rc.images[0]} alt={rc.title} loading="lazy" />
                   ) : (
                     <div class="placeholder">No image</div>
                   )}
                 </a>
                 <div class="related-content">
-                  <a href={`/listing/${rc.slug}/`} class="related-title-link">
+                  <a href={`/listing/${rc.vin}/`} class="related-title-link">
                     {rc.title}
                   </a>
-                  <p class="related-price">{formatPrice(rc.price)}</p>
+                  <p class="related-price">{formatVehiclePrice(rc.price)}</p>
                   <div class="related-specs">
                     {rc.year && <span>{rc.year}</span>}
                     {rc.fuelType && <span>{rc.fuelType}</span>}
@@ -457,14 +458,7 @@ const vehicleSchema: Record<string, unknown> = {
   .description {
     line-height: 1.7;
     color: var(--detail-body);
-  }
-
-  :global(.description p) {
-    margin: 0 0 0.8rem;
-  }
-
-  :global(.description a) {
-    color: var(--brand-red);
+    white-space: pre-line;
   }
 
   /* Features */

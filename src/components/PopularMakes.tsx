@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import type { CarSummary } from "../lib/wordpress";
-import { formatPrice } from "../lib/wordpress";
+import type { DisplayVehicle } from "../lib/public-vehicle-view";
+import { formatVehiclePrice } from "../lib/public-vehicle-view";
 import { sortCars } from "./InventoryFilters";
 
 type MakeGroup = {
   make: string;
   count: number;
-  cars: CarSummary[];
+  cars: DisplayVehicle[];
 };
 
 type Props = {
@@ -67,16 +67,13 @@ export default function PopularMakes({ makes }: Props) {
       <div className="pm-carousel" role="tabpanel" ref={carouselRef}>
         <div className="pm-carousel-track">
           {cars.map((car) => (
-            <article className="pm-card" key={car.id}>
+            <article className="pm-card" key={car.vin}>
               <div className="pm-card-img-bg">
-                <a href={`/listing/${car.slug}/`} className="pm-card-img-link">
-                  {car.image ? (
-                    <img src={car.image} alt={car.title} loading="lazy" />
+                <a href={`/listing/${car.vin}/`} className="pm-card-img-link">
+                  {car.images[0] ? (
+                    <img src={car.images[0]} alt={car.title} loading="lazy" />
                   ) : (
                     <div className="pm-placeholder">No image</div>
-                  )}
-                  {car.offerType?.toLowerCase() === "sold" && (
-                    <span className="pm-sold-badge">Sold</span>
                   )}
                   {car.images.length > 0 && (
                     <span className="pm-img-count">
@@ -99,16 +96,16 @@ export default function PopularMakes({ makes }: Props) {
               </div>
               <div className="pm-card-body">
                 <a
-                  href={`/listing/${car.slug}/`}
+                  href={`/listing/${car.vin}/`}
                   className="pm-card-title-link"
                 >
                   <h4>{car.title}</h4>
                 </a>
-                <div className="pm-price">{formatPrice(car.price)}</div>
+                <div className="pm-price">{formatVehiclePrice(car.price)}</div>
                 <div className="pm-card-separator" />
                 <div className="pm-card-specs">
                   {car.year && <span>{car.year}</span>}
-                  {car.mileageKm && <span>{Number(car.mileageKm).toLocaleString("en-CA")}KM</span>}
+                  {car.odometer && <span>{car.odometer.toLocaleString("en-CA")}KM</span>}
                   {car.transmission && <span>{car.transmission}</span>}
                 </div>
               </div>

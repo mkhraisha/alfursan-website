@@ -3,11 +3,12 @@ export const prerender = false;
 
 import InventoryFilters from "../../components/InventoryFilters";
 import Layout from "../../layouts/Layout.astro";
-import { getCars } from "../../lib/wordpress";
+import { fetchRecentlySoldVehicles } from "../../lib/public-vehicles";
+import { toDisplayVehicle } from "../../lib/public-vehicle-view";
 
-const allCars = await getCars(100);
-const soldCars = allCars.filter(
-  (car) => car.offerType?.toLowerCase() === "sold",
+const supabaseUrl = import.meta.env.SUPABASE_URL;
+const soldCars = (await fetchRecentlySoldVehicles()).map((v) =>
+  toDisplayVehicle(v, supabaseUrl),
 );
 ---
 

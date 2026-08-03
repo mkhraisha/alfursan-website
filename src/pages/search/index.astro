@@ -3,9 +3,11 @@ export const prerender = false;
 
 import InventoryFilters from "../../components/InventoryFilters";
 import Layout from "../../layouts/Layout.astro";
-import { getCars } from "../../lib/wordpress";
+import { fetchPublicVehicles } from "../../lib/public-vehicles";
+import { toDisplayVehicle } from "../../lib/public-vehicle-view";
 
-const cars = await getCars(100);
+const supabaseUrl = import.meta.env.SUPABASE_URL;
+const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supabaseUrl));
 ---
 
 <Layout
@@ -338,27 +340,7 @@ const cars = await getCars(100);
     text-decoration: underline;
   }
 
-  /* ── Badges (sold / img-count) ── */
-  :global(.sold-badge) {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-30deg);
-    background: rgba(185, 33, 17, 0.92);
-    color: #fff;
-    font-size: 0.8rem;
-    font-weight: 900;
-    padding: 0.45rem 0;
-    width: 160%;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    border-top: 1px solid rgba(255, 255, 255, 0.45);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.45);
-    z-index: 2;
-    pointer-events: none;
-  }
-
+  /* ── Badges (img-count) ── */
   :global(.car-thumb-link) {
     overflow: hidden;
   }
