@@ -65,13 +65,6 @@ test.describe("About Us page", () => {
   });
 });
 
-test.describe("FAQ page", () => {
-  test("loads with a 200 status", async ({ page }) => {
-    const response = await page.goto("/faq/");
-    expect(response?.status()).toBe(200);
-  });
-});
-
 test.describe("Contact Us page", () => {
   test("loads with a 200 status", async ({ page }) => {
     const response = await page.goto("/contact-us/");

@@ -1,15 +1,16 @@
-# Legacy utility/page aliases
-/meet-the-team/ /our-team/ 301!
+# Legacy utility/page aliases. "/our-team/" never existed as a page (Team was
+# decommissioned with no replacement, WordPress migration Part 7).
+/meet-the-team/ / 301!
 /compare/ /search/ 301!
 /map-search/ /search/ 301!
 
-# Legacy blog post slugs (root-level on WP) -> canonical Astro blog route
-/14-surprisingly-affordable-luxury-cars/ /blog/14-surprisingly-affordable-luxury-cars/ 301!
-/how-close-are-we-to-autonomous-cars/ /blog/how-close-are-we-to-autonomous-cars/ 301!
-
-# Legacy taxonomy aliases -> canonical blog listing
-/category/* /blog/ 301!
-/tag/* /blog/ 301!
+# Legacy blog post/taxonomy URLs -> home. The blog was decommissioned with no
+# replacement (WordPress migration Part 7); these previously redirected to
+# /blog/, which no longer exists.
+/14-surprisingly-affordable-luxury-cars/ / 301!
+/how-close-are-we-to-autonomous-cars/ / 301!
+/category/* / 301!
+/tag/* / 301!
 
 # Legacy search path URLs -> canonical query URLs
 /search/:make/:model/ /search/?make=:make&model=:model 301!

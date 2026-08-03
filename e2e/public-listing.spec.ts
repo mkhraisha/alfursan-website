@@ -3,10 +3,9 @@ import { test, expect } from "playwright/test";
 /**
  * Public conversion-path smoke coverage: the individual vehicle listing page
  * (the actual page a shopper lands on from search/Google/social — previously
- * completely uncovered), /sold/, and /blog/. The vehicle pages (listing,
- * search, sold) are SSR'd (prerender = false) against the DMS `vehicles`
- * table (WordPress migration Part 5 — VIN-based routing replaced the old
- * WP-slug routing); /blog/ is still WordPress-backed pending Part 7.
+ * completely uncovered), and /sold/. Both pages are SSR'd (prerender = false)
+ * against the DMS `vehicles` table (WordPress migration Part 5 — VIN-based
+ * routing replaced the old WP-slug routing).
  */
 test.describe("Vehicle listing detail page", () => {
   test("renders a real listing discovered from /search/", async ({ page }) => {
@@ -38,27 +37,6 @@ test.describe("Vehicle listing detail page", () => {
 test.describe("Sold vehicles page", () => {
   test("loads with a 200 status", async ({ page }) => {
     const response = await page.goto("/sold/");
-    expect(response?.status()).toBe(200);
-  });
-});
-
-test.describe("Blog", () => {
-  test("index loads with a 200 status", async ({ page }) => {
-    const response = await page.goto("/blog/");
-    expect(response?.status()).toBe(200);
-  });
-
-  test("a real post (if any exist) renders its own page", async ({ page }) => {
-    await page.goto("/blog/");
-    const postLink = page.locator('a[href^="/blog/"]:not([href="/blog/"])').first();
-    const count = await postLink.count();
-    if (count === 0) {
-      test.skip(); // no posts published — nothing further to check
-      return;
-    }
-
-    const href = await postLink.getAttribute("href");
-    const response = await page.goto(href!);
     expect(response?.status()).toBe(200);
   });
 });

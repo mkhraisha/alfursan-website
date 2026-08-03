@@ -1,6 +1,6 @@
 # WordPress Migration Plan
 
-**Status:** In progress — Parts 1-6 done; Parts 7, 8 remaining (Part 7, decommissioning blog/team/FAQ, is next)
+**Status:** In progress — Parts 1-7 done; Part 8 remaining (full `wordpress.ts` removal & ISR cache staleness — next up)
 **Date:** 2026-08-02
 **Supersedes/details:** `docs/DMS_PHASE2_PLAN.md` Sprint 2 ("Website Integration — Replace WordPress Inventory") — that sprint now just points here.
 **Related:** `docs/DEALER_MANAGEMENT_DECISIONS.md`, `docs/DEALER_MANAGEMENT_DESIGN.md`
@@ -205,17 +205,21 @@ Each of the above:
 
 ## 10. Part 7 — Decommission blog, team, FAQ
 
-- [ ] **Delete blog routes** — `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro`, and `getPosts`/`getPostBySlug`/`BlogPost` from `wordpress.ts`.
-  - **Validation:** `npm run build` passes with no dangling references. Any nav/footer links to `/blog` are removed.
-  - **Test:** Confirm no other page imports `getPosts`/`getPostBySlug` (`grep -rn "getPosts\|getPostBySlug" src/`) before deleting.
-- [ ] **Delete Team page** — `getTeamPageContent`/`TeamPageContent` and any page using them.
-  - **Validation/Test:** Same pattern as above.
-- [ ] **Delete FAQ page** — `getFaqPageContent`/`FaqPageContent`/`extractFaqItems` and `src/pages/faq/index.astro`.
-  - **Validation/Test:** Same pattern as above.
-- [ ] **Quick backlink sanity check before deleting** (open item from Decision 6)
-  - **Description:** Check Search Console / analytics (or just accept the risk, given confirmed low/no usage) for meaningful inbound traffic to `/blog/*`, `/faq/*`, team pages before removing them outright. If real inbound links exist, add simple 301s to `/` instead of letting them 404.
-  - **Validation:** Decision recorded (redirect or plain removal) before merging.
-  - **Test:** N/A — manual review.
+**Status: done.**
+
+- [x] **Delete blog routes** — `src/pages/blog/index.astro`, `src/pages/blog/[slug].astro`, and `getPosts`/`getPostBySlug`/`BlogPost` from `wordpress.ts`.
+  - **Validation:** `npm run build` passes with no dangling references. No nav/footer links to `/blog` existed (confirmed via grep before deleting).
+  - **Test:** Confirmed no other page imported `getPosts`/`getPostBySlug` before deleting. Removed the corresponding `getPosts` describe block from `src/__tests__/wordpress.test.ts`.
+- [x] **Delete Team page** — `getTeamPageContent`/`TeamPageContent` and any page using them.
+  - **Description:** No Team page was ever built (`src/pages` has no `team`/`our-team` route) — `getTeamPageContent`/`TeamPageContent` were unused dead code from the start. Deleted both from `wordpress.ts`.
+  - **Validation/Test:** Confirmed via grep that nothing imported these two exports before deleting.
+- [x] **Delete FAQ page** — `getFaqPageContent`/`FaqPageContent`/`extractFaqItems` and `src/pages/faq/index.astro`.
+  - **Description:** `/about-us/` has its own independent, already-static FAQ preview (`faqLeft`/`faqRight` local arrays, added in Part 6) that does not call `wordpress.ts` — deleting the standalone FAQ page does not affect it. That preview's "Learn more" CTA (which linked to `/faq/`) was removed since there's no longer a fuller list to link out to.
+  - **Validation/Test:** `npm run build`/`npm test` pass with the page and exports removed. Removed the "FAQ page" describe block from `e2e/public-pages.spec.ts`.
+- [x] **Quick backlink sanity check before deleting** (open item from Decision 6, resolved)
+  - **Description:** `astro.config.mjs` and `public/_redirects` both already had specific legacy 301s for two individual blog post slugs and several category/tag URLs pointing at `/blog/` — concrete evidence that these particular old paths had real inbound links worth preserving, even though the destination is being deleted. Applied the "if real inbound links exist, add simple 301s to `/`" branch of this open item: changed every legacy blog-post/category/tag redirect target, plus `/meet-the-team/` (which chained to `/our-team/`, a page that was never built), to redirect straight to `/` instead of to a now-nonexistent page.
+  - **Validation:** Redirect targets extracted into an exported `LEGACY_HOME_REDIRECTS` object in `astro.config.mjs` (same pattern as `LISTING_REDIRECTS`) so they're directly testable.
+  - **Test:** `src/__tests__/astro-config-legacy-home-redirects.test.ts` — asserts every legacy path redirects to `/` and none point at `/blog/` or `/our-team/`.
 
 ---
 
@@ -241,7 +245,7 @@ Each of the above:
 - [x] Sold vehicles remain visible for exactly 30 days post-`sale_date`, then disappear (rule implemented in Part 3, now end-to-end reachable via the public "Recently Sold" page and general listings as of Part 5)
 - [x] All historical vehicle photos migrated into the `vehicle-images` Supabase bucket
 - [x] About Us and Contact Us are static native Astro content
-- [ ] Blog, Team, FAQ routes removed
+- [x] Blog, Team, FAQ routes removed
 - [ ] `src/lib/wordpress.ts` deleted
 - [ ] ISR/cache staleness for public inventory pages resolved
 - [ ] `CHANGELOG.md` updated under `[Unreleased]`

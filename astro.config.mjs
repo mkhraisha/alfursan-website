@@ -20,6 +20,26 @@ export const LISTING_REDIRECTS = Object.fromEntries(
   ]),
 );
 
+// Legacy WordPress page/post/taxonomy aliases with no DMS equivalent -> home.
+// Exported so it can be tested directly. "/our-team/" never existed as a page
+// (Team was decommissioned with no replacement, WordPress migration Part 7),
+// and the blog was decommissioned with no replacement (same Part 7) — these
+// previously chained to /our-team/ or /blog/, which no longer exist.
+export const LEGACY_HOME_REDIRECTS = {
+  "/meet-the-team/": "/",
+  "/14-surprisingly-affordable-luxury-cars/": "/",
+  "/how-close-are-we-to-autonomous-cars/": "/",
+  "/category/auto-detailing/": "/",
+  "/category/car-news/": "/",
+  "/category/car-reviews/": "/",
+  "/tag/premium/": "/",
+  "/tag/sedan/": "/",
+  "/tag/sport/": "/",
+  "/tag/speed/": "/",
+  "/tag/suv/": "/",
+  "/tag/supercars/": "/",
+};
+
 // Routes excluded from Vercel's ISR edge cache (see comment below). Exported
 // so it can be tested directly instead of via the adapter's internal config.
 export const ISR_EXCLUDE = [
@@ -59,27 +79,11 @@ export default defineConfig({
     // Old WordPress vehicle listing slugs -> new VIN-based routes (Part 5)
     ...LISTING_REDIRECTS,
 
+    ...LEGACY_HOME_REDIRECTS,
+
     // Legacy utility/page aliases
-    "/meet-the-team/": "/our-team/",
     "/compare/": "/search/",
     "/map-search/": "/search/",
-
-    // Legacy blog post slugs (root-level on WP) -> canonical Astro blog route
-    "/14-surprisingly-affordable-luxury-cars/":
-      "/blog/14-surprisingly-affordable-luxury-cars/",
-    "/how-close-are-we-to-autonomous-cars/":
-      "/blog/how-close-are-we-to-autonomous-cars/",
-
-    // Legacy taxonomy aliases -> canonical blog listing
-    "/category/auto-detailing/": "/blog/",
-    "/category/car-news/": "/blog/",
-    "/category/car-reviews/": "/blog/",
-    "/tag/premium/": "/blog/",
-    "/tag/sedan/": "/blog/",
-    "/tag/sport/": "/blog/",
-    "/tag/speed/": "/blog/",
-    "/tag/suv/": "/blog/",
-    "/tag/supercars/": "/blog/",
 
     // Legacy search path URLs -> canonical query URLs
     "/search/audi/": "/search/?make=audi",
