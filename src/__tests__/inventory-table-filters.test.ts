@@ -183,6 +183,32 @@ describe("compareInventoryRows", () => {
   });
 });
 
+describe("matchesInventoryFilters — search by VIN", () => {
+  it("matches on an exact VIN", () => {
+    const v = makeVehicle({ vin: "1HGCM82633A004352" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "1HGCM82633A004352" })).toBe(true);
+  });
+
+  it("matches on a partial, case-insensitive VIN substring", () => {
+    const v = makeVehicle({ vin: "1HGCM82633A004352" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "a004352" })).toBe(true);
+  });
+
+  it("ignores surrounding whitespace in the VIN filter", () => {
+    const v = makeVehicle({ vin: "1HGCM82633A004352" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "  a004352  " })).toBe(true);
+  });
+
+  it("excludes vehicles whose VIN does not contain the search text", () => {
+    const v = makeVehicle({ vin: "1HGCM82633A004352" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "ZZZZZZZ" })).toBe(false);
+  });
+
+  it("does not filter on VIN when the filter is empty", () => {
+    expect(matchesInventoryFilters(makeVehicle(), EMPTY_INVENTORY_FILTERS)).toBe(true);
+  });
+});
+
 describe("matchesInventoryFilters — combined filters", () => {
   it("requires all active filters to match simultaneously", () => {
     const v = makeVehicle({ status: "sold", sale_date: "2026-06-15", year: 2022 });
