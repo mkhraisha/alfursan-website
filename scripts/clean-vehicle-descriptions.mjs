@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-time cleanup for `vehicles.description` text migrated from WordPress.
+ * One-time cleanup for `vehicles.description` text migrated from WordPress,
+ * plus an optional safe backfill for vehicles that have no description at all.
  *
  * Most migrated descriptions end with a dealership-wide "Visit Us" /
  * certification-price / "Our Promise" section, reworded slightly across
@@ -10,18 +11,27 @@
  * sourced from CONTACT_INFO/ALFURSAN_PROMISE — so it's removed from
  * `description` here.
  *
- * Three phases:
- *  1. Strip (always runs, no API key needed) — src/lib/vehicle-description.ts's
- *     stripDealerBoilerplate() removes only the recurring dealer-boilerplate
- *     paragraphs from each description, leaving every other paragraph exactly
- *     as-is. Some descriptions interleave a *mandatory OMVIC disclosure*
- *     ("this vehicle is being sold as unfit...") with that same trailing
- *     section — stripDealerBoilerplate() preserves any paragraph mentioning
- *     OMVIC/"sold as unfit" even while removing the generic boilerplate around
- *     it, since that's per-vehicle legal content, not marketing copy. Vehicles
- *     containing such a disclosure are still reported separately
- *     (omvic-review.json) so staff can spot-check nothing legally relevant
- *     was affected.
+ * Phases:
+ *  0. Seed (optional, --seed-file=<path>) — loads a JSON file of
+ *     { vin: description } pairs (hand/AI-written content for vehicles with
+ *     no real description yet) and fills in ONLY vehicles whose current
+ *     `description` is null, empty, or the literal placeholder "test"
+ *     (shouldSeedDescription() in src/lib/vehicle-description.ts) — it never
+ *     overwrites a real, already-written description, including one a staff
+ *     member wrote after the seed file's snapshot was taken. This is what
+ *     makes it safe to run the exact same seed file against a database whose
+ *     content may have moved on since (e.g. production).
+ *  1. Strip (always runs, no API key needed) — stripDealerBoilerplate()
+ *     removes only the recurring dealer-boilerplate paragraphs from each
+ *     description (including anything just filled in by phase 0), leaving
+ *     every other paragraph exactly as-is. Some descriptions interleave a
+ *     *mandatory OMVIC disclosure* ("this vehicle is being sold as
+ *     unfit...") with that same trailing section — stripDealerBoilerplate()
+ *     preserves any paragraph mentioning OMVIC/"sold as unfit" even while
+ *     removing the generic boilerplate around it, since that's per-vehicle
+ *     legal content, not marketing copy. Vehicles containing such a
+ *     disclosure are still reported separately (omvic-review.json) so staff
+ *     can spot-check nothing legally relevant was affected.
  *  2. Find remaining duplicates — runs findDuplicateDescriptionGroups() on the
  *     *post-strip* text to catch any genuinely car-specific-but-still-shared
  *     leftovers.
@@ -29,21 +39,24 @@
  *     still-duplicated group, calls generateVehicleDescription() via the
  *     Gemini API and proposes a fresh, car-specific replacement.
  *
- * Defaults to dry-run (report only, no writes). --apply writes the stripped
- * (and, with --generate, regenerated) descriptions back to Supabase, gated by
- * the same local-only + --allow-production confirmation guard as
+ * Defaults to dry-run (report only, no writes). --apply writes the seeded/
+ * stripped/regenerated descriptions back to Supabase, gated by the same
+ * local-only + --allow-production confirmation guard as
  * scripts/migrate-wordpress-inventory.mjs — refuses a non-local SUPABASE_URL
  * unless --allow-production is passed AND you type an exact confirmation
  * phrase at an interactive prompt.
  *
  * Usage:
- *   node scripts/clean-vehicle-descriptions.mjs                     # dry run, report only
- *   node scripts/clean-vehicle-descriptions.mjs --apply              # writes to a local Supabase stack
- *   node scripts/clean-vehicle-descriptions.mjs --apply --generate    # also regenerates still-duplicated descriptions via Gemini
- *   node scripts/clean-vehicle-descriptions.mjs --apply --allow-production  # writes to a non-local DB — prompts for confirmation
+ *   node scripts/clean-vehicle-descriptions.mjs                                          # dry run, report only
+ *   node scripts/clean-vehicle-descriptions.mjs --apply                                   # writes to a local Supabase stack
+ *   node scripts/clean-vehicle-descriptions.mjs --seed-file=scripts/data/vehicle-description-seed.json --apply
+ *   node scripts/clean-vehicle-descriptions.mjs --apply --generate                         # also regenerates still-duplicated descriptions via Gemini
+ *   node scripts/clean-vehicle-descriptions.mjs --apply --allow-production                 # writes to a non-local DB — prompts for confirmation
  *
  * Output: docs/migration/clean-vehicle-descriptions/<timestamp>/
  *   - report.md / report.json
+ *   - seeded.json               (only with --seed-file) VINs filled in, old + new
+ *   - seed-skipped.json         (only with --seed-file) VINs in the seed file already had real content — left untouched
  *   - stripped.json             every VIN whose description changed after stripping, old + new
  *   - omvic-review.json         VINs whose description contains a mandatory OMVIC disclosure — spot-check these
  *   - remaining-duplicates.json duplicate groups found in the post-strip text
@@ -51,13 +64,14 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import {
   stripDealerBoilerplate,
   containsMandatoryDisclosure,
   findDuplicateDescriptionGroups,
   generateVehicleDescription,
+  shouldSeedDescription,
 } from "../src/lib/vehicle-description.ts";
 
 const SPEC_COLUMNS =
@@ -69,6 +83,7 @@ const args = process.argv.slice(2);
 const APPLY = args.includes("--apply");
 const GENERATE = args.includes("--generate");
 const ALLOW_PRODUCTION = args.includes("--allow-production");
+const SEED_FILE = args.find((a) => a.startsWith("--seed-file="))?.split("=").slice(1).join("=");
 
 // ── Safety guard — refuses non-local writes unless explicitly + interactively confirmed ──
 
@@ -129,31 +144,70 @@ async function main() {
   const serviceKey = process.env.SUPABASE_SECRET_KEY;
   await assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey);
 
-  console.log(`[clean] Mode: ${APPLY ? `WRITE to ${supabaseUrl}` : "DRY RUN (no writes)"}${GENERATE ? " + generate" : ""}`);
+  console.log(`[clean] Mode: ${APPLY ? `WRITE to ${supabaseUrl}` : "DRY RUN (no writes)"}${GENERATE ? " + generate" : ""}${SEED_FILE ? ` + seed-file=${SEED_FILE}` : ""}`);
 
   const db = createClient(supabaseUrl ?? "http://127.0.0.1:54321", serviceKey ?? "", {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: vehicles, error } = await db
-    .from("vehicles")
-    .select(SPEC_COLUMNS)
-    .not("description", "is", null);
+  // No `.not("description", "is", null)` filter — the seed phase needs to see
+  // vehicles with no description at all, not just the ones that already have one.
+  const { data: vehicles, error } = await db.from("vehicles").select(SPEC_COLUMNS);
   if (error) throw error;
 
-  console.log(`[clean] ${vehicles.length} vehicle(s) with a description.`);
+  console.log(`[clean] ${vehicles.length} vehicle(s) total.`);
+
+  // Working copy of each vehicle's description, updated in place as each
+  // phase runs, so later phases (strip, dedup) see the post-seed state
+  // within this same invocation.
+  const currentDescByVin = new Map(vehicles.map((v) => [v.vin, v.description]));
+
+  // ── Phase 0: seed (optional) ─────────────────────────────────────────────────
+  const seeded = []; // { vin, before, after }
+  const seedSkipped = []; // vins whose current description was real content — left untouched
+  const seedNotFoundInDb = []; // vins present in the seed file but not in this database
+  const seedErrors = [];
+
+  if (SEED_FILE) {
+    const seedData = JSON.parse(readFileSync(SEED_FILE, "utf8"));
+    for (const [vin, newDescription] of Object.entries(seedData)) {
+      if (!currentDescByVin.has(vin)) {
+        seedNotFoundInDb.push(vin);
+        continue;
+      }
+      const current = currentDescByVin.get(vin);
+      if (!shouldSeedDescription(current)) {
+        seedSkipped.push(vin);
+        continue;
+      }
+      seeded.push({ vin, before: current, after: newDescription });
+      currentDescByVin.set(vin, newDescription);
+    }
+
+    console.log(
+      `[clean] Seed: ${seeded.length} description(s) will be filled, ${seedSkipped.length} skipped (already has real content), ${seedNotFoundInDb.length} not found in this database.`
+    );
+
+    if (APPLY) {
+      for (const s of seeded) {
+        const { error: updateError } = await db.from("vehicles").update({ description: s.after }).eq("vin", s.vin);
+        if (updateError) seedErrors.push({ vin: s.vin, error: updateError.message });
+      }
+    }
+  }
 
   // ── Phase 1: strip ──────────────────────────────────────────────────────────
   const stripped = []; // { vin, before, after }
   const omvicReview = []; // vins
-  const strippedByVin = new Map(); // vin -> post-strip description (for phase 2)
 
   for (const v of vehicles) {
-    const before = v.description;
+    const before = currentDescByVin.get(v.vin);
+    if (!before) continue; // still no description after phase 0 — nothing to strip
+
     if (containsMandatoryDisclosure(before)) omvicReview.push(v.vin);
 
     const after = stripDealerBoilerplate(before);
-    strippedByVin.set(v.vin, after);
+    currentDescByVin.set(v.vin, after);
     if (after !== before) stripped.push({ vin: v.vin, before, after });
   }
 
@@ -172,7 +226,7 @@ async function main() {
   }
 
   // ── Phase 2: duplicate detection on the post-strip text ──────────────────────
-  const postStrip = vehicles.map((v) => ({ vin: v.vin, description: strippedByVin.get(v.vin) }));
+  const postStrip = vehicles.map((v) => ({ vin: v.vin, description: currentDescByVin.get(v.vin) }));
   const duplicateGroups = findDuplicateDescriptionGroups(postStrip);
   const duplicateVehicleCount = duplicateGroups.reduce((n, g) => n + g.vins.length, 0);
   console.log(`[clean] ${duplicateGroups.length} duplicate group(s) remain after stripping (${duplicateVehicleCount} vehicle(s)).`);
@@ -194,7 +248,7 @@ async function main() {
               apiKey,
               model: process.env.GEMINI_MODEL || undefined,
             });
-            generated.push({ vin, before: strippedByVin.get(vin), after });
+            generated.push({ vin, before: currentDescByVin.get(vin), after });
             if (APPLY) {
               const { error: updateError } = await db.from("vehicles").update({ description: after }).eq("vin", vin);
               if (updateError) generateErrors.push({ vin, error: updateError.message });
@@ -213,6 +267,8 @@ async function main() {
   const outDir = `docs/migration/clean-vehicle-descriptions/${timestamp}`;
   mkdirSync(outDir, { recursive: true });
 
+  writeFileSync(`${outDir}/seeded.json`, JSON.stringify(seeded, null, 2));
+  writeFileSync(`${outDir}/seed-skipped.json`, JSON.stringify(seedSkipped, null, 2));
   writeFileSync(`${outDir}/stripped.json`, JSON.stringify(stripped, null, 2));
   writeFileSync(`${outDir}/omvic-review.json`, JSON.stringify(omvicReview, null, 2));
   writeFileSync(`${outDir}/remaining-duplicates.json`, JSON.stringify(duplicateGroups, null, 2));
@@ -223,12 +279,17 @@ async function main() {
       {
         mode: APPLY ? "apply" : "dry-run",
         generate: GENERATE,
-        totalWithDescription: vehicles.length,
+        seedFile: SEED_FILE ?? null,
+        totalVehicles: vehicles.length,
+        seededCount: seeded.length,
+        seedSkippedCount: seedSkipped.length,
+        seedNotFoundInDbCount: seedNotFoundInDb.length,
         strippedCount: stripped.length,
         omvicReviewCount: omvicReview.length,
         remainingDuplicateGroups: duplicateGroups.length,
         remainingDuplicateVehicles: duplicateVehicleCount,
         generatedCount: generated.length,
+        seedErrors,
         stripErrors,
         generateErrors,
       },
@@ -241,17 +302,19 @@ async function main() {
     `# Vehicle description cleanup report`,
     ``,
     `Generated: ${new Date().toISOString()}`,
-    `Mode: ${APPLY ? "apply (writes)" : "dry-run (no writes)"}${GENERATE ? " + generate" : ""}`,
+    `Mode: ${APPLY ? "apply (writes)" : "dry-run (no writes)"}${GENERATE ? " + generate" : ""}${SEED_FILE ? ` + seed-file=${SEED_FILE}` : ""}`,
     ``,
-    `- Vehicles with a description: ${vehicles.length}`,
+    `- Vehicles total: ${vehicles.length}`,
+    SEED_FILE ? `- Descriptions filled from seed file: ${seeded.length} (${seedSkipped.length} skipped — already had real content, ${seedNotFoundInDb.length} not found in this database)` : null,
     `- Descriptions changed after stripping dealer boilerplate: ${stripped.length}`,
     `- Vehicles containing a mandatory OMVIC disclosure (spot-check these): ${omvicReview.length}`,
     `- Duplicate groups remaining after stripping: ${duplicateGroups.length} (${duplicateVehicleCount} vehicles)`,
     GENERATE ? `- Descriptions regenerated via Gemini: ${generated.length}` : null,
+    seedErrors.length > 0 ? `- Seed write errors: ${seedErrors.length}` : null,
     stripErrors.length > 0 ? `- Strip write errors: ${stripErrors.length}` : null,
     generateErrors.length > 0 ? `- Generate write errors: ${generateErrors.length}` : null,
     ``,
-    `See stripped.json for before/after text, omvic-review.json for VINs to spot-check, remaining-duplicates.json for still-duplicated groups${GENERATE ? ", generated.json for before/after regenerated text" : ""}.`,
+    `See stripped.json for before/after text, omvic-review.json for VINs to spot-check, remaining-duplicates.json for still-duplicated groups${SEED_FILE ? ", seeded.json/seed-skipped.json for the seed-file outcome" : ""}${GENERATE ? ", generated.json for before/after regenerated text" : ""}.`,
   ]
     .filter((line) => line !== null)
     .join("\n");

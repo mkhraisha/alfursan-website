@@ -18,6 +18,7 @@ import {
   findDuplicateDescriptionGroups,
   containsMandatoryDisclosure,
   stripDealerBoilerplate,
+  shouldSeedDescription,
   DESCRIPTION_SYSTEM_PROMPT,
   DEFAULT_GEMINI_MODEL,
   type VehicleDescriptionInput,
@@ -279,5 +280,28 @@ describe("stripDealerBoilerplate", () => {
     expect(stripDealerBoilerplate("A short, unique description with no trailer.")).toBe(
       "A short, unique description with no trailer."
     );
+  });
+});
+
+describe("shouldSeedDescription", () => {
+  it("returns true for null/undefined", () => {
+    expect(shouldSeedDescription(null)).toBe(true);
+    expect(shouldSeedDescription(undefined)).toBe(true);
+  });
+
+  it("returns true for empty or whitespace-only strings", () => {
+    expect(shouldSeedDescription("")).toBe(true);
+    expect(shouldSeedDescription("   ")).toBe(true);
+  });
+
+  it("returns true for the literal 'test' placeholder, case/whitespace-insensitively", () => {
+    expect(shouldSeedDescription("test")).toBe(true);
+    expect(shouldSeedDescription("  Test  ")).toBe(true);
+    expect(shouldSeedDescription("TEST")).toBe(true);
+  });
+
+  it("returns false for any real, already-written description", () => {
+    expect(shouldSeedDescription("A clean 2020 Honda Civic with low mileage.")).toBe(false);
+    expect(shouldSeedDescription("testing this out for real detail")).toBe(false);
   });
 });

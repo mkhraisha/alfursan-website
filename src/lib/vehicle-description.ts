@@ -257,3 +257,20 @@ export function stripDealerBoilerplate(text: string): string {
 
   return kept.join("\n\n").trim();
 }
+
+// ── Seed-file backfill (one-time content generation for previously-empty descriptions) ──
+
+/**
+ * True when a vehicle's current `description` is safe to overwrite with a
+ * freshly-written one — null, empty/whitespace, or the literal placeholder
+ * "test" (a known leftover from someone poking at the admin textarea).
+ * Never returns true for any other non-empty value, matching the
+ * fill-only-if-empty philosophy already used by `buildFillPatch` in
+ * wordpress-migration.ts — a seed file must never overwrite real content,
+ * including content a staff member wrote after this file's snapshot was taken.
+ */
+export function shouldSeedDescription(current: string | null | undefined): boolean {
+  if (current === null || current === undefined) return true;
+  const trimmed = current.trim().toLowerCase();
+  return trimmed === "" || trimmed === "test";
+}
