@@ -208,7 +208,7 @@ describe("GET /api/vehicles — unauthenticated", () => {
 
     await vehiclesGET({ request: req("/api/vehicles?sold=true") } as never);
 
-    expect(queryResult.eq).toHaveBeenCalledWith("photography_status", "done");
+    expect(queryResult.neq).toHaveBeenCalledWith("images_json", "[]");
     expect(queryResult.eq).toHaveBeenCalledWith("status", "sold");
     const gteCall = (queryResult.gte as Mock).mock.calls[0];
     expect(gteCall[0]).toBe("sale_date");
