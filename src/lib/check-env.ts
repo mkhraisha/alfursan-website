@@ -15,6 +15,7 @@ const REQUIRED_ENV: Array<{ key: string; description: string }> = [
 const OPTIONAL_ENV: Array<{ key: string; description: string }> = [
   { key: "UPSTASH_REDIS_REST_URL", description: "Upstash Redis REST URL (rate limiting — optional)" },
   { key: "UPSTASH_REDIS_REST_TOKEN", description: "Upstash Redis REST token (rate limiting — optional)" },
+  { key: "GEMINI_API_KEY", description: "Google Gemini API key (AI-generated vehicle descriptions — optional)" },
 ];
 
 function validate(fatal: boolean) {

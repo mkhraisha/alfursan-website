@@ -4,6 +4,7 @@ export const prerender = false;
 import Layout from "../../layouts/Layout.astro";
 import { fetchPublicVehicleByVin, fetchPublicVehicles } from "../../lib/public-vehicles";
 import { formatVehiclePrice, toDisplayVehicle } from "../../lib/public-vehicle-view";
+import { CONTACT_INFO, SAFETY_CERTIFICATION_PRICE_CAD, ALFURSAN_PROMISE } from "../../lib/contact-info";
 
 const { vin } = Astro.params;
 const supabaseUrl = import.meta.env.SUPABASE_URL;
@@ -197,6 +198,21 @@ const vehicleSchema: Record<string, unknown> = {
             </section>
           )
         }
+
+        <!-- Visit Us / Our Promise — dealership-wide info, same on every listing -->
+        <section class="dealer-promise-section">
+          <h2>Visit Us at Alfursan Auto</h2>
+          <p>
+            {CONTACT_INFO.address} &middot; Phone:{" "}
+            <a href={`tel:${CONTACT_INFO.phoneHref}`}>{CONTACT_INFO.phone}</a>
+            &middot; Test drives available by appointment.
+          </p>
+          <p>
+            Safety certification is available for ${SAFETY_CERTIFICATION_PRICE_CAD}, ensuring your vehicle meets all Ontario safety standards.
+          </p>
+          <h3>The Alfursan Promise</h3>
+          <p>{ALFURSAN_PROMISE}</p>
+        </section>
       </div>
 
       <aside class="detail-sidebar">
@@ -488,6 +504,28 @@ const vehicleSchema: Record<string, unknown> = {
     left: 0;
     color: var(--brand-red);
     font-weight: 700;
+  }
+
+  /* Visit Us / Our Promise */
+  .dealer-promise-section {
+    margin-bottom: 2rem;
+  }
+
+  .dealer-promise-section h3 {
+    font-size: 1.05rem;
+    margin: 1.25rem 0 0.5rem;
+  }
+
+  .dealer-promise-section p {
+    line-height: 1.7;
+    color: var(--detail-body);
+    margin: 0 0 0.5rem;
+  }
+
+  .dealer-promise-section a {
+    color: var(--brand-red);
+    font-weight: 600;
+    text-decoration: none;
   }
 
   /* Sidebar */
