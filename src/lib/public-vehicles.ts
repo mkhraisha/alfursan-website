@@ -1,8 +1,8 @@
 /**
  * Server-side (SSR-only) data access for the public vehicle pages
  * (WordPress migration Part 5): homepage, search, sold, and the individual
- * listing page all call these instead of `getCars`/`getCarBySlug` from
- * `src/lib/wordpress.ts`.
+ * listing page all call these instead of the old `getCars`/`getCarBySlug`
+ * (WordPress-backed, removed in Part 8).
  *
  * Queries Supabase directly with the admin client rather than the pages
  * self-fetching `GET /api/vehicles` over HTTP — same underlying query and

@@ -2,8 +2,7 @@
  * Pure mapping/normalization logic for the one-time WordPress → DMS vehicle
  * inventory migration (docs/WORDPRESS_MIGRATION.md Part 2).
  *
- * Kept separate from src/lib/wordpress.ts (which is Astro-runtime code using
- * import.meta.env) so this module has zero Astro dependency and can be
+ * Kept free of any Astro dependency (no `import.meta.env` usage) so it can be
  * imported directly by the standalone script in scripts/migrate-wordpress-inventory.mjs.
  *
  * Network I/O (fetching WP posts/taxonomy terms, writing to Supabase) lives in

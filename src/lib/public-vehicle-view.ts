@@ -60,7 +60,7 @@ export function buildVehicleTitle(
     .join(" ");
 }
 
-/** "$28,000" / "Call for price" — the public-page equivalent of wordpress.ts's formatPrice. */
+/** "$28,000" / "Call for price". */
 export function formatVehiclePrice(price: number | null | undefined): string {
   if (typeof price !== "number") {
     return "Call for price";

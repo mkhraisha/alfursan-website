@@ -2,9 +2,8 @@
  * Pure mapping/decision logic for the one-time WordPress → DMS vehicle photo
  * migration (docs/WORDPRESS_MIGRATION.md Part 4).
  *
- * Kept separate from src/lib/wordpress.ts (Astro-runtime, uses
- * import.meta.env) and from src/lib/wordpress-migration.ts (vehicle
- * spec-field mapping, Part 2) so this module has zero Astro dependency and
+ * Kept separate from src/lib/wordpress-migration.ts (vehicle spec-field
+ * mapping, Part 2) so this module has zero Astro dependency and
  * can be imported directly by the standalone script in
  * scripts/migrate-wordpress-photos.mjs. All network I/O (downloading images,
  * uploading to Supabase Storage) lives in the script — everything here is a
@@ -13,7 +12,7 @@
 
 const MEDIA_DOMAIN = "https://media.alfursanauto.ca";
 
-/** Rewrite any absolute image URL to use the media subdomain (mirrors src/lib/wordpress.ts's toMediaUrl). */
+/** Rewrite any absolute image URL to use the media subdomain. */
 export const toMediaUrl = (url: string): string =>
   url.replace(/^https?:\/\/alfursanauto\.ca(?=\/)/i, MEDIA_DOMAIN);
 

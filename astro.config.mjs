@@ -58,6 +58,16 @@ export const ISR_EXCLUDE = [
   // which then fails re-validation and causes a sign-out-and-reload loop.
   // Exclude admin routes entirely.
   /^\/admin(\/|$)/,
+  // Public inventory pages (WordPress migration Part 8) are SSR'd
+  // (`prerender = false`) against the live DMS `vehicles` table — a vehicle
+  // being sold, re-photographed, or re-priced must show up without waiting
+  // out Vercel's 3-hour ISR cache. Excluded from ISR entirely and left to
+  // `GET /api/vehicles`'s own `Cache-Control: public, max-age=300` instead,
+  // which bounds staleness to 5 minutes.
+  /^\/$/,
+  /^\/search(\/|$)/,
+  /^\/listing(\/|$)/,
+  /^\/sold(\/|$)/,
 ];
 // Vercel sets VERCEL_ENV to "production" | "preview" | "development" at build time.
 // Only create Sentry releases/deploys on production builds — creating one on every
