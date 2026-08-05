@@ -337,7 +337,12 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
       const res = await fetch(`/api/vehicles/${v.vin}/generate-description`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        show((data as { error?: string }).error ?? "Failed to generate description", false);
+        const code = (data as { error?: string }).error;
+        const message =
+          res.status === 429
+            ? "Too many requests — please wait a bit and try again."
+            : code ?? "Failed to generate description";
+        show(message, false);
         return;
       }
       setDescription((data as { description: string }).description);

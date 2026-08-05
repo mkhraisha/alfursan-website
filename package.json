@@ -20,6 +20,9 @@
     "db:push": "supabase db push",
     "db:status": "supabase migration list"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@astrojs/check": "0.9.10",
     "@astrojs/react": "6.0.2",

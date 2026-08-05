@@ -60,7 +60,7 @@
  *   - stripped.json             every VIN whose description changed after stripping, old + new
  *   - omvic-review.json         VINs whose description contains a mandatory OMVIC disclosure — spot-check these
  *   - remaining-duplicates.json duplicate groups found in the post-strip text
- *   - generated.json            (only with --generate) VINs whose description was regenerated, old + new
+ *   - generated.json            VINs whose description was regenerated, old + new (always written; empty array without --generate)
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -90,15 +90,21 @@ const SEED_FILE = args.find((a) => a.startsWith("--seed-file="))?.split("=").sli
 const PRODUCTION_CONFIRMATION_PHRASE = "yes, write to production";
 
 async function assertLocalSupabaseOrDryRun(supabaseUrl, serviceKey) {
-  if (!APPLY) return;
+  // Even in dry-run mode this script always queries the real database (to
+  // read current descriptions), so a missing env var must fail fast with a
+  // clear instruction rather than silently falling back to a bare
+  // 127.0.0.1 URL with an empty key, which just surfaces as a confusing
+  // auth/connection error later.
   if (!supabaseUrl) {
-    console.error("[clean] Missing SUPABASE_URL. Run `supabase start` first, or drop --apply for a dry run.");
+    console.error("[clean] Missing SUPABASE_URL. Run `supabase start` first and export its values (see README Testing section).");
     process.exit(1);
   }
   if (!serviceKey) {
-    console.error("[clean] Missing SUPABASE_SECRET_KEY. Run `supabase start` first, or drop --apply for a dry run.");
+    console.error("[clean] Missing SUPABASE_SECRET_KEY. Run `supabase start` first and export its values (see README Testing section).");
     process.exit(1);
   }
+  if (!APPLY) return; // dry run: URL/key are valid — no write-target checks needed
+
   let hostname;
   try {
     hostname = new URL(supabaseUrl).hostname;
@@ -146,7 +152,7 @@ async function main() {
 
   console.log(`[clean] Mode: ${APPLY ? `WRITE to ${supabaseUrl}` : "DRY RUN (no writes)"}${GENERATE ? " + generate" : ""}${SEED_FILE ? ` + seed-file=${SEED_FILE}` : ""}`);
 
-  const db = createClient(supabaseUrl ?? "http://127.0.0.1:54321", serviceKey ?? "", {
+  const db = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
