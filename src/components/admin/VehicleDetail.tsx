@@ -37,7 +37,6 @@ export type VehicleFull = {
   ownership_status: string | null;
   status: string | null;
   photography_status: string | null;
-  garage_register_number: string | null;
   acquisition_bill_of_sale_path: string | null;
   safety_inspection_document_path: string | null;
   signed_bill_of_sale_path: string | null;
@@ -312,7 +311,6 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     status:                v.status ?? "",
     ownership_status:      v.ownership_status ?? "",
     photography_status:    v.photography_status ?? "",
-    garage_register_number: v.garage_register_number ?? "",
     carfax_link:           v.carfax_link ?? "",
   });
   const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
@@ -364,7 +362,6 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
     fields.status                = form.status || null;
     fields.ownership_status      = form.ownership_status || null;
     fields.photography_status    = form.photography_status || null;
-    fields.garage_register_number = form.garage_register_number || null;
     fields.carfax_link           = form.carfax_link || null;
     await onSave(fields); setSaving(false);
   }
@@ -465,10 +462,6 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
               <option value="done">Done</option>
               <option value="na">N/A</option>
             </select>
-          </div>
-          <div className="f-field">
-            <label>Garage Register #</label>
-            <input value={form.garage_register_number} onChange={(e) => set("garage_register_number", e.target.value)} />
           </div>
         </div>
       </div>

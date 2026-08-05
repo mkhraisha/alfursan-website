@@ -74,7 +74,6 @@ const vehicleBaseSchema = z.object({
   ownership_status: z.enum(["available", "en_route", "not_received"]).optional(),
   status:           z.enum(VALID_STATUSES).nullable().optional(),
   photography_status: z.enum(["pending", "done", "na"]).optional(),
-  garage_register_number:  z.string().optional(),
   purchased_from_name:     z.string().optional(),
   purchased_from_address:  z.string().optional(),
   lead_source:      z.string().optional(),
