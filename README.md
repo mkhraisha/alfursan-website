@@ -229,3 +229,5 @@ Deployed on Vercel. Set env vars **manually** in the Vercel dashboard — do not
 | `RESEND_DEALER_EMAIL` | No | Production + Preview |
 | `UPSTASH_REDIS_REST_URL` | No | Production only (optional) |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes | Production only (optional) |
+| `GEMINI_API_KEY` | Yes | Production only |
+| `GEMINI_MODEL` | No | Production only (optional) |
