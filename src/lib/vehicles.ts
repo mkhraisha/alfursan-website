@@ -356,6 +356,142 @@ export function aggregateMonthlySales(vehicles: SoldVehicle[]): MonthlySales[] {
     .sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0));
 }
 
+// ── Data Completeness Report ───────────────────────────────────────────────────
+
+export type CompletenessCategory = "compliance" | "listing" | "spec";
+
+export type CompletenessFieldDef = {
+  key: string;
+  label: string;
+  category: CompletenessCategory;
+};
+
+/**
+ * Fields a vehicle "should" have filled in, grouped by why they matter:
+ *  - compliance: required for the Ontario Garage Register log (/admin/garage/)
+ *  - listing:    needed to actually advertise/sell the vehicle
+ *  - spec:       vehicle detail fields buyers expect to see
+ * Intentionally excludes pure workflow/internal fields (internal_notes,
+ * commission_user_id, etc.) — those aren't "missing data", they're optional
+ * by design.
+ */
+export const COMPLETENESS_FIELDS: CompletenessFieldDef[] = [
+  // Listing
+  { key: "description", label: "Description", category: "listing" },
+  { key: "images_json", label: "Photos", category: "listing" },
+  { key: "advertised_price_cargurus", label: "Advertised Price (CarGurus)", category: "listing" },
+  // Spec
+  { key: "trim", label: "Trim", category: "spec" },
+  { key: "engine_type", label: "Engine Type", category: "spec" },
+  { key: "drive_type", label: "Drive Type", category: "spec" },
+  { key: "transmission", label: "Transmission", category: "spec" },
+  { key: "fuel_type", label: "Fuel Type", category: "spec" },
+  { key: "cylinders", label: "Cylinders", category: "spec" },
+  { key: "doors", label: "Doors", category: "spec" },
+  { key: "colour", label: "Colour", category: "spec" },
+  // Compliance (Ontario Garage Register)
+  { key: "purchased_from_name", label: "Purchased From (Name)", category: "compliance" },
+  { key: "purchased_from_address", label: "Purchased From (Address)", category: "compliance" },
+];
+
+function isFieldMissing(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+export type CompletenessVehicleInput = {
+  vin: string;
+  make: string;
+  model: string;
+  year: number;
+  status: string | null;
+  sale_date: string | null;
+} & Record<string, unknown>;
+
+export type VehicleCompletenessRow = {
+  vin: string;
+  make: string;
+  model: string;
+  year: number;
+  status: string | null;
+  active: boolean; // no sale_date recorded
+  missingFields: CompletenessFieldDef[];
+};
+
+export type CompletenessFieldFrequency = CompletenessFieldDef & {
+  missingCount: number; // among active vehicles only
+  missingPct: number;   // 0-100, rounded to 1 decimal
+};
+
+export type CompletenessReport = {
+  rows: VehicleCompletenessRow[]; // vehicles with >=1 missing field, most-missing-first
+  fieldFrequency: CompletenessFieldFrequency[]; // sorted worst-first
+  totalVehicles: number;
+  activeVehicles: number;
+  averageMissingActive: number; // avg missing field count per active vehicle
+};
+
+/**
+ * Builds the inventory data-completeness report: which vehicles are missing
+ * which "should-fill" fields, and how common each gap is across active
+ * (unsold) inventory. Sold vehicles are still listed (so history can be
+ * audited) but excluded from the frequency/average stats, since there's no
+ * ongoing reason to chase down data on a car that's already gone.
+ */
+export function computeCompletenessReport(vehicles: CompletenessVehicleInput[]): CompletenessReport {
+  const rows: VehicleCompletenessRow[] = [];
+  const missingCountByField = new Map<string, number>();
+  let activeVehicles = 0;
+  let activeMissingTotal = 0;
+
+  for (const v of vehicles) {
+    const active = !v.sale_date;
+    if (active) activeVehicles += 1;
+
+    const missingFields = COMPLETENESS_FIELDS.filter((f) => isFieldMissing(v[f.key]));
+
+    if (active) {
+      activeMissingTotal += missingFields.length;
+      for (const f of missingFields) {
+        missingCountByField.set(f.key, (missingCountByField.get(f.key) ?? 0) + 1);
+      }
+    }
+
+    if (missingFields.length > 0) {
+      rows.push({
+        vin: v.vin,
+        make: v.make,
+        model: v.model,
+        year: v.year,
+        status: v.status,
+        active,
+        missingFields,
+      });
+    }
+  }
+
+  rows.sort((a, b) => b.missingFields.length - a.missingFields.length);
+
+  const fieldFrequency: CompletenessFieldFrequency[] = COMPLETENESS_FIELDS.map((f) => {
+    const missingCount = missingCountByField.get(f.key) ?? 0;
+    return {
+      ...f,
+      missingCount,
+      missingPct: activeVehicles > 0 ? Number(((missingCount / activeVehicles) * 100).toFixed(1)) : 0,
+    };
+  }).sort((a, b) => b.missingCount - a.missingCount);
+
+  return {
+    rows,
+    fieldFrequency,
+    totalVehicles: vehicles.length,
+    activeVehicles,
+    averageMissingActive: activeVehicles > 0 ? Number((activeMissingTotal / activeVehicles).toFixed(2)) : 0,
+  };
+}
+
 // ── Public visibility (WordPress migration Part 3) ─────────────────────────────
 
 /**
