@@ -155,10 +155,6 @@ Two integrated features:
 
 - `photography_status` (enum: `'pending'`, `'done'`, `'na'`)
 
-**Garage Register (Ontario):**
-
-- `garage_register_number` (string, nullable)
-
 **Documents:**
 
 - `acquisition_bill_of_sale_path` (string, nullable)
@@ -469,7 +465,7 @@ Response (unauthenticated/public role):
 Response (authenticated admin/sales):
   [{ vin, make, model, trim, series, year, colour, odometer, advertised_price,
      wholesale_price, purchase_price, purchase_date, purchaser_name, purchaser_address,
-     ownership_status, status, photography_status, garage_register_number,
+     ownership_status, status, photography_status,
      acquisition_bill_of_sale_path, safety_inspection_document_path,
      signed_bill_of_sale_path, signed_ownership_sale_picture_path, signed_ownership_acquisition_picture_path, disclosures,
      commission_user_id, internal_notes, images_json, videos_json, carfax_link,
