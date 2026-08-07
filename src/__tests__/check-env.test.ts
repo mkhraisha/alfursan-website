@@ -12,6 +12,9 @@ describe("checkEnvIntegration", () => {
     "RESEND_DEALER_EMAIL",
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
+    "VERCEL_API_TOKEN",
+    "VERCEL_PROJECT_ID",
+    "VERCEL_TEAM_ID",
   ];
 
   beforeEach(() => {

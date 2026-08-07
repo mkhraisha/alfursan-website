@@ -207,6 +207,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   const [page,    setPage]    = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
+  const [refreshingCache, setRefreshingCache] = useState(false);
 
   // Filters — defaults to hiding sold vehicles; "All Statuses" or "Sold" opt back in.
   const [filterVin,         setFilterVin]         = useState<string>("");
@@ -297,6 +298,24 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
     downloadCSV(`inventory-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
   }
 
+  async function handleRefreshCache() {
+    setRefreshingCache(true);
+    try {
+      const res = await fetch("/api/admin/refresh-cache", { method: "POST" });
+      if (res.ok) {
+        setToast({ msg: "Public site cache refreshed.", ok: true });
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setToast({ msg: (body as { error?: string }).error ?? "Cache refresh failed", ok: false });
+      }
+    } catch {
+      setToast({ msg: "Network error", ok: false });
+    } finally {
+      setRefreshingCache(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
   return (
     <div className="inv-wrap">
       {toast && (
@@ -312,6 +331,15 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         <div className="inv-header-actions">
           <button type="button" className="btn btn--ghost" onClick={handleExportCSV} disabled={sorted.length === 0}>
             Export CSV
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={handleRefreshCache}
+            disabled={refreshingCache}
+            title="Purge the public site's vehicle-list cache so recent changes show up immediately"
+          >
+            {refreshingCache ? "Refreshing…" : "Refresh Public Cache"}
           </button>
           <a href="/admin/inventory/import" className="btn btn--ghost">CSV Import</a>
           <a href="/admin/inventory/new" className="btn btn--primary">+ Add Vehicle</a>

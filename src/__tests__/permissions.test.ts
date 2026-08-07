@@ -48,6 +48,10 @@ describe("can() — owner role", () => {
     expect(can("owner", "financing:delete")).toBe(true);
   });
 
+  it("allows cache:refresh", () => {
+    expect(can("owner", "cache:refresh")).toBe(true);
+  });
+
   it("allows unknown permissions (owner has all access)", () => {
     expect(can("owner", "nonexistent:action")).toBe(true);
   });
@@ -132,6 +136,10 @@ describe("can() — manager role", () => {
     expect(can("manager", "users:manage")).toBe(false);
   });
 
+  it("allows cache:refresh", () => {
+    expect(can("manager", "cache:refresh")).toBe(true);
+  });
+
   it("denies unknown permissions", () => {
     expect(can("manager", "nonexistent:action")).toBe(false);
   });
@@ -210,6 +218,10 @@ describe("can() — sales role (Sales Representative)", () => {
 
   it("denies business_expenses:manage", () => {
     expect(can("sales", "business_expenses:manage")).toBe(false);
+  });
+
+  it("denies cache:refresh", () => {
+    expect(can("sales", "cache:refresh")).toBe(false);
   });
 
   it("denies unknown permissions", () => {

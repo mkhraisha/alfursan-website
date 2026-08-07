@@ -15,6 +15,9 @@ const REQUIRED_ENV: Array<{ key: string; description: string }> = [
 const OPTIONAL_ENV: Array<{ key: string; description: string }> = [
   { key: "UPSTASH_REDIS_REST_URL", description: "Upstash Redis REST URL (rate limiting — optional)" },
   { key: "UPSTASH_REDIS_REST_TOKEN", description: "Upstash Redis REST token (rate limiting — optional)" },
+  { key: "VERCEL_API_TOKEN", description: "Vercel API token (admin cache-refresh button — optional)" },
+  { key: "VERCEL_PROJECT_ID", description: "Vercel project ID (admin cache-refresh button — optional)" },
+  { key: "VERCEL_TEAM_ID", description: "Vercel team ID (admin cache-refresh button — optional, only needed for team-owned projects)" },
 ];
 
 function validate(fatal: boolean) {
