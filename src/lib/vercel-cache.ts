@@ -57,6 +57,7 @@ export function buildPurgeRequest(opts: {
 export type PurgeResult =
   | { ok: true }
   | { ok: false; reason: "not_configured" }
+  | { ok: false; reason: "disabled_in_ci" }
   | { ok: false; reason: "request_failed"; status: number; body: string };
 
 /**
@@ -65,11 +66,25 @@ export type PurgeResult =
  * / VERCEL_TEAM_ID) rather than taking them as parameters — these are
  * optional in local/dev environments (see check-env.ts's OPTIONAL_ENV), so
  * this gracefully reports "not_configured" instead of throwing when absent.
+ *
+ * Refuses to run under `CI` (the same env var Playwright's own config keys
+ * off — see playwright.config.ts), regardless of whether Vercel credentials
+ * happen to be set there. Unlike the DB-backed admin actions the e2e suite
+ * otherwise exercises against a disposable local Supabase stack, there is no
+ * "local" Vercel to purge against — a live token in CI would mean an
+ * automated test run could actually invalidate the production CDN cache.
+ * This check is deliberately the first thing this function does, ahead of
+ * even the not_configured check, so it can't be bypassed by a future caller
+ * (e2e test or otherwise) that happens to run with real credentials set.
  */
 export async function purgeVercelCache(
   tags: string[],
   target: "production" | "preview" = "production"
 ): Promise<PurgeResult> {
+  if (process.env.CI) {
+    return { ok: false, reason: "disabled_in_ci" };
+  }
+
   const token = process.env.VERCEL_API_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID;
   const teamId = process.env.VERCEL_TEAM_ID;

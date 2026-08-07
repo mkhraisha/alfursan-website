@@ -52,6 +52,7 @@ describe("purgeVercelCache", () => {
   });
 
   it("reports not_configured when VERCEL_API_TOKEN/VERCEL_PROJECT_ID are missing", async () => {
+    delete process.env.CI;
     delete process.env.VERCEL_API_TOKEN;
     delete process.env.VERCEL_PROJECT_ID;
 
@@ -60,6 +61,7 @@ describe("purgeVercelCache", () => {
   });
 
   it("returns ok: true on a successful purge", async () => {
+    delete process.env.CI;
     process.env.VERCEL_API_TOKEN = "tok";
     process.env.VERCEL_PROJECT_ID = "prj_1";
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
@@ -74,6 +76,7 @@ describe("purgeVercelCache", () => {
   });
 
   it("returns request_failed with status/body when Vercel responds with an error", async () => {
+    delete process.env.CI;
     process.env.VERCEL_API_TOKEN = "tok";
     process.env.VERCEL_PROJECT_ID = "prj_1";
     vi.stubGlobal(
@@ -83,5 +86,18 @@ describe("purgeVercelCache", () => {
 
     const result = await purgeVercelCache([PUBLIC_VEHICLES_CACHE_TAG]);
     expect(result).toEqual({ ok: false, reason: "request_failed", status: 403, body: "forbidden" });
+  });
+
+  it("returns disabled_in_ci when CI is set, regardless of credentials", async () => {
+    process.env.CI = "true";
+    process.env.VERCEL_API_TOKEN = "tok";
+    process.env.VERCEL_PROJECT_ID = "prj_1";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await purgeVercelCache([PUBLIC_VEHICLES_CACHE_TAG]);
+    expect(result).toEqual({ ok: false, reason: "disabled_in_ci" });
+    // Must short-circuit before ever calling out to Vercel's API.
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

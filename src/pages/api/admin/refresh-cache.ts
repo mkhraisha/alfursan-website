@@ -28,6 +28,17 @@ export const POST: APIRoute = async ({ request }) => {
 
   const result = await purgeVercelCache([PUBLIC_VEHICLES_CACHE_TAG]);
 
+  if (!result.ok && result.reason === "disabled_in_ci") {
+    // Deliberate — see purgeVercelCache()'s CI check. There's no "local"
+    // Vercel to purge against, so this refuses to actually call Vercel's API
+    // under CI regardless of whether real credentials happen to be set,
+    // rather than let an automated e2e run invalidate the production cache.
+    return new Response(
+      JSON.stringify({ error: "Cache refresh is disabled in CI" }),
+      { status: 503, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } }
+    );
+  }
+
   if (!result.ok && result.reason === "not_configured") {
     // VERCEL_API_TOKEN / VERCEL_PROJECT_ID aren't set (local dev, or not yet
     // provisioned in this environment) — report clearly instead of crashing.
