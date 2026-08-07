@@ -75,6 +75,7 @@ export default function PopularMakes({ makes }: Props) {
                   ) : (
                     <div className="pm-placeholder">No image</div>
                   )}
+                  {car.isSold && <span className="pm-sold-badge">Sold</span>}
                   {car.images.length > 0 && (
                     <span className="pm-img-count">
                       <svg
