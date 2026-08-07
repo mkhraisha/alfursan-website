@@ -232,6 +232,7 @@ const vehicleSchema: Record<string, unknown> = {
                   ) : (
                     <div class="placeholder">No image</div>
                   )}
+                  {rc.isSold && <span class="sold-badge">Sold</span>}
                 </a>
                 <div class="related-content">
                   <a href={`/listing/${rc.vin}/`} class="related-title-link">
@@ -590,6 +591,21 @@ const vehicleSchema: Record<string, unknown> = {
 
   .related-img-link {
     display: block;
+    position: relative;
+  }
+
+  .related-img-link .sold-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--brand-red);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
   }
 
   .related-card img,
