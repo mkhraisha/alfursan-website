@@ -10,6 +10,7 @@ import {
   resolveVehicleImageUrls,
   formatVehiclePrice,
   toDisplayVehicle,
+  isVehicleSold,
   PUBLIC_BODY_TYPES,
   type PublicVehicle,
 } from "../lib/public-vehicle-view";
@@ -146,6 +147,7 @@ const FULL_VEHICLE: PublicVehicle = {
   videos_json: [],
   carfax_link: null,
   created_at: "2026-07-01T00:00:00Z",
+  isSold: false,
 };
 
 describe("toDisplayVehicle", () => {
@@ -175,7 +177,16 @@ describe("toDisplayVehicle", () => {
         "https://project.supabase.co/storage/v1/object/public/vehicle-images/vehicles/1HGCM82633A123456/wp-01.jpg",
       ],
       createdAt: "2026-07-01T00:00:00Z",
+      isSold: false,
     });
+  });
+
+  it("carries isSold through unchanged when true", () => {
+    const display = toDisplayVehicle(
+      { ...FULL_VEHICLE, isSold: true },
+      "https://project.supabase.co",
+    );
+    expect(display.isSold).toBe(true);
   });
 
   it("handles missing optional spec fields gracefully", () => {
@@ -200,6 +211,19 @@ describe("toDisplayVehicle", () => {
     expect(display.features).toEqual([]);
     expect(display.images).toEqual([]);
     expect(display.excerpt).toBe("");
+  });
+});
+
+describe("isVehicleSold", () => {
+  it("is true only for the exact 'sold' status", () => {
+    expect(isVehicleSold("sold")).toBe(true);
+  });
+
+  it("is false for other statuses, null, and undefined", () => {
+    expect(isVehicleSold("frontline_ready")).toBe(false);
+    expect(isVehicleSold("in_deal")).toBe(false);
+    expect(isVehicleSold(null)).toBe(false);
+    expect(isVehicleSold(undefined)).toBe(false);
   });
 });
 

@@ -357,6 +357,20 @@ const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supaba
     border-radius: 4px;
   }
 
+  :global(.sold-badge) {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: var(--brand-red);
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+  }
+
   /* ── Pagination ── */
   :global(.pagination) {
     margin-top: 1rem;

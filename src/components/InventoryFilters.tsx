@@ -666,6 +666,7 @@ export default function InventoryFilters({ cars }: Props) {
               {car.images.length > 0 && (
                 <span className="img-count">{car.images.length}</span>
               )}
+              {car.isSold && <span className="sold-badge">Sold</span>}
             </a>
 
             <div className="car-details">

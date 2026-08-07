@@ -49,6 +49,20 @@ export interface PublicVehicle {
   videos_json: string[];
   carfax_link: string | null;
   created_at: string;
+  /**
+   * Not one of PUBLIC_COLUMNS — computed by the caller (public-vehicles.ts)
+   * from the raw `status` column, which is otherwise never exposed publicly
+   * (WordPress migration Part 3 decision). A sold vehicle blends in with the
+   * general listing for 30 days (soldVisibilityCutoff in vehicles.ts); this
+   * flag lets pages mark it with a "Sold" badge during that window instead
+   * of showing it as if it were still available.
+   */
+  isSold: boolean;
+}
+
+/** True when the raw `status` column value means "sold". */
+export function isVehicleSold(status: string | null | undefined): boolean {
+  return status === "sold";
 }
 
 /** "2020 Ford Explorer XLT" — WordPress precomputed a post title; the DMS row doesn't carry one. */
@@ -143,6 +157,8 @@ export interface DisplayVehicle {
   excerpt: string;
   images: string[];
   createdAt: string;
+  /** See PublicVehicle.isSold — carried through unchanged for badge rendering. */
+  isSold: boolean;
 }
 
 export function toDisplayVehicle(
@@ -169,5 +185,6 @@ export function toDisplayVehicle(
     excerpt: buildVehicleExcerpt(vehicle.description),
     images: resolveVehicleImageUrls(supabaseUrl, vehicle.images_json),
     createdAt: vehicle.created_at,
+    isSold: vehicle.isSold,
   };
 }

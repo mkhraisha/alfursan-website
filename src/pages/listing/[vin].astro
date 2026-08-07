@@ -117,6 +117,7 @@ const vehicleSchema: Record<string, unknown> = {
 
     <div class="price-row">
       <span class="price">{formatVehiclePrice(car.price)}</span>
+      {car.isSold && <span class="tag tag-sold">Sold</span>}
       {car.year && <span class="tag">{car.year}</span>}
       {car.bodyType && <span class="tag">{car.bodyType}</span>}
     </div>
@@ -351,6 +352,14 @@ const vehicleSchema: Record<string, unknown> = {
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--ink);
+  }
+
+  .tag-sold {
+    background: var(--brand-red);
+    border-color: var(--brand-red);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   /* Gallery */
