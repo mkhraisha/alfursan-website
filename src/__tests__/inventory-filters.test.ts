@@ -18,6 +18,7 @@ function makeCar(overrides: Partial<DisplayVehicle> & { vin: string }): DisplayV
     excerpt: "",
     images: [],
     createdAt: "2024-01-01T00:00:00Z",
+    isSold: false,
     ...overrides,
   };
 }

@@ -175,6 +175,7 @@ const localBusinessSchema = {
                 {featuredCars[0].images.length > 0 && (
                   <span class="img-count">{featuredCars[0].images.length}</span>
                 )}
+                {featuredCars[0].isSold && <span class="sold-badge">Sold</span>}
               </a>
               <div class="card-body">
                 <a
@@ -224,6 +225,7 @@ const localBusinessSchema = {
                   {car.images.length > 0 && (
                     <span class="img-count">{car.images.length}</span>
                   )}
+                  {car.isSold && <span class="sold-badge">Sold</span>}
                 </a>
                 <div class="card-body">
                   <a href={`/listing/${car.vin}/`} class="card-title-link">
@@ -622,6 +624,20 @@ const localBusinessSchema = {
     font-size: 0.75rem;
     font-weight: 700;
     padding: 0.15rem 0.45rem;
+    border-radius: 5px;
+  }
+
+  .sold-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--brand-red);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.55rem;
     border-radius: 5px;
   }
 

@@ -160,7 +160,8 @@ const soldCars = (await fetchRecentlySoldVehicles()).map((v) =>
     box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
   }
 
-  :global(.card-img-link) {
+  :global(.card-img-link),
+  :global(.car-thumb-link) {
     display: block;
     position: relative;
   }

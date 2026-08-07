@@ -18,13 +18,15 @@ function makeCar(overrides: Partial<DisplayVehicle> & { vin: string }): DisplayV
     excerpt: "",
     images: [],
     createdAt: "2024-01-01T00:00:00Z",
+    isSold: false,
     ...overrides,
   };
 }
 
-// vehicles no longer carry sold/status info at all (WordPress migration
-// Part 3: status is never exposed to the public site) — sortCars just sorts
-// by the given criterion, nothing sorts to the bottom.
+// raw `status` is never exposed to the public site (WordPress migration
+// Part 3) — only the derived `isSold` flag is, and it doesn't affect sort
+// order — sortCars just sorts by the given criterion, nothing sorts to the
+// bottom.
 const carA = makeCar({ vin: "A", price: 30000, odometer: 50000, createdAt: "2024-01-01T00:00:00Z" });
 const carB = makeCar({ vin: "B", price: 20000, odometer: 30000, createdAt: "2024-03-01T00:00:00Z" });
 const carC = makeCar({ vin: "C", price: 40000, odometer: 70000, createdAt: "2024-02-01T00:00:00Z" });
