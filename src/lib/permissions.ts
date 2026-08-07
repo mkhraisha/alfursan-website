@@ -42,6 +42,9 @@ const PERMISSIONS: Record<string, Role[]> = {
   "financing:delete": [],  // owner only (via bypass)
   "financing:export": ["manager"],
   "users:manage":     [],  // owner only (via bypass)
+
+  // ── Cache management ───────────────────────────────────────────────────────
+  "cache:refresh": ["manager"], // trigger a public-site CDN cache purge
 };
 
 /**
