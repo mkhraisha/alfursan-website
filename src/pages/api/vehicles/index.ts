@@ -14,6 +14,7 @@ import {
   soldVisibilityCutoff,
 } from "../../../lib/vehicles";
 import { writeAudit } from "../../../lib/audit";
+import { PUBLIC_VEHICLES_CACHE_TAG } from "../../../lib/vercel-cache";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -90,6 +91,10 @@ export const GET: APIRoute = async ({ request }) => {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=300, stale-while-revalidate=60",
+        // Lets the admin "Refresh Public Cache" button (src/pages/api/admin/refresh-cache.ts)
+        // invalidate this response on Vercel's CDN via the tag-based purge API,
+        // instead of waiting out the 5-minute max-age.
+        "Vercel-Cache-Tag": PUBLIC_VEHICLES_CACHE_TAG,
       },
     });
   }

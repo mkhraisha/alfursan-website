@@ -15,6 +15,13 @@ const REQUIRED_ENV: Array<{ key: string; description: string }> = [
 const OPTIONAL_ENV: Array<{ key: string; description: string }> = [
   { key: "UPSTASH_REDIS_REST_URL", description: "Upstash Redis REST URL (rate limiting — optional)" },
   { key: "UPSTASH_REDIS_REST_TOKEN", description: "Upstash Redis REST token (rate limiting — optional)" },
+  // NOTE: VERCEL_PROJECT_ID is deliberately not listed here — Vercel injects
+  // it automatically at build+runtime (a system env var, once "Enable access
+  // to System Environment Variables" is checked in Project Settings), so
+  // there's nothing for a human to configure. src/lib/vercel-cache.ts reads
+  // it straight off process.env.
+  { key: "VERCEL_API_TOKEN", description: "Vercel API token, manually created at vercel.com/account/tokens (admin cache-refresh button — optional)" },
+  { key: "VERCEL_TEAM_ID", description: "Vercel team ID, from Team Settings → General (admin cache-refresh button — optional, only needed for team-owned projects)" },
 ];
 
 function validate(fatal: boolean) {

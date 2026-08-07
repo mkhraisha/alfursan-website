@@ -224,7 +224,7 @@ async function handleSubmit(e: React.FormEvent) {
           <div className="av-row">
             <div className="av-field">
               <label>Engine Type</label>
-              <input type="text" data-testid="av-engine_type" value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L 4-Cylinder" />
+              <input type="text" data-testid="av-engine_type" value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L Turbo" />
             </div>
             <div className="av-field">
               <label>Colour</label>
