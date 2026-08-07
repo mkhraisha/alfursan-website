@@ -197,6 +197,31 @@ describe("vehicleUpdateSchema — partial", () => {
       expect("vin" in result.data).toBe(false);
     }
   });
+
+  // Production has vehicles seeded before engine_type/num_keys were added — a
+  // status/field update on one of those must still succeed even though this
+  // schema validates the whole request body as one unit (see PATCH handler in
+  // src/pages/api/vehicles/[vin]/index.ts). Both fields are stored as nullable
+  // columns in the DB (supabase/migrations/20260531000002_add_vehicle_fields.sql)
+  // but were previously declared only `.optional()` here, which permits
+  // `undefined` but not `null` — any save that explicitly sent `null` (e.g. a
+  // blanked-out form field) 422'd the entire request.
+  it("accepts engine_type: null (vehicle predates this field)", () => {
+    expect(vehicleUpdateSchema.safeParse({ engine_type: null }).success).toBe(true);
+  });
+
+  it("accepts num_keys: null (vehicle predates this field)", () => {
+    expect(vehicleUpdateSchema.safeParse({ num_keys: null }).success).toBe(true);
+  });
+
+  it("accepts a status update alongside null engine_type/num_keys", () => {
+    const result = vehicleUpdateSchema.safeParse({
+      status: "sold",
+      engine_type: null,
+      num_keys: null,
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ── calcTotalCost ─────────────────────────────────────────────────────────────

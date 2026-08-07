@@ -387,7 +387,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
             ))}
           </select>
         </div>
-        <div className="f-field"><label>Engine Type</label><input data-testid="vd-engine_type" value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L 4-Cylinder" /></div>
+        <div className="f-field"><label>Engine Type</label><input data-testid="vd-engine_type" value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L Turbo" /></div>
         <div className="f-field"><label>Colour</label><input data-testid="vd-colour" value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
         <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" data-testid="vd-odometer" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
         <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" data-testid="vd-num_keys" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
