@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
+import AdminSearchBar from "./AdminSearchBar";
 
 export type GarageVehicle = {
   vin: string;
@@ -66,13 +67,6 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         .gr-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
         .gr-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
 
-        .gr-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-        .gr-search {
-          flex: 1; min-width: 200px; max-width: 360px;
-          padding: 9px 12px; border: 1px solid #e4e7ec; border-radius: 6px;
-          font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
-        }
-        .gr-search:focus { outline: 2px solid #B92111; border-color: transparent; }
         .gr-export-btn {
           padding: 9px 14px; border: 1px solid #e4e7ec; border-radius: 6px;
           background: #fff; color: #1a1d23; font-size: 13px; font-weight: 600;
@@ -80,7 +74,6 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         }
         .gr-export-btn:hover:not(:disabled) { background: #f8f9fb; }
         .gr-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .gr-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
 
         .gr-section { background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden; }
         .gr-empty { padding: 40px; text-align: center; color: #99a1b2; font-size: 14px; }
@@ -199,24 +192,22 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         <p>Ontario dealer vehicle intake and outflow log, sorted by acquisition date.</p>
       </div>
 
-      <div className="gr-toolbar">
-        <input
-          type="search"
-          className="gr-search"
-          placeholder="Search VIN, make, name, or register #…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button
-          type="button"
-          className="gr-export-btn"
-          onClick={handleExportCSV}
-          disabled={filtered.length === 0}
-        >
-          Export CSV
-        </button>
-        <span className="gr-count">{filtered.length} {filtered.length === 1 ? "vehicle" : "vehicles"}</span>
-      </div>
+      <AdminSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search VIN, make, name, or register #…"
+        resultsLabel={`${filtered.length} ${filtered.length === 1 ? "vehicle" : "vehicles"}`}
+        actions={
+          <button
+            type="button"
+            className="gr-export-btn"
+            onClick={handleExportCSV}
+            disabled={filtered.length === 0}
+          >
+            Export CSV
+          </button>
+        }
+      />
 
       <div className="gr-section">
         <div className="gr-wrap">
