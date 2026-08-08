@@ -118,6 +118,7 @@ const vehicleSchema: Record<string, unknown> = {
 
     <div class="price-row">
       <span class="price">{formatVehiclePrice(car.price)}</span>
+      {car.isSold && <span class="tag tag-sold">Sold</span>}
       {car.year && <span class="tag">{car.year}</span>}
       {car.bodyType && <span class="tag">{car.bodyType}</span>}
     </div>
@@ -247,6 +248,7 @@ const vehicleSchema: Record<string, unknown> = {
                   ) : (
                     <div class="placeholder">No image</div>
                   )}
+                  {rc.isSold && <span class="sold-badge">Sold</span>}
                 </a>
                 <div class="related-content">
                   <a href={`/listing/${rc.vin}/`} class="related-title-link">
@@ -367,6 +369,14 @@ const vehicleSchema: Record<string, unknown> = {
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--ink);
+  }
+
+  .tag-sold {
+    background: var(--brand-red);
+    border-color: var(--brand-red);
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   /* Gallery */
@@ -619,6 +629,21 @@ const vehicleSchema: Record<string, unknown> = {
 
   .related-img-link {
     display: block;
+    position: relative;
+  }
+
+  .related-img-link .sold-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--brand-red);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
   }
 
   .related-card img,

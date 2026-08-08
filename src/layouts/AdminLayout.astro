@@ -11,9 +11,11 @@ import { can } from "../lib/permissions";
 interface Props {
   title: string;
   activeNav?: "dashboard" | "applications" | "inventory" | "expenses" | "garage" | "reports" | "users";
+  /** Let the main content area use the full available width instead of the default 1100px cap — for wide, column-heavy tables. */
+  fullWidth?: boolean;
 }
 
-const { title, activeNav } = Astro.props;
+const { title, activeNav, fullWidth } = Astro.props;
 const { adminEmail, adminRole } = Astro.locals;
 
 const nav = [
@@ -203,6 +205,9 @@ const nav = [
         min-width: 0;
         max-width: 1100px;
       }
+      .main--full {
+        max-width: none;
+      }
 
       /* ── Skip link ───────────────────────────────────────────────── */
       .skip-link {
@@ -278,7 +283,7 @@ const nav = [
         ))}
       </aside>
 
-      <main class="main" id="main-content">
+      <main class={`main${fullWidth ? " main--full" : ""}`} id="main-content">
         <slot />
       </main>
     </div>

@@ -61,7 +61,7 @@ jobs:
       - name: Seed e2e test users (manager/sales) and export their tokens
         run: node scripts/e2e-seed-test-users.mjs
 
-      - name: Seed e2e fixture vehicle
+      - name: Seed e2e fixture vehicle (for public listing suite)
         run: node scripts/e2e-seed-test-vehicle.mjs
 
       - name: Build

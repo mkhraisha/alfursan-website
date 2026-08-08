@@ -183,29 +183,55 @@ describe("compareInventoryRows", () => {
   });
 });
 
-describe("matchesInventoryFilters — search by VIN", () => {
+describe("matchesInventoryFilters — unified search query", () => {
   it("matches on an exact VIN", () => {
     const v = makeVehicle({ vin: "1HGCM82633A004352" });
-    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "1HGCM82633A004352" })).toBe(true);
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "1HGCM82633A004352" })).toBe(true);
   });
 
   it("matches on a partial, case-insensitive VIN substring", () => {
     const v = makeVehicle({ vin: "1HGCM82633A004352" });
-    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "a004352" })).toBe(true);
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "a004352" })).toBe(true);
   });
 
-  it("ignores surrounding whitespace in the VIN filter", () => {
+  it("ignores surrounding whitespace in the query", () => {
     const v = makeVehicle({ vin: "1HGCM82633A004352" });
-    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "  a004352  " })).toBe(true);
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "  a004352  " })).toBe(true);
   });
 
-  it("excludes vehicles whose VIN does not contain the search text", () => {
+  it("excludes vehicles whose VIN, make, model, and trim do not contain the search text", () => {
     const v = makeVehicle({ vin: "1HGCM82633A004352" });
-    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, vin: "ZZZZZZZ" })).toBe(false);
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "ZZZZZZZ" })).toBe(false);
   });
 
-  it("does not filter on VIN when the filter is empty", () => {
+  it("does not filter when the query is empty", () => {
     expect(matchesInventoryFilters(makeVehicle(), EMPTY_INVENTORY_FILTERS)).toBe(true);
+  });
+
+  it("matches on make", () => {
+    const v = makeVehicle({ make: "Honda" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "honda" })).toBe(true);
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "toyota" })).toBe(false);
+  });
+
+  it("matches on model", () => {
+    const v = makeVehicle({ model: "Accord" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "accord" })).toBe(true);
+  });
+
+  it("matches on trim", () => {
+    const v = makeVehicle({ trim: "Touring" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "touring" })).toBe(true);
+  });
+
+  it("does not throw when trim is null", () => {
+    const v = makeVehicle({ trim: null });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "honda" })).toBe(true);
+  });
+
+  it("matches on a combination of make and model, e.g. 'Honda Accord'", () => {
+    const v = makeVehicle({ make: "Honda", model: "Accord" });
+    expect(matchesInventoryFilters(v, { ...EMPTY_INVENTORY_FILTERS, query: "honda accord" })).toBe(true);
   });
 });
 

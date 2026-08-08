@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BUSINESS_EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
 import { buildStorageUrl } from "../../lib/media";
+import AdminSearchBar from "./AdminSearchBar";
 
 export type BusinessExpenseRow = {
   id: string;
@@ -176,15 +177,6 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
         .be-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
         .be-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-        .be-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-        .be-search {
-          flex: 1; min-width: 220px; max-width: 360px;
-          padding: 9px 12px; border: 1px solid #e4e7ec; border-radius: 6px;
-          font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
-        }
-        .be-search:focus { outline: 2px solid #B92111; border-color: transparent; }
-        .be-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
-
         .be-btn {
           display: inline-flex; align-items: center;
           padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: 600;
@@ -297,16 +289,12 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
         </div>
       )}
 
-      <div className="be-toolbar">
-        <input
-          type="search"
-          className="be-search"
-          placeholder="Search description, category, or vendor…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <span className="be-count">{filtered.length} {filtered.length === 1 ? "expense" : "expenses"}</span>
-      </div>
+      <AdminSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search description, category, or vendor…"
+        resultsLabel={`${filtered.length} ${filtered.length === 1 ? "expense" : "expenses"}`}
+      />
 
       <div className="be-section">
         <div className="be-wrap">

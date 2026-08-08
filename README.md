@@ -153,7 +153,7 @@ supabase db reset
 export SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... SUPABASE_SECRET_KEY=...  # from `supabase status -o env`
 node scripts/e2e-seed-test-users.mjs   # prints E2E_SERVICE_TOKEN / E2E_MANAGER_TOKEN / E2E_SALES_TOKEN
 export E2E_SERVICE_TOKEN=... E2E_MANAGER_TOKEN=... E2E_SALES_TOKEN=...       # from the seed script's output
-node scripts/e2e-seed-test-vehicle.mjs # seeds one publicly-visible fixture vehicle
+node scripts/e2e-seed-test-vehicle.mjs # seeds a fixture vehicle so /search/ has a listing to discover
 npm run test:e2e
 ```
 

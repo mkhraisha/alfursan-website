@@ -15,7 +15,7 @@
 
 import { getAdminClient } from "./supabase-admin";
 import { PUBLIC_COLUMNS, soldVisibilityCutoff, isPubliclyVisible } from "./vehicles";
-import type { PublicVehicle } from "./public-vehicle-view";
+import { isVehicleSold, type PublicVehicle } from "./public-vehicle-view";
 
 /**
  * All publicly visible vehicles (WordPress migration Part 3's rule: at
@@ -27,7 +27,7 @@ export async function fetchPublicVehicles(): Promise<PublicVehicle[]> {
   const db = getAdminClient();
   const { data, error } = await db
     .from("vehicles")
-    .select(PUBLIC_COLUMNS)
+    .select(`${PUBLIC_COLUMNS}, status`)
     .neq("images_json", "[]")
     .or(`status.is.null,status.neq.sold,sale_date.gte.${soldVisibilityCutoff()}`)
     .order("created_at", { ascending: false });
@@ -37,7 +37,10 @@ export async function fetchPublicVehicles(): Promise<PublicVehicle[]> {
     return [];
   }
 
-  return (data ?? []) as PublicVehicle[];
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
+    const { status, ...publicRow } = row;
+    return { ...publicRow, isSold: isVehicleSold(status as string | null) } as PublicVehicle;
+  });
 }
 
 /**
@@ -60,7 +63,8 @@ export async function fetchRecentlySoldVehicles(): Promise<PublicVehicle[]> {
     return [];
   }
 
-  return (data ?? []) as PublicVehicle[];
+  // This query's own .eq("status", "sold") guarantees every row is sold.
+  return ((data ?? []) as PublicVehicle[]).map((row) => ({ ...row, isSold: true }));
 }
 
 /**
@@ -87,6 +91,9 @@ export async function fetchPublicVehicleByVin(
   );
   if (!visible) return null;
 
-  const { status: _status, sale_date: _saleDate, ...publicRow } = row;
-  return publicRow as unknown as PublicVehicle;
+  const { status, sale_date: _saleDate, ...publicRow } = row;
+  return {
+    ...publicRow,
+    isSold: isVehicleSold(status as string | null),
+  } as unknown as PublicVehicle;
 }

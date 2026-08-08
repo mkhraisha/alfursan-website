@@ -37,7 +37,6 @@ export type VehicleFull = {
   ownership_status: string | null;
   status: string | null;
   photography_status: string | null;
-  garage_register_number: string | null;
   acquisition_bill_of_sale_path: string | null;
   safety_inspection_document_path: string | null;
   signed_bill_of_sale_path: string | null;
@@ -191,7 +190,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
   return (
     <div className="vd-wrap">
-      {toast && <div className={`vd-toast ${toast.ok ? "vd-toast--ok" : "vd-toast--err"}`}>{toast.msg}</div>}
+      {toast && <div data-testid="vd-toast" className={`vd-toast ${toast.ok ? "vd-toast--ok" : "vd-toast--err"}`}>{toast.msg}</div>}
 
       {/* Header */}
       <div className="vd-header">
@@ -205,7 +204,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
       {/* Tabs */}
       <nav className="vd-tabs">
         {TABS.map((t) => (
-          <button key={t.id} type="button" className={`vd-tab${activeTab === t.id ? " vd-tab--active" : ""}`} onClick={() => setActiveTab(t.id)}>
+          <button key={t.id} type="button" data-testid={`vd-tab-${t.id}`} className={`vd-tab${activeTab === t.id ? " vd-tab--active" : ""}`} onClick={() => setActiveTab(t.id)}>
             {t.label}
           </button>
         ))}
@@ -312,7 +311,6 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
     status:                v.status ?? "",
     ownership_status:      v.ownership_status ?? "",
     photography_status:    v.photography_status ?? "",
-    garage_register_number: v.garage_register_number ?? "",
     carfax_link:           v.carfax_link ?? "",
   });
   const [internalNotes, setInternalNotes] = useState(v.internal_notes ?? "");
@@ -388,7 +386,6 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
     fields.status                = form.status || null;
     fields.ownership_status      = form.ownership_status || null;
     fields.photography_status    = form.photography_status || null;
-    fields.garage_register_number = form.garage_register_number || null;
     fields.carfax_link           = form.carfax_link || null;
     await onSave(fields); setSaving(false);
   }
@@ -400,27 +397,27 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         <input value={v.vin} disabled />
       </div>
       <div className="f-grid">
-        <div className="f-field"><label>Make *</label><input value={form.make} onChange={(e) => set("make", e.target.value)} required /></div>
-        <div className="f-field"><label>Model *</label><input value={form.model} onChange={(e) => set("model", e.target.value)} required /></div>
-        <div className="f-field"><label>Year</label><input type="number" value={form.year} onChange={(e) => set("year", e.target.value)} min="1900" max="2100" /></div>
-        <div className="f-field"><label>Trim</label><input value={form.trim} onChange={(e) => set("trim", e.target.value)} /></div>
-        <div className="f-field"><label>Series</label><input value={form.series} onChange={(e) => set("series", e.target.value)} /></div>
+        <div className="f-field"><label>Make *</label><input data-testid="vd-make" value={form.make} onChange={(e) => set("make", e.target.value)} required /></div>
+        <div className="f-field"><label>Model *</label><input data-testid="vd-model" value={form.model} onChange={(e) => set("model", e.target.value)} required /></div>
+        <div className="f-field"><label>Year</label><input type="number" data-testid="vd-year" value={form.year} onChange={(e) => set("year", e.target.value)} min="1900" max="2100" /></div>
+        <div className="f-field"><label>Trim</label><input data-testid="vd-trim" value={form.trim} onChange={(e) => set("trim", e.target.value)} /></div>
+        <div className="f-field"><label>Series</label><input data-testid="vd-series" value={form.series} onChange={(e) => set("series", e.target.value)} /></div>
         <div className="f-field">
           <label>Body Type *</label>
-          <select value={form.body_type} onChange={(e) => set("body_type", e.target.value)} required>
+          <select data-testid="vd-body_type" value={form.body_type} onChange={(e) => set("body_type", e.target.value)} required>
             <option value="">— Select —</option>
             {BODY_TYPES.map((bt) => (
               <option key={bt} value={bt}>{bt.charAt(0).toUpperCase() + bt.slice(1)}</option>
             ))}
           </select>
         </div>
-        <div className="f-field"><label>Engine Type</label><input value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L 4-Cylinder" /></div>
-        <div className="f-field"><label>Colour</label><input value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
-        <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
-        <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
+        <div className="f-field"><label>Engine Type</label><input data-testid="vd-engine_type" value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L Turbo" /></div>
+        <div className="f-field"><label>Colour</label><input data-testid="vd-colour" value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
+        <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" data-testid="vd-odometer" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
+        <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" data-testid="vd-num_keys" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
         <div className="f-field">
           <label>Drive Type</label>
-          <select value={form.drive_type} onChange={(e) => set("drive_type", e.target.value)}>
+          <select data-testid="vd-drive_type" value={form.drive_type} onChange={(e) => set("drive_type", e.target.value)}>
             <option value="">— Select —</option>
             {DRIVE_TYPES.map((dt) => (
               <option key={dt} value={dt}>{dt.toUpperCase()}</option>
@@ -429,7 +426,7 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         </div>
         <div className="f-field">
           <label>Transmission</label>
-          <select value={form.transmission} onChange={(e) => set("transmission", e.target.value)}>
+          <select data-testid="vd-transmission" value={form.transmission} onChange={(e) => set("transmission", e.target.value)}>
             <option value="">— Select —</option>
             {TRANSMISSIONS.map((t) => (
               <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
@@ -438,16 +435,16 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         </div>
         <div className="f-field">
           <label>Fuel Type</label>
-          <select value={form.fuel_type} onChange={(e) => set("fuel_type", e.target.value)}>
+          <select data-testid="vd-fuel_type" value={form.fuel_type} onChange={(e) => set("fuel_type", e.target.value)}>
             <option value="">— Select —</option>
             {FUEL_TYPES.map((ft) => (
               <option key={ft} value={ft}>{ft.charAt(0).toUpperCase() + ft.slice(1)}</option>
             ))}
           </select>
         </div>
-        <div className="f-field"><label>Cylinders</label><input type="number" min="1" max="16" value={form.cylinders} onChange={(e) => set("cylinders", e.target.value)} placeholder="e.g. 4" /></div>
-        <div className="f-field"><label>Doors</label><input type="number" min="2" max="6" value={form.doors} onChange={(e) => set("doors", e.target.value)} placeholder="e.g. 4" /></div>
-        <div className="f-field"><label>Carfax Link</label><input type="url" value={form.carfax_link} onChange={(e) => set("carfax_link", e.target.value)} placeholder="https://www.carfax.ca/..." /></div>
+        <div className="f-field"><label>Cylinders</label><input type="number" min="1" max="16" data-testid="vd-cylinders" value={form.cylinders} onChange={(e) => set("cylinders", e.target.value)} placeholder="e.g. 4" /></div>
+        <div className="f-field"><label>Doors</label><input type="number" min="2" max="6" data-testid="vd-doors" value={form.doors} onChange={(e) => set("doors", e.target.value)} placeholder="e.g. 4" /></div>
+        <div className="f-field"><label>Carfax Link</label><input type="url" data-testid="vd-carfax_link" value={form.carfax_link} onChange={(e) => set("carfax_link", e.target.value)} placeholder="https://www.carfax.ca/..." /></div>
       </div>
 
       {daysOnLot !== null && (
@@ -465,7 +462,7 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         <div className="f-grid">
           <div className="f-field">
             <label>Status</label>
-            <select value={form.status} onChange={(e) => set("status", e.target.value)}>
+            <select data-testid="vd-status" value={form.status} onChange={(e) => set("status", e.target.value)}>
               <option value="">— None —</option>
               {VALID_STATUSES.map((s) => (
                 <option key={s} value={s}>{fmtStatus(s)}</option>
@@ -474,7 +471,7 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
           </div>
           <div className="f-field">
             <label>Ownership Status</label>
-            <select value={form.ownership_status} onChange={(e) => set("ownership_status", e.target.value)}>
+            <select data-testid="vd-ownership_status" value={form.ownership_status} onChange={(e) => set("ownership_status", e.target.value)}>
               <option value="">— Select —</option>
               <option value="available">Available</option>
               <option value="en_route">En Route</option>
@@ -483,21 +480,17 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
           </div>
           <div className="f-field">
             <label>Photography Status</label>
-            <select value={form.photography_status} onChange={(e) => set("photography_status", e.target.value)}>
+            <select data-testid="vd-photography_status" value={form.photography_status} onChange={(e) => set("photography_status", e.target.value)}>
               <option value="">— Select —</option>
               <option value="pending">Pending</option>
               <option value="done">Done</option>
               <option value="na">N/A</option>
             </select>
           </div>
-          <div className="f-field">
-            <label>Garage Register #</label>
-            <input value={form.garage_register_number} onChange={(e) => set("garage_register_number", e.target.value)} />
-          </div>
         </div>
       </div>
 
-      <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+      <div className="save-row"><button type="submit" className="btn-save" data-testid="vd-save-basics" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
 
       {/* Public Listing — shown on the website; features/description save immediately, independent of the form above */}
       <div style={{ borderTop: "1px solid #f0f2f5", paddingTop: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -514,13 +507,14 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <input
+              data-testid="vd-new-feature"
               value={newFeature}
               onChange={(e) => setNewFeature(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFeature(); } }}
               placeholder="e.g. Backup Camera, Heated Seats"
               style={{ flex: 1 }}
             />
-            <button type="button" className="btn-secondary" onClick={addFeature}>Add</button>
+            <button type="button" className="btn-secondary" data-testid="vd-add-feature" onClick={addFeature}>Add</button>
           </div>
         </div>
         <div className="f-field">
@@ -536,6 +530,7 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
             </button>
           </div>
           <textarea
+            data-testid="vd-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={(e) => autoSave("description", e.target.value)}
@@ -552,6 +547,7 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         <div className="f-field">
           <label>Internal Notes</label>
           <textarea
+            data-testid="vd-internal_notes"
             value={internalNotes}
             onChange={(e) => setInternalNotes(e.target.value)}
             onBlur={(e) => autoSave("internal_notes", e.target.value)}
@@ -562,6 +558,7 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         <div className="f-field">
           <label>Disclosures</label>
           <textarea
+            data-testid="vd-disclosures"
             value={disclosures}
             onChange={(e) => setDisclosures(e.target.value)}
             onBlur={(e) => autoSave("disclosures", e.target.value)}
@@ -600,15 +597,15 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
   return (
     <form onSubmit={submit}>
       <div className="f-grid">
-        <div className="f-field"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} max={today} /></div>
-        <div className="f-field"><label>Purchase Price (CAD)</label><input type="text" inputMode="decimal" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" /></div>
-        <div className="f-field"><label>Lead Source</label><input value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)} placeholder="e.g. CarGurus, Facebook, Referral" /></div>
-        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Name</label><input value={form.purchased_from_name} onChange={(e) => set("purchased_from_name", e.target.value)} placeholder="Previous owner or auction house" /></div>
-        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Address</label><input value={form.purchased_from_address} onChange={(e) => set("purchased_from_address", e.target.value)} placeholder="Street address, city, province" /></div>
-        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Name</label><input value={form.purchaser_name} onChange={(e) => set("purchaser_name", e.target.value)} placeholder="Buyer's full name" /></div>
-        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Address</label><input value={form.purchaser_address} onChange={(e) => set("purchaser_address", e.target.value)} placeholder="Buyer's street address, city, province" /></div>
+        <div className="f-field"><label>Purchase Date</label><input type="date" data-testid="vd-purchase_date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} max={today} /></div>
+        <div className="f-field"><label>Purchase Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-purchase_price" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" /></div>
+        <div className="f-field"><label>Lead Source</label><input data-testid="vd-lead_source" value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)} placeholder="e.g. CarGurus, Facebook, Referral" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Name</label><input data-testid="vd-purchased_from_name" value={form.purchased_from_name} onChange={(e) => set("purchased_from_name", e.target.value)} placeholder="Previous owner or auction house" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Address</label><input data-testid="vd-purchased_from_address" value={form.purchased_from_address} onChange={(e) => set("purchased_from_address", e.target.value)} placeholder="Street address, city, province" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Name</label><input data-testid="vd-purchaser_name" value={form.purchaser_name} onChange={(e) => set("purchaser_name", e.target.value)} placeholder="Buyer's full name" /></div>
+        <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Sold To — Address</label><input data-testid="vd-purchaser_address" value={form.purchaser_address} onChange={(e) => set("purchaser_address", e.target.value)} placeholder="Buyer's street address, city, province" /></div>
       </div>
-      <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+      <div className="save-row"><button type="submit" className="btn-save" data-testid="vd-save-purchase" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
     </form>
   );
 }
@@ -636,17 +633,17 @@ function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; tota
   return (
     <form onSubmit={submit}>
       <div className="f-grid">
-        <div className="f-field"><label>Wholesale Price (CAD)</label><input type="text" inputMode="decimal" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} placeholder="e.g. 18,000" /></div>
-        <div className="f-field"><label>CarGurus Price (CAD)</label><input type="text" inputMode="decimal" value={form.advertised_price_cargurus} onChange={(e) => set("advertised_price_cargurus", e.target.value)} placeholder="e.g. 22,500" /></div>
-        <div className="f-field"><label>Facebook Price (CAD)</label><input type="text" inputMode="decimal" value={form.advertised_price_facebook} onChange={(e) => set("advertised_price_facebook", e.target.value)} placeholder="e.g. 21,000" /></div>
-        <div className="f-field"><label>Sale Price (CAD)</label><input type="text" inputMode="decimal" value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} placeholder="Leave empty if not sold" /></div>
-        <div className="f-field"><label>Sale Date</label><input type="date" value={form.sale_date} onChange={(e) => set("sale_date", e.target.value)} max={new Date().toISOString().slice(0, 10)} /></div>
+        <div className="f-field"><label>Wholesale Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-wholesale_price" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} placeholder="e.g. 18,000" /></div>
+        <div className="f-field"><label>CarGurus Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-advertised_price_cargurus" value={form.advertised_price_cargurus} onChange={(e) => set("advertised_price_cargurus", e.target.value)} placeholder="e.g. 22,500" /></div>
+        <div className="f-field"><label>Facebook Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-advertised_price_facebook" value={form.advertised_price_facebook} onChange={(e) => set("advertised_price_facebook", e.target.value)} placeholder="e.g. 21,000" /></div>
+        <div className="f-field"><label>Sale Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-sale_price" value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} placeholder="Leave empty if not sold" /></div>
+        <div className="f-field"><label>Sale Date</label><input type="date" data-testid="vd-sale_date" value={form.sale_date} onChange={(e) => set("sale_date", e.target.value)} max={new Date().toISOString().slice(0, 10)} /></div>
       </div>
       <div className="computed-row">
         <div className="computed-item"><span className="label">Total Cost</span><span className="value">{fmt(totalCost)}</span></div>
         <div className="computed-item"><span className="label">Profit / Loss</span><span className={`value ${plColor}`}>{profitLoss === null ? "—" : fmt(profitLoss)}</span></div>
       </div>
-      <div className="save-row"><button type="submit" className="btn-save" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
+      <div className="save-row"><button type="submit" className="btn-save" data-testid="vd-save-pricing" disabled={saving}>{saving ? "Saving…" : "Save"}</button></div>
     </form>
   );
 }
@@ -1116,7 +1113,7 @@ function CommissionTab({ v, users, profitLoss, commission, setV, show }: { v: Ve
     <div>
       <div className="f-field" style={{ maxWidth: 360, marginBottom: 20 }}>
         <label>Commission User</label>
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
+        <select data-testid="vd-commission_user_id" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
           <option value="">— None —</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>{u.email} ({u.commission_percentage !== null ? `${u.commission_percentage}%` : "no %"})</option>
@@ -1131,7 +1128,7 @@ function CommissionTab({ v, users, profitLoss, commission, setV, show }: { v: Ve
       </div>
 
       <div className="save-row">
-        <button type="button" className="btn-save" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+        <button type="button" className="btn-save" data-testid="vd-save-commission" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
       </div>
     </div>
   );

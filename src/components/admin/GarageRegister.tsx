@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
+import AdminSearchBar from "./AdminSearchBar";
 
 export type GarageVehicle = {
   vin: string;
@@ -66,13 +67,6 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         .gr-header h1 { font-size: 24px; font-weight: 800; color: #1a1d23; }
         .gr-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
 
-        .gr-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-        .gr-search {
-          flex: 1; min-width: 200px; max-width: 360px;
-          padding: 9px 12px; border: 1px solid #e4e7ec; border-radius: 6px;
-          font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
-        }
-        .gr-search:focus { outline: 2px solid #B92111; border-color: transparent; }
         .gr-export-btn {
           padding: 9px 14px; border: 1px solid #e4e7ec; border-radius: 6px;
           background: #fff; color: #1a1d23; font-size: 13px; font-weight: 600;
@@ -80,11 +74,33 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         }
         .gr-export-btn:hover:not(:disabled) { background: #f8f9fb; }
         .gr-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .gr-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
 
         .gr-section { background: #fff; border: 1px solid #e4e7ec; border-radius: 10px; overflow: hidden; }
-        .gr-wrap { overflow-x: auto; }
         .gr-empty { padding: 40px; text-align: center; color: #99a1b2; font-size: 14px; }
+
+        /* Horizontally-scrollable table wrap. Edge shadows (via the two
+           scroll-attached gradients) only show through where the
+           local-attached white mask hasn't scrolled to cover them yet —
+           i.e. only while there's more content in that direction — so this
+           is the visual cue that the group headers are cut off, not broken. */
+        .gr-wrap {
+          overflow-x: auto;
+          scrollbar-width: thin;
+          scrollbar-color: #d0d5dd transparent;
+          background:
+            linear-gradient(to right, #fff 30%, rgba(255,255,255,0)),
+            linear-gradient(to left, #fff 30%, rgba(255,255,255,0)) right,
+            radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.18), rgba(0,0,0,0)),
+            radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.18), rgba(0,0,0,0)) right;
+          background-repeat: no-repeat;
+          background-color: #fff;
+          background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+          background-attachment: local, local, scroll, scroll;
+        }
+        .gr-wrap::-webkit-scrollbar { height: 10px; }
+        .gr-wrap::-webkit-scrollbar-track { background: transparent; }
+        .gr-wrap::-webkit-scrollbar-thumb { background: #d0d5dd; border-radius: 5px; }
+        .gr-wrap::-webkit-scrollbar-thumb:hover { background: #b5bbc7; }
 
         .gr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
@@ -176,24 +192,22 @@ export default function GarageRegister({ vehicles: initial }: Props) {
         <p>Ontario dealer vehicle intake and outflow log, sorted by acquisition date.</p>
       </div>
 
-      <div className="gr-toolbar">
-        <input
-          type="search"
-          className="gr-search"
-          placeholder="Search VIN, make, name, or register #…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button
-          type="button"
-          className="gr-export-btn"
-          onClick={handleExportCSV}
-          disabled={filtered.length === 0}
-        >
-          Export CSV
-        </button>
-        <span className="gr-count">{filtered.length} {filtered.length === 1 ? "vehicle" : "vehicles"}</span>
-      </div>
+      <AdminSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search VIN, make, name, or register #…"
+        resultsLabel={`${filtered.length} ${filtered.length === 1 ? "vehicle" : "vehicles"}`}
+        actions={
+          <button
+            type="button"
+            className="gr-export-btn"
+            onClick={handleExportCSV}
+            disabled={filtered.length === 0}
+          >
+            Export CSV
+          </button>
+        }
+      />
 
       <div className="gr-section">
         <div className="gr-wrap">

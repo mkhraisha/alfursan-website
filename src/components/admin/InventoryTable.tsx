@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { calcTotalCost, calcProfitLoss, calcCommission } from "../../lib/vehicles";
 import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
+import AdminSearchBar from "./AdminSearchBar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,8 @@ export function compareInventoryRows(
 }
 
 export type InventoryFilters = {
-  vin: string;
+  /** Unified free-text query — matched against VIN, make, model, and trim. */
+  query: string;
   status: string;
   ownership: string;
   photography: string;
@@ -84,7 +86,7 @@ export type InventoryFilters = {
 };
 
 export const EMPTY_INVENTORY_FILTERS: InventoryFilters = {
-  vin: "", status: "", ownership: "", photography: "",
+  query: "", status: "", ownership: "", photography: "",
   minPrice: "", maxPrice: "", minYear: "", maxYear: "",
   purchaseDateFrom: "", purchaseDateTo: "", saleDateFrom: "", saleDateTo: "",
 };
@@ -98,7 +100,11 @@ export const STATUS_NOT_SOLD = "__not_sold__";
  * lexicographic comparison is equivalent to chronological comparison.
  */
 export function matchesInventoryFilters(v: VehicleListItem, f: InventoryFilters): boolean {
-  if (f.vin && !v.vin.toLowerCase().includes(f.vin.trim().toLowerCase()))     return false;
+  if (f.query) {
+    const q = f.query.trim().toLowerCase();
+    const haystack = `${v.vin} ${v.make} ${v.model} ${v.trim ?? ""}`.toLowerCase();
+    if (!haystack.includes(q)) return false;
+  }
   if (f.status === STATUS_NOT_SOLD) { if (v.status === "sold") return false; }
   else if (f.status               && v.status !== f.status)                         return false;
   if (f.ownership    && v.ownership_status !== f.ownership)                          return false;
@@ -207,9 +213,10 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   const [page,    setPage]    = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
+  const [refreshingCache, setRefreshingCache] = useState(false);
 
   // Filters — defaults to hiding sold vehicles; "All Statuses" or "Sold" opt back in.
-  const [filterVin,         setFilterVin]         = useState<string>("");
+  const [filterQuery,       setFilterQuery]       = useState<string>("");
   const [filterStatus,      setFilterStatus]      = useState<string>(STATUS_NOT_SOLD);
   const [filterOwnership,   setFilterOwnership]   = useState<string>("");
   const [filterPhotography, setFilterPhotography] = useState<string>("");
@@ -225,7 +232,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   const rows = useMemo(() => vehicles.map(computeRow), [vehicles]);
 
   const filters: InventoryFilters = {
-    vin: filterVin,
+    query: filterQuery,
     status: filterStatus, ownership: filterOwnership, photography: filterPhotography,
     minPrice: filterMinPrice, maxPrice: filterMaxPrice, minYear: filterMinYear, maxYear: filterMaxYear,
     purchaseDateFrom: filterPurchaseFrom, purchaseDateTo: filterPurchaseTo,
@@ -234,7 +241,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
 
   const filtered = useMemo(() => {
     return rows.filter((r) => matchesInventoryFilters(r, filters));
-  }, [rows, filterVin, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear, filterPurchaseFrom, filterPurchaseTo, filterSaleFrom, filterSaleTo]);
+  }, [rows, filterQuery, filterStatus, filterOwnership, filterPhotography, filterMinPrice, filterMaxPrice, filterMinYear, filterMaxYear, filterPurchaseFrom, filterPurchaseTo, filterSaleFrom, filterSaleTo]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => compareInventoryRows(a, b, sortKey, sortDir));
@@ -258,7 +265,7 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
   }
 
   function clearFilters() {
-    setFilterVin("");
+    setFilterQuery("");
     setFilterStatus(STATUS_NOT_SOLD); setFilterOwnership(""); setFilterPhotography("");
     setFilterMinPrice(""); setFilterMaxPrice(""); setFilterMinYear(""); setFilterMaxYear("");
     setFilterPurchaseFrom(""); setFilterPurchaseTo(""); setFilterSaleFrom(""); setFilterSaleTo("");
@@ -285,16 +292,38 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
     }
   }
 
-  const hasFilters = Boolean(
-    filterVin ||
-    (filterStatus && filterStatus !== STATUS_NOT_SOLD) || filterOwnership || filterPhotography ||
-    filterMinPrice || filterMaxPrice || filterMinYear || filterMaxYear ||
-    filterPurchaseFrom || filterPurchaseTo || filterSaleFrom || filterSaleTo
-  );
+  // Advanced filters live behind the "Filters" popover — counted separately from
+  // the free-text query so the popover button can show how many are active.
+  const advancedFilterCount = [
+    filterStatus !== STATUS_NOT_SOLD,
+    Boolean(filterOwnership), Boolean(filterPhotography),
+    Boolean(filterMinPrice), Boolean(filterMaxPrice), Boolean(filterMinYear), Boolean(filterMaxYear),
+    Boolean(filterPurchaseFrom), Boolean(filterPurchaseTo), Boolean(filterSaleFrom), Boolean(filterSaleTo),
+  ].filter(Boolean).length;
+
+  const hasFilters = Boolean(filterQuery) || advancedFilterCount > 0;
 
   function handleExportCSV() {
     const csv = toCSV(sorted, INVENTORY_EXPORT_COLUMNS);
     downloadCSV(`inventory-export-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  }
+
+  async function handleRefreshCache() {
+    setRefreshingCache(true);
+    try {
+      const res = await fetch("/api/admin/refresh-cache", { method: "POST" });
+      if (res.ok) {
+        setToast({ msg: "Public site cache refreshed.", ok: true });
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setToast({ msg: (body as { error?: string }).error ?? "Cache refresh failed", ok: false });
+      }
+    } catch {
+      setToast({ msg: "Network error", ok: false });
+    } finally {
+      setRefreshingCache(false);
+      setTimeout(() => setToast(null), 3000);
+    }
   }
 
   return (
@@ -313,45 +342,94 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
           <button type="button" className="btn btn--ghost" onClick={handleExportCSV} disabled={sorted.length === 0}>
             Export CSV
           </button>
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={handleRefreshCache}
+            disabled={refreshingCache}
+            title="Purge the public site's vehicle-list cache so recent changes show up immediately"
+          >
+            {refreshingCache ? "Refreshing…" : "Refresh Public Cache"}
+          </button>
           <a href="/admin/inventory/import" className="btn btn--ghost">CSV Import</a>
           <a href="/admin/inventory/new" className="btn btn--primary">+ Add Vehicle</a>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="inv-filters">
-        <input type="text" className="inv-filter-vin" placeholder="Search by VIN" value={filterVin} onChange={(e) => { setFilterVin(e.target.value); setPage(1); }} />
-        <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
-          <option value={STATUS_NOT_SOLD}>All (Not Sold)</option>
-          <option value="">All Statuses</option>
-          {ALL_STATUSES.map((s) => <option key={s} value={s}>{fmtStatus(s)}</option>)}
-        </select>
-        <select value={filterOwnership} onChange={(e) => { setFilterOwnership(e.target.value); setPage(1); }}>
-          <option value="">All Ownership</option>
-          {Object.entries(OWNERSHIP_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <select value={filterPhotography} onChange={(e) => { setFilterPhotography(e.target.value); setPage(1); }}>
-          <option value="">All Photography</option>
-          {Object.entries(PHOTO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <input type="number" placeholder="Min Price" value={filterMinPrice} onChange={(e) => { setFilterMinPrice(e.target.value); setPage(1); }} />
-        <input type="number" placeholder="Max Price" value={filterMaxPrice} onChange={(e) => { setFilterMaxPrice(e.target.value); setPage(1); }} />
-        <input type="number" placeholder="Min Year"  value={filterMinYear}  onChange={(e) => { setFilterMinYear(e.target.value);  setPage(1); }} />
-        <input type="number" placeholder="Max Year"  value={filterMaxYear}  onChange={(e) => { setFilterMaxYear(e.target.value);  setPage(1); }} />
-        <label className="inv-filter-date">
-          <span>Purchased</span>
-          <input type="date" value={filterPurchaseFrom} onChange={(e) => { setFilterPurchaseFrom(e.target.value); setPage(1); }} />
-          <span>to</span>
-          <input type="date" value={filterPurchaseTo}   onChange={(e) => { setFilterPurchaseTo(e.target.value);   setPage(1); }} />
-        </label>
-        <label className="inv-filter-date">
-          <span>Sold</span>
-          <input type="date" value={filterSaleFrom} onChange={(e) => { setFilterSaleFrom(e.target.value); setPage(1); }} />
-          <span>to</span>
-          <input type="date" value={filterSaleTo}   onChange={(e) => { setFilterSaleTo(e.target.value);   setPage(1); }} />
-        </label>
-        {hasFilters && <button type="button" className="btn btn--ghost" onClick={clearFilters}>Clear</button>}
-      </div>
+      {/* Search */}
+      <AdminSearchBar
+        value={filterQuery}
+        onChange={(v) => { setFilterQuery(v); setPage(1); }}
+        placeholder="Search VIN, make, or model…"
+        filters={{
+          activeCount: advancedFilterCount,
+          onClear: hasFilters ? clearFilters : undefined,
+          panel: (
+            <div className="inv-filter-panel">
+              <div className="inv-filter-row">
+                <label className="inv-filter-field">
+                  Status
+                  <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}>
+                    <option value={STATUS_NOT_SOLD}>All (Not Sold)</option>
+                    <option value="">All Statuses</option>
+                    {ALL_STATUSES.map((s) => <option key={s} value={s}>{fmtStatus(s)}</option>)}
+                  </select>
+                </label>
+                <label className="inv-filter-field">
+                  Ownership
+                  <select value={filterOwnership} onChange={(e) => { setFilterOwnership(e.target.value); setPage(1); }}>
+                    <option value="">All Ownership</option>
+                    {Object.entries(OWNERSHIP_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </label>
+                <label className="inv-filter-field">
+                  Photography
+                  <select value={filterPhotography} onChange={(e) => { setFilterPhotography(e.target.value); setPage(1); }}>
+                    <option value="">All Photography</option>
+                    {Object.entries(PHOTO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="inv-filter-row">
+                <label className="inv-filter-field">
+                  Price
+                  <span className="inv-filter-range">
+                    <input type="number" placeholder="Min" value={filterMinPrice} onChange={(e) => { setFilterMinPrice(e.target.value); setPage(1); }} />
+                    <span>–</span>
+                    <input type="number" placeholder="Max" value={filterMaxPrice} onChange={(e) => { setFilterMaxPrice(e.target.value); setPage(1); }} />
+                  </span>
+                </label>
+                <label className="inv-filter-field">
+                  Year
+                  <span className="inv-filter-range">
+                    <input type="number" placeholder="Min" value={filterMinYear} onChange={(e) => { setFilterMinYear(e.target.value); setPage(1); }} />
+                    <span>–</span>
+                    <input type="number" placeholder="Max" value={filterMaxYear} onChange={(e) => { setFilterMaxYear(e.target.value); setPage(1); }} />
+                  </span>
+                </label>
+              </div>
+              <div className="inv-filter-row">
+                <label className="inv-filter-field">
+                  Purchased
+                  <span className="inv-filter-range">
+                    <input type="date" value={filterPurchaseFrom} onChange={(e) => { setFilterPurchaseFrom(e.target.value); setPage(1); }} />
+                    <span>to</span>
+                    <input type="date" value={filterPurchaseTo} onChange={(e) => { setFilterPurchaseTo(e.target.value); setPage(1); }} />
+                  </span>
+                </label>
+                <label className="inv-filter-field">
+                  Sold
+                  <span className="inv-filter-range">
+                    <input type="date" value={filterSaleFrom} onChange={(e) => { setFilterSaleFrom(e.target.value); setPage(1); }} />
+                    <span>to</span>
+                    <input type="date" value={filterSaleTo} onChange={(e) => { setFilterSaleTo(e.target.value); setPage(1); }} />
+                  </span>
+                </label>
+              </div>
+            </div>
+          ),
+        }}
+      />
 
       {/* Table */}
       <div className="inv-table-wrap">
@@ -468,23 +546,20 @@ export default function InventoryTable({ vehicles }: { vehicles: VehicleListItem
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn:disabled:hover { background: #fff; }
 
-        .inv-filters {
-          display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
-          padding: 14px 16px; background: #fff; border: 1px solid #e4e7ec; border-radius: 8px;
+        .inv-filter-panel { display: flex; flex-direction: column; gap: 14px; }
+        .inv-filter-row { display: flex; flex-wrap: wrap; gap: 14px; }
+        .inv-filter-field {
+          display: flex; flex-direction: column; gap: 5px;
+          font-size: 12px; font-weight: 600; color: #344054;
         }
-        .inv-filters select, .inv-filters input {
+        .inv-filter-field select, .inv-filter-field input {
           height: 34px; padding: 0 10px; border: 1px solid #e4e7ec; border-radius: 6px;
-          font-size: 13px; color: #1a1d23; background: #f8f9fb;
+          font-size: 13px; font-weight: 400; color: #1a1d23; background: #f8f9fb;
         }
-        .inv-filters select { min-width: 140px; }
-        .inv-filters input  { width: 110px; }
-        .inv-filters input.inv-filter-vin { width: 170px; }
-
-        .inv-filter-date {
-          display: flex; align-items: center; gap: 6px;
-          font-size: 12px; color: #99a1b2; font-weight: 600;
-        }
-        .inv-filter-date input[type="date"] { width: 132px; }
+        .inv-filter-field select { min-width: 160px; }
+        .inv-filter-field input { width: 100px; }
+        .inv-filter-field input[type="date"] { width: 132px; }
+        .inv-filter-range { display: flex; align-items: center; gap: 6px; font-weight: 400; color: #99a1b2; }
 
         .inv-table-wrap { background: #fff; border: 1px solid #e4e7ec; border-radius: 8px; overflow: auto; }
         .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; }

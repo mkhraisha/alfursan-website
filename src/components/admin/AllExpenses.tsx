@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TAX_TYPES } from "../../lib/vehicles";
 import { toCSV, downloadCSV, type CSVColumn } from "../../lib/csv-export";
+import AdminSearchBar from "./AdminSearchBar";
 
 export type AllExpensesRow = {
   id: string;
@@ -97,18 +98,15 @@ export default function AllExpenses({ expenses: initial }: Props) {
         .ae-header p { color: #99a1b2; font-size: 14px; margin-top: 4px; }
         .ae-header-actions { display: flex; gap: 8px; }
 
-        .ae-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-        .ae-search {
-          flex: 1; min-width: 200px; max-width: 360px;
-          padding: 9px 12px; border: 1px solid #e4e7ec; border-radius: 6px;
-          font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
-        }
-        .ae-search:focus { outline: 2px solid #B92111; border-color: transparent; }
         .ae-select {
-          padding: 9px 12px; border: 1px solid #e4e7ec; border-radius: 6px;
-          font-size: 14px; font-family: inherit; color: #1a1d23; background: #fff;
+          width: 100%;
+          height: 34px; padding: 0 10px; border: 1px solid #e4e7ec; border-radius: 6px;
+          font-size: 13px; font-family: inherit; color: #1a1d23; background: #f8f9fb;
         }
-        .ae-count { color: #99a1b2; font-size: 13px; margin-left: auto; }
+        .ae-filter-field {
+          display: flex; flex-direction: column; gap: 5px; min-width: 200px;
+          font-size: 12px; font-weight: 600; color: #344054;
+        }
         .ae-btn {
           display: inline-flex; align-items: center;
           padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: 600;
@@ -149,24 +147,35 @@ export default function AllExpenses({ expenses: initial }: Props) {
         </div>
       </div>
 
-      <div className="ae-toolbar">
-        <input
-          type="search"
-          className="ae-search"
-          placeholder="Search description, vendor, VIN, or vehicle…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select className="ae-select" value={reimbursedFilter} onChange={(e) => setReimbursedFilter(e.target.value as ReimbursedFilter)}>
-          <option value="all">All</option>
-          <option value="reimbursed">Reimbursed</option>
-          <option value="unreimbursed">Not reimbursed</option>
-        </select>
-        <span className="ae-count">{filtered.length} {filtered.length === 1 ? "expense" : "expenses"}</span>
-        <button type="button" className="ae-btn" onClick={handleExportCSV} disabled={filtered.length === 0}>
-          Export CSV
-        </button>
-      </div>
+      <AdminSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search description, vendor, VIN, or vehicle…"
+        resultsLabel={`${filtered.length} ${filtered.length === 1 ? "expense" : "expenses"}`}
+        filters={{
+          activeCount: reimbursedFilter !== "all" ? 1 : 0,
+          onClear: reimbursedFilter !== "all" ? () => setReimbursedFilter("all") : undefined,
+          panel: (
+            <label className="ae-filter-field">
+              Reimbursed
+              <select
+                className="ae-select"
+                value={reimbursedFilter}
+                onChange={(e) => setReimbursedFilter(e.target.value as ReimbursedFilter)}
+              >
+                <option value="all">All</option>
+                <option value="reimbursed">Reimbursed</option>
+                <option value="unreimbursed">Not reimbursed</option>
+              </select>
+            </label>
+          ),
+        }}
+        actions={
+          <button type="button" className="ae-btn" onClick={handleExportCSV} disabled={filtered.length === 0}>
+            Export CSV
+          </button>
+        }
+      />
 
       <div className="ae-section">
         <div className="ae-wrap">
