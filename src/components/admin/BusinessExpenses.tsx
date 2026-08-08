@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { BUSINESS_EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
+import { BUSINESS_EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType, businessExpenseCreateSchema } from "../../lib/vehicles";
 import { buildStorageUrl } from "../../lib/media";
+import { validateWithSchema, apiFieldErrorsToMap } from "../../lib/validation";
 import AdminSearchBar from "./AdminSearchBar";
 
 export type BusinessExpenseRow = {
@@ -52,12 +53,41 @@ async function uploadReceipt(file: File): Promise<string> {
   return storagePath;
 }
 
+type BusinessExpenseFormState = {
+  expense_date: string;
+  category: string;
+  vendor: string;
+  description: string;
+  amount: string;
+  tax_type: string;
+  tax_amount: string;
+  file: File | null;
+};
+
+function buildBusinessExpensePayload(form: BusinessExpenseFormState): Record<string, unknown> {
+  return {
+    expense_date: form.expense_date || undefined,
+    category: form.category,
+    vendor: form.vendor || undefined,
+    description: form.description,
+    amount: parseFloat(form.amount),
+    tax_type: form.tax_type,
+    tax_rate: rateForTaxType(form.tax_type),
+    tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : undefined,
+  };
+}
+
+export function validateBusinessExpenseForm(form: BusinessExpenseFormState): Record<string, string> {
+  return validateWithSchema(businessExpenseCreateSchema, buildBusinessExpensePayload(form));
+}
+
 export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Props) {
   const [expenses, setExpenses] = useState(initial);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     expense_date: new Date().toISOString().slice(0, 10),
     category: "gas",
@@ -95,6 +125,12 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
       file: null,
     });
     setTaxAmountTouched(false);
+    setErrors({});
+  }
+
+  function setField<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [field]: value }));
+    setErrors((e) => (e[field as string] ? { ...e, [field as string]: "" } : e));
   }
 
   function setAmount(amount: string) {
@@ -107,6 +143,7 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
       }
       return next;
     });
+    setErrors((e) => (e.amount ? { ...e, amount: "" } : e));
   }
 
   function setTaxType(tax_type: string) {
@@ -119,10 +156,16 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
       }
       return next;
     });
+    setErrors((e) => (e.tax_type || e.tax_rate ? { ...e, tax_type: "", tax_rate: "" } : e));
   }
 
   async function addExpense() {
-    if (!form.expense_date || !form.description || !form.amount) return;
+    const errs = validateBusinessExpenseForm(form);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setSaving(true);
     setError(null);
     try {
@@ -130,21 +173,13 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
       const res = await fetch("/api/expenses/business", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expense_date: form.expense_date,
-          category: form.category,
-          vendor: form.vendor || undefined,
-          description: form.description,
-          amount: parseFloat(form.amount),
-          tax_type: form.tax_type,
-          tax_rate: rateForTaxType(form.tax_type),
-          tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : undefined,
-          receipt_file_path,
-        }),
+        body: JSON.stringify({ ...buildBusinessExpensePayload(form), receipt_file_path }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setError((d as { error?: string }).error ?? "Failed to add expense");
+        const apiErrors = (d as { errors?: Record<string, string[]> }).errors;
+        if (apiErrors) setErrors(apiFieldErrorsToMap(apiErrors));
         return;
       }
       const created = (await res.json()) as BusinessExpenseRow;
@@ -215,6 +250,7 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
           font-size: 14px; font-family: inherit; color: #111827; background: #fff;
         }
         .be-field input:focus, .be-field select:focus { outline: 2px solid #B92111; border-color: transparent; }
+        .field-err { font-size: 12px; color: #b92111; margin: 4px 0 0; }
       `}</style>
 
       <div className="be-header">
@@ -237,44 +273,52 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
           <div className="be-grid">
             <div className="be-field">
               <label>Date *</label>
-              <input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} />
+              <input type="date" value={form.expense_date} onChange={(e) => setField("expense_date", e.target.value)} />
+              {errors.expense_date && <p className="field-err">{errors.expense_date}</p>}
             </div>
             <div className="be-field">
               <label>Category *</label>
-              <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+              <select value={form.category} onChange={(e) => setField("category", e.target.value)}>
                 {BUSINESS_EXPENSE_CATEGORIES.map((category) => (
                   <option key={category} value={category}>{fmtCategory(category)}</option>
                 ))}
               </select>
+              {errors.category && <p className="field-err">{errors.category}</p>}
             </div>
             <div className="be-field">
               <label>Vendor</label>
-              <input value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))} placeholder="Who was paid" />
+              <input value={form.vendor} onChange={(e) => setField("vendor", e.target.value)} placeholder="Who was paid" />
+              {errors.vendor && <p className="field-err">{errors.vendor}</p>}
             </div>
             <div className="be-field">
               <label>Description *</label>
-              <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe the expense" />
+              <input value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Describe the expense" />
+              {errors.description && <p className="field-err">{errors.description}</p>}
             </div>
             <div className="be-field">
               <label>Amount ($) *</label>
               <input type="number" step="0.01" value={form.amount} onChange={(e) => setAmount(e.target.value)} placeholder="Negative for refunds/credits" />
+              {errors.amount && <p className="field-err">{errors.amount}</p>}
             </div>
             <div className="be-field">
               <label>Tax Type</label>
               <select value={form.tax_type} onChange={(e) => setTaxType(e.target.value)}>
                 {TAX_TYPES.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
               </select>
+              {errors.tax_type && <p className="field-err">{errors.tax_type}</p>}
             </div>
             <div className="be-field">
               <label>Tax Amount ($)</label>
-              <input type="number" step="0.01" value={form.tax_amount} onChange={(e) => { setTaxAmountTouched(true); setForm((f) => ({ ...f, tax_amount: e.target.value })); }} />
+              <input type="number" step="0.01" value={form.tax_amount} onChange={(e) => { setTaxAmountTouched(true); setField("tax_amount", e.target.value); }} />
+              {errors.tax_rate && <p className="field-err">{errors.tax_rate}</p>}
+              {errors.tax_amount && <p className="field-err">{errors.tax_amount}</p>}
             </div>
             <div className="be-field">
               <label>Receipt / Document (optional)</label>
               <input
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
-                onChange={(e) => setForm((f) => ({ ...f, file: e.target.files?.[0] ?? null }))}
+                onChange={(e) => setField("file", e.target.files?.[0] ?? null)}
               />
             </div>
           </div>
@@ -282,7 +326,7 @@ export default function BusinessExpenses({ expenses: initial, supabaseUrl }: Pro
             type="button"
             className="be-btn be-btn-primary"
             onClick={addExpense}
-            disabled={saving || !form.expense_date || !form.description || !form.amount}
+            disabled={saving}
           >
             {saving ? "Saving…" : "Save Expense"}
           </button>
