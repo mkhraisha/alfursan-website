@@ -42,15 +42,17 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD");
 
 const positiveDecimal = z.number().min(0, "Must be ≥ 0");
 
-// Base object without refinements — safe to call .partial()/.omit() on (Zod v4 restriction)
-const vehicleBaseSchema = z.object({
+// Base object without refinements — safe to call .partial()/.omit() on (Zod v4 restriction).
+// Exported so admin form components can build client-side validation subsets
+// via .pick() without pulling in the create-only refinements below.
+export const vehicleBaseSchema = z.object({
   vin:              vinSchema,
   make:             z.string().min(1, "Make is required"),
   model:            z.string().min(1, "Model is required"),
-  year:             z.number().int().min(1900).max(2100),
+  year:             z.number("Valid year required").int().min(1900, "Valid year required").max(2100, "Valid year required"),
   trim:             z.string().optional(),
   series:           z.string().optional(),
-  body_type:        z.enum(BODY_TYPES),
+  body_type:        z.enum(BODY_TYPES, "Body type is required"),
   engine_type:      z.string().optional().nullable(),
   num_keys:         z.number().int().min(0).optional().nullable(),
   drive_type:       z.enum(DRIVE_TYPES).optional(),

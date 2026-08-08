@@ -34,7 +34,7 @@ describe("AddVehicleForm (render)", () => {
   it("blocks submission and shows field errors when required fields are missing", async () => {
     render(<AddVehicleForm />);
     fireEvent.click(screen.getByTestId("av-submit"));
-    expect(await screen.findByText(/Valid 17-char VIN required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/VIN must be exactly 17 characters/i)).toBeInTheDocument();
     expect(screen.getByText(/Make is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Model is required/i)).toBeInTheDocument();
     expect(screen.getByText(/Body type is required/i)).toBeInTheDocument();
