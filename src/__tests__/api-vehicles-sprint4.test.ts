@@ -10,7 +10,7 @@ import { getRequestUser } from "../lib/request-user";
 import type { RequestUser } from "../lib/request-user";
 
 import { GET as expensesGET, POST as expensesPOST } from "../pages/api/vehicles/[vin]/expenses/index";
-import { DELETE as expenseDELETE } from "../pages/api/vehicles/[vin]/expenses/[expenseId]";
+import { PATCH as expensePATCH, DELETE as expenseDELETE } from "../pages/api/vehicles/[vin]/expenses/[expenseId]";
 import { GET as docsGET, POST as docsPOST } from "../pages/api/vehicles/[vin]/documents/index";
 import { DELETE as docDELETE } from "../pages/api/vehicles/[vin]/documents/[docId]";
 import { PATCH as commissionPATCH } from "../pages/api/vehicles/[vin]/commission";
@@ -117,6 +117,69 @@ describe("POST /api/vehicles/:vin/expenses", () => {
   });
 });
 
+// ── PATCH /api/vehicles/:vin/expenses/:expenseId ──────────────────────────────
+
+describe("PATCH /api/vehicles/:vin/expenses/:expenseId", () => {
+  function mockUpdateSingle(result: { data: unknown; error: unknown }) {
+    const singleFn = vi.fn().mockResolvedValue(result);
+    const selectFn = vi.fn().mockReturnValue({ single: singleFn });
+    const eqVinFn  = vi.fn().mockReturnValue({ select: selectFn });
+    const eqIdFn   = vi.fn().mockReturnValue({ eq: eqVinFn });
+    const updateFn = vi.fn().mockReturnValue({ eq: eqIdFn });
+    (getAdminClient as Mock).mockReturnValue({ from: () => ({ update: updateFn }) });
+  }
+
+  it("returns 401 when unauthenticated", async () => {
+    const res = await expensePATCH({ params: { vin: TEST_VIN, expenseId: "exp-1" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/exp-1`, "PATCH", { reimbursed: true }) } as never);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 for invalid JSON body", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    const request = new Request(`https://alfursanauto.ca/api/vehicles/${TEST_VIN}/expenses/exp-1`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: "{not-json",
+    });
+    const res = await expensePATCH({ params: { vin: TEST_VIN, expenseId: "exp-1" }, request } as never);
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 422 when reimbursed is missing/non-boolean", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    (getAdminClient as Mock).mockReturnValue({});
+
+    const res = await expensePATCH({ params: { vin: TEST_VIN, expenseId: "exp-1" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/exp-1`, "PATCH", { reimbursed: "yes" }) } as never);
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 404 when expense not found for this vin", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    mockUpdateSingle({ data: null, error: { code: "PGRST116" } });
+
+    const res = await expensePATCH({ params: { vin: TEST_VIN, expenseId: "missing" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/missing`, "PATCH", { reimbursed: true }) } as never);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 500 on an unexpected database error", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    mockUpdateSingle({ data: null, error: { code: "OTHER", message: "boom" } });
+
+    const res = await expensePATCH({ params: { vin: TEST_VIN, expenseId: "exp-1" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/exp-1`, "PATCH", { reimbursed: true }) } as never);
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 200 and audits with the vin as entityRef on success", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+    mockUpdateSingle({ data: { id: "exp-1", reimbursed: true }, error: null });
+
+    const res = await expensePATCH({ params: { vin: TEST_VIN, expenseId: "exp-1" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/exp-1`, "PATCH", { reimbursed: true }) } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reimbursed).toBe(true);
+  });
+});
+
 // ── DELETE /api/vehicles/:vin/expenses/:expenseId ─────────────────────────────
 
 describe("DELETE /api/vehicles/:vin/expenses/:expenseId", () => {
@@ -135,6 +198,25 @@ describe("DELETE /api/vehicles/:vin/expenses/:expenseId", () => {
 
     const res = await expenseDELETE({ params: { vin: TEST_VIN, expenseId: "missing" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/missing`, "DELETE") } as never);
     expect(res.status).toBe(404);
+  });
+
+  it("returns 500 when the delete call itself fails", async () => {
+    (getRequestUser as Mock).mockResolvedValue(ADMIN_USER);
+
+    const existingFn = vi.fn().mockResolvedValue({ data: { id: "exp-1" }, error: null });
+    const eqVinFn    = vi.fn().mockReturnValue({ single: existingFn });
+    const eqIdFn     = vi.fn().mockReturnValue({ eq: eqVinFn });
+    const selectFn   = vi.fn().mockReturnValue({ eq: eqIdFn });
+
+    const deleteEqFn = vi.fn().mockResolvedValue({ error: { message: "db down" } });
+    const deleteFn   = vi.fn().mockReturnValue({ eq: deleteEqFn });
+
+    (getAdminClient as Mock).mockReturnValue({
+      from: vi.fn().mockReturnValue({ select: selectFn, delete: deleteFn }),
+    });
+
+    const res = await expenseDELETE({ params: { vin: TEST_VIN, expenseId: "exp-1" }, request: req(`/api/vehicles/${TEST_VIN}/expenses/exp-1`, "DELETE") } as never);
+    expect(res.status).toBe(500);
   });
 
   it("returns 204 on successful delete", async () => {
