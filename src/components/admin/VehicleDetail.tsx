@@ -694,32 +694,73 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: OnSave }) {
 
 // ── Pricing Tab ───────────────────────────────────────────────────────────────
 
+/**
+ * Extracts the PATCH payload from the Pricing form — shared by `submit()`
+ * and `validatePricingForm()` so client validation always sees the exact
+ * payload that would be submitted.
+ */
+function buildPricingFields(form: Record<string, string>): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  if (form.wholesale_price)  fields.wholesale_price  = parseFloat(form.wholesale_price.replace(/,/g, ""));
+  fields.advertised_price_cargurus = form.advertised_price_cargurus ? parseFloat(form.advertised_price_cargurus.replace(/,/g, "")) : null;
+  fields.advertised_price_facebook = form.advertised_price_facebook ? parseFloat(form.advertised_price_facebook.replace(/,/g, "")) : null;
+  fields.sale_price = form.sale_price ? parseFloat(form.sale_price.replace(/,/g, "")) : null;
+  fields.sale_date  = form.sale_date || null;
+  return fields;
+}
+
+const pricingSchema = vehicleUpdateSchema.pick({
+  wholesale_price: true, advertised_price_cargurus: true, advertised_price_facebook: true,
+  sale_price: true, sale_date: true,
+});
+
+/**
+ * Pure validation of the Pricing tab form — no DOM/React dependency, so
+ * it's unit-testable directly. Delegates to the same `vehicleUpdateSchema`
+ * subset the PATCH endpoint enforces server-side, plus a hand-written
+ * cross-field check (sale_date >= purchaseDate) since `vehicleUpdateSchema`
+ * has none of `vehicleCreateSchema`'s refinements — a pre-existing gap on
+ * the PATCH path server-side too, so FE and server stay consistent; fixing
+ * the server schema itself is out of scope here.
+ */
+export function validatePricingForm(form: Record<string, string>, purchaseDate: string | null): Record<string, string> {
+  const errs = validateWithSchema(pricingSchema, buildPricingFields(form));
+  if (!errs.sale_date && form.sale_date && purchaseDate && form.sale_date < purchaseDate) {
+    errs.sale_date = "Sale date must be on or after the purchase date";
+  }
+  return errs;
+}
+
 function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; totalCost: number | null; profitLoss: number | null; onSave: OnSave }) {
   const [form, setForm] = useState({ wholesale_price: v.wholesale_price != null ? v.wholesale_price.toLocaleString("en-CA") : "", advertised_price_cargurus: v.advertised_price_cargurus != null ? v.advertised_price_cargurus.toLocaleString("en-CA") : "", advertised_price_facebook: v.advertised_price_facebook != null ? v.advertised_price_facebook.toLocaleString("en-CA") : "", sale_price: v.sale_price != null ? v.sale_price.toLocaleString("en-CA") : "", sale_date: v.sale_date ?? "" });
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
+  function set(k: keyof typeof form, val: string) {
+    setForm((f) => ({ ...f, [k]: val }));
+    setErrors((e) => (e[k] ? { ...e, [k]: "" } : e));
+  }
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true);
-    const fields: Record<string, unknown> = {};
-    if (form.wholesale_price)  fields.wholesale_price  = parseFloat(form.wholesale_price.replace(/,/g, ""));
-    fields.advertised_price_cargurus = form.advertised_price_cargurus ? parseFloat(form.advertised_price_cargurus.replace(/,/g, "")) : null;
-    fields.advertised_price_facebook = form.advertised_price_facebook ? parseFloat(form.advertised_price_facebook.replace(/,/g, "")) : null;
-    fields.sale_price = form.sale_price ? parseFloat(form.sale_price.replace(/,/g, "")) : null;
-    fields.sale_date  = form.sale_date || null;
-    await onSave(fields); setSaving(false);
+    e.preventDefault();
+    const errs = validatePricingForm(form, v.purchase_date);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    setSaving(true);
+    const result = await onSave(buildPricingFields(form));
+    if (result.errors) setErrors(result.errors);
+    setSaving(false);
   }
 
   const plColor = profitLoss === null ? "#6b7280" : profitLoss >= 0 ? "positive" : "negative";
   return (
     <form onSubmit={submit}>
       <div className="f-grid">
-        <div className="f-field"><label>Wholesale Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-wholesale_price" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} placeholder="e.g. 18,000" /></div>
-        <div className="f-field"><label>CarGurus Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-advertised_price_cargurus" value={form.advertised_price_cargurus} onChange={(e) => set("advertised_price_cargurus", e.target.value)} placeholder="e.g. 22,500" /></div>
-        <div className="f-field"><label>Facebook Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-advertised_price_facebook" value={form.advertised_price_facebook} onChange={(e) => set("advertised_price_facebook", e.target.value)} placeholder="e.g. 21,000" /></div>
-        <div className="f-field"><label>Sale Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-sale_price" value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} placeholder="Leave empty if not sold" /></div>
-        <div className="f-field"><label>Sale Date</label><input type="date" data-testid="vd-sale_date" value={form.sale_date} onChange={(e) => set("sale_date", e.target.value)} max={new Date().toISOString().slice(0, 10)} /></div>
+        <div className="f-field"><label>Wholesale Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-wholesale_price" value={form.wholesale_price} onChange={(e) => set("wholesale_price", e.target.value)} placeholder="e.g. 18,000" />{errors.wholesale_price && <p className="field-err">{errors.wholesale_price}</p>}</div>
+        <div className="f-field"><label>CarGurus Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-advertised_price_cargurus" value={form.advertised_price_cargurus} onChange={(e) => set("advertised_price_cargurus", e.target.value)} placeholder="e.g. 22,500" />{errors.advertised_price_cargurus && <p className="field-err">{errors.advertised_price_cargurus}</p>}</div>
+        <div className="f-field"><label>Facebook Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-advertised_price_facebook" value={form.advertised_price_facebook} onChange={(e) => set("advertised_price_facebook", e.target.value)} placeholder="e.g. 21,000" />{errors.advertised_price_facebook && <p className="field-err">{errors.advertised_price_facebook}</p>}</div>
+        <div className="f-field"><label>Sale Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-sale_price" value={form.sale_price} onChange={(e) => set("sale_price", e.target.value)} placeholder="Leave empty if not sold" />{errors.sale_price && <p className="field-err">{errors.sale_price}</p>}</div>
+        <div className="f-field"><label>Sale Date</label><input type="date" data-testid="vd-sale_date" value={form.sale_date} onChange={(e) => set("sale_date", e.target.value)} max={new Date().toISOString().slice(0, 10)} />{errors.sale_date && <p className="field-err">{errors.sale_date}</p>}</div>
       </div>
       <div className="computed-row">
         <div className="computed-item"><span className="label">Total Cost</span><span className="value">{fmt(totalCost)}</span></div>
