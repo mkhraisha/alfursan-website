@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType, vehicleUpdateSchema } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType, vehicleUpdateSchema, documentCreateSchema, expenseCreateSchema } from "../../lib/vehicles";
 import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
 import { validateWithSchema, apiFieldErrorsToMap } from "../../lib/validation";
 
@@ -921,11 +921,27 @@ const FIXED_DOCS: { key: keyof VehicleFull; label: string }[] = [
   { key: "signed_ownership_acquisition_picture_path", label: "Signed Ownership – Acquisition Picture" },
 ];
 
+const documentFormSchema = documentCreateSchema.pick({ document_type: true, description: true });
+
+/**
+ * Pure validation of the "Add Document" form — no DOM/React dependency, so
+ * it's unit-testable directly. `document_type`/`description` are covered by
+ * `documentCreateSchema`; `file` is FE-only (the schema validates
+ * `file_path`, which doesn't exist until after upload), so it gets a
+ * hand-written required check.
+ */
+export function validateDocumentForm(form: { type: string; description: string; file: unknown }): Record<string, string> {
+  const errs = validateWithSchema(documentFormSchema, { document_type: form.type || undefined, description: form.description || undefined });
+  if (!form.file) errs.file = "File is required";
+  return errs;
+}
+
 function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: VehicleFull; docs: VehicleDoc[]; supabaseUrl: string; setDocs: React.Dispatch<React.SetStateAction<VehicleDoc[]>>; onSave: OnSave; show: (msg: string, ok: boolean) => void }) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [addForm, setAddForm]     = useState({ type: "", description: "", file: null as File | null });
   const [adding, setAdding]       = useState(false);
   const [showAdd, setShowAdd]     = useState(false);
+  const [errors, setErrors]       = useState<Record<string, string>>({});
 
   async function uploadFixed(key: keyof VehicleFull, file: File) {
     setUploading(key as string);
@@ -941,10 +957,12 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
   }
 
   async function addMiscDoc() {
-    if (!addForm.type || !addForm.file) return;
+    const errs = validateDocumentForm(addForm);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
     setAdding(true);
     try {
-      const path = await uploadFile(v.vin, "vehicle-document", addForm.file);
+      const path = await uploadFile(v.vin, "vehicle-document", addForm.file!);
       const res  = await fetch(`/api/vehicles/${v.vin}/documents`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ document_type: addForm.type, file_path: path, description: addForm.description || undefined }) });
       if (res.ok) {
         const newDoc = await res.json() as VehicleDoc;
@@ -955,6 +973,8 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
       } else {
         const d = await res.json().catch(() => ({}));
         show((d as { error?: string }).error ?? "Failed to add document", false);
+        const apiErrors = (d as { errors?: Record<string, string[]> }).errors;
+        if (apiErrors) setErrors(apiFieldErrorsToMap(apiErrors));
       }
     } catch (err) {
       show((err as Error).message ?? "Upload failed", false);
@@ -1005,15 +1025,16 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
       {showAdd && (
         <div style={{ padding: 16, background: "#f8f9fb", borderRadius: 8, marginBottom: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <div className="f-grid-2">
-            <div className="f-field"><label>Document Type *</label><input value={addForm.type} onChange={(e) => setAddForm((f) => ({ ...f, type: e.target.value }))} placeholder="e.g. warranty, service_record" /></div>
-            <div className="f-field"><label>Description</label><input value={addForm.description} onChange={(e) => setAddForm((f) => ({ ...f, description: e.target.value }))} /></div>
+            <div className="f-field"><label>Document Type *</label><input value={addForm.type} onChange={(e) => { setAddForm((f) => ({ ...f, type: e.target.value })); setErrors((er) => (er.document_type ? { ...er, document_type: "" } : er)); }} placeholder="e.g. warranty, service_record" />{errors.document_type && <p className="field-err">{errors.document_type}</p>}</div>
+            <div className="f-field"><label>Description</label><input value={addForm.description} onChange={(e) => { setAddForm((f) => ({ ...f, description: e.target.value })); setErrors((er) => (er.description ? { ...er, description: "" } : er)); }} />{errors.description && <p className="field-err">{errors.description}</p>}</div>
           </div>
           <div className="f-field">
             <label>File *</label>
-            <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => setAddForm((f) => ({ ...f, file: e.target.files?.[0] ?? null }))} />
+            <input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(e) => { setAddForm((f) => ({ ...f, file: e.target.files?.[0] ?? null })); setErrors((er) => (er.file ? { ...er, file: "" } : er)); }} />
+            {errors.file && <p className="field-err">{errors.file}</p>}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn-save" onClick={addMiscDoc} disabled={adding || !addForm.type || !addForm.file}>{adding ? "Adding…" : "Add"}</button>
+            <button type="button" className="btn-save" onClick={addMiscDoc} disabled={adding}>{adding ? "Adding…" : "Add"}</button>
             <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
           </div>
         </div>
@@ -1042,11 +1063,39 @@ function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: Vehi
 
 // ── Expenses Tab ──────────────────────────────────────────────────────────────
 
+/**
+ * Extracts the POST payload from the Add Expense form — shared by
+ * `addExpense()` and `validateExpenseForm()` so client validation always
+ * sees the exact payload that would be submitted.
+ */
+function buildExpenseFields(form: Record<string, string>): Record<string, unknown> {
+  return {
+    category: form.category,
+    description: form.description,
+    amount: parseFloat(form.amount),
+    vendor: form.vendor || undefined,
+    expense_date: form.expense_date || undefined,
+    tax_type: form.tax_type,
+    tax_rate: rateForTaxType(form.tax_type),
+    tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : undefined,
+  };
+}
+
+/**
+ * Pure validation of the Add Expense form — no DOM/React dependency, so
+ * it's unit-testable directly. Delegates to the same `expenseCreateSchema`
+ * the POST endpoint enforces server-side.
+ */
+export function validateExpenseForm(form: Record<string, string>): Record<string, string> {
+  return validateWithSchema(expenseCreateSchema, buildExpenseFields(form));
+}
+
 function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: string; expenses: VehicleExpense[]; totalCost: number | null; setExpenses: React.Dispatch<React.SetStateAction<VehicleExpense[]>>; show: (msg: string, ok: boolean) => void }) {
   const [form, setForm]   = useState({ category: "repair" as string, description: "", amount: "", vendor: "", expense_date: "", tax_type: DEFAULT_TAX_TYPE as string, tax_amount: "" });
   const [taxAmountTouched, setTaxAmountTouched] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding]  = useState(false);
+  const [errors, setErrors]  = useState<Record<string, string>>({});
 
   function setAmount(amount: string) {
     setForm((f) => {
@@ -1073,19 +1122,12 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
   }
 
   async function addExpense() {
-    if (!form.description || !form.amount) return;
+    const errs = validateExpenseForm(form);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
     setAdding(true);
     try {
-      const res = await fetch(`/api/vehicles/${vin}/expenses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        category: form.category,
-        description: form.description,
-        amount: parseFloat(form.amount),
-        vendor: form.vendor || undefined,
-        expense_date: form.expense_date || undefined,
-        tax_type: form.tax_type,
-        tax_rate: rateForTaxType(form.tax_type),
-        tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : undefined,
-      }) });
+      const res = await fetch(`/api/vehicles/${vin}/expenses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildExpenseFields(form)) });
       if (res.ok || res.status === 201) {
         const newExp = await res.json() as VehicleExpense;
         setExpenses((e) => [...e, newExp]);
@@ -1096,6 +1138,8 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
       } else {
         const d = await res.json().catch(() => ({}));
         show((d as { error?: string }).error ?? "Failed to add expense", false);
+        const apiErrors = (d as { errors?: Record<string, string[]> }).errors;
+        if (apiErrors) setErrors(apiFieldErrorsToMap(apiErrors));
       }
     } catch {
       show("Network error", false);
@@ -1144,20 +1188,20 @@ function ExpensesTab({ vin, expenses, totalCost, setExpenses, show }: { vin: str
                 {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{fmtStatus(c)}</option>)}
               </select>
             </div>
-            <div className="f-field"><label>Description *</label><input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe the expense" /></div>
-            <div className="f-field"><label>Amount ($) *</label><input type="number" value={form.amount} onChange={(e) => setAmount(e.target.value)} step="0.01" placeholder="Negative for refunds/credits" /></div>
+            <div className="f-field"><label>Description *</label><input value={form.description} onChange={(e) => { setForm((f) => ({ ...f, description: e.target.value })); setErrors((er) => (er.description ? { ...er, description: "" } : er)); }} placeholder="Describe the expense" />{errors.description && <p className="field-err">{errors.description}</p>}</div>
+            <div className="f-field"><label>Amount ($) *</label><input type="number" value={form.amount} onChange={(e) => { setAmount(e.target.value); setErrors((er) => (er.amount ? { ...er, amount: "" } : er)); }} step="0.01" placeholder="Negative for refunds/credits" />{errors.amount && <p className="field-err">{errors.amount}</p>}</div>
             <div className="f-field"><label>Vendor</label><input value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))} placeholder="Who was paid" /></div>
-            <div className="f-field"><label>Date</label><input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} /></div>
+            <div className="f-field"><label>Date</label><input type="date" value={form.expense_date} onChange={(e) => setForm((f) => ({ ...f, expense_date: e.target.value }))} />{errors.expense_date && <p className="field-err">{errors.expense_date}</p>}</div>
             <div className="f-field">
               <label>Tax Type</label>
               <select value={form.tax_type} onChange={(e) => setTaxType(e.target.value)}>
                 {TAX_TYPES.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
               </select>
             </div>
-            <div className="f-field"><label>Tax Amount ($)</label><input type="number" value={form.tax_amount} onChange={(e) => { setTaxAmountTouched(true); setForm((f) => ({ ...f, tax_amount: e.target.value })); }} step="0.01" /></div>
+            <div className="f-field"><label>Tax Amount ($)</label><input type="number" value={form.tax_amount} onChange={(e) => { setTaxAmountTouched(true); setForm((f) => ({ ...f, tax_amount: e.target.value })); setErrors((er) => (er.tax_amount ? { ...er, tax_amount: "" } : er)); }} step="0.01" />{errors.tax_amount && <p className="field-err">{errors.tax_amount}</p>}</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn-save" onClick={addExpense} disabled={adding || !form.description || !form.amount}>{adding ? "Adding…" : "Add Expense"}</button>
+            <button type="button" className="btn-save" onClick={addExpense} disabled={adding}>{adding ? "Adding…" : "Add Expense"}</button>
             <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
           </div>
         </div>
