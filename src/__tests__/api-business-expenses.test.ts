@@ -10,7 +10,7 @@ import { getRequestUser } from "../lib/request-user";
 import type { RequestUser } from "../lib/request-user";
 
 import { GET as businessGET, POST as businessPOST } from "../pages/api/expenses/business/index";
-import { DELETE as businessDELETE } from "../pages/api/expenses/business/[expenseId]";
+import { PATCH as businessPATCH, DELETE as businessDELETE } from "../pages/api/expenses/business/[expenseId]";
 import { POST as uploadUrlPOST } from "../pages/api/expenses/upload-url";
 
 const MANAGER_USER: RequestUser = { email: "manager@example.com", role: "manager", userId: "user-1" };
@@ -101,7 +101,154 @@ describe("POST /api/expenses/business", () => {
   });
 });
 
+function mockUpdateSingle(result: { data: unknown; error: unknown }) {
+  const single = vi.fn().mockResolvedValue(result);
+  const select = vi.fn().mockReturnValue({ single });
+  const eq     = vi.fn().mockReturnValue({ select });
+  const update = vi.fn().mockReturnValue({ eq });
+  (getAdminClient as Mock).mockReturnValue({ from: () => ({ update }) });
+}
+
+describe("PATCH /api/expenses/business/:expenseId", () => {
+  it("returns 401 when unauthenticated", async () => {
+    const res = await businessPATCH({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "PATCH", { amount: 200 }),
+    } as never);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for non-manager roles", async () => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+    const res = await businessPATCH({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "PATCH", { amount: 200 }),
+    } as never);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 for invalid JSON body", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    const request = new Request("https://alfursanauto.ca/api/expenses/business/be-1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: "{not-json",
+    });
+    const res = await businessPATCH({ params: { expenseId: "be-1" }, request } as never);
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 422 when no fields are provided", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    (getAdminClient as Mock).mockReturnValue({});
+
+    const res = await businessPATCH({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "PATCH", {}),
+    } as never);
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 422 when tax_rate doesn't match tax_type", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    (getAdminClient as Mock).mockReturnValue({});
+
+    const res = await businessPATCH({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "PATCH", { tax_type: "HST_ON", tax_rate: 0.05 }),
+    } as never);
+    expect(res.status).toBe(422);
+  });
+
+  it("returns 404 when the business expense doesn't exist", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    mockUpdateSingle({ data: null, error: { code: "PGRST116" } });
+
+    const res = await businessPATCH({
+      params: { expenseId: "missing" },
+      request: req("/api/expenses/business/missing", "PATCH", { amount: 200 }),
+    } as never);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 500 on an unexpected database error", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    mockUpdateSingle({ data: null, error: { code: "OTHER", message: "boom" } });
+
+    const res = await businessPATCH({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "PATCH", { amount: 200 }),
+    } as never);
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 200 on a valid update", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    mockUpdateSingle({ data: { ...BUSINESS_EXPENSE, amount: 200 }, error: null });
+
+    const res = await businessPATCH({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "PATCH", { amount: 200 }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.amount).toBe(200);
+  });
+});
+
 describe("DELETE /api/expenses/business/:expenseId", () => {
+  it("returns 401 when unauthenticated", async () => {
+    const res = await businessDELETE({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "DELETE"),
+    } as never);
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for non-manager roles", async () => {
+    (getRequestUser as Mock).mockResolvedValue(SALES_USER);
+    const res = await businessDELETE({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "DELETE"),
+    } as never);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 when the business expense doesn't exist", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+    const selectSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const selectEq = vi.fn().mockReturnValue({ single: selectSingle });
+    const select = vi.fn().mockReturnValue({ eq: selectEq });
+    (getAdminClient as Mock).mockReturnValue({ from: () => ({ select }) });
+
+    const res = await businessDELETE({
+      params: { expenseId: "missing" },
+      request: req("/api/expenses/business/missing", "DELETE"),
+    } as never);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 500 when the delete call itself fails", async () => {
+    (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
+
+    const selectSingle = vi.fn().mockResolvedValue({ data: { id: "be-1" }, error: null });
+    const selectEq = vi.fn().mockReturnValue({ single: selectSingle });
+    const select = vi.fn().mockReturnValue({ eq: selectEq });
+
+    const deleteEq = vi.fn().mockResolvedValue({ error: { message: "db down" } });
+    const del = vi.fn().mockReturnValue({ eq: deleteEq });
+
+    (getAdminClient as Mock).mockReturnValue({
+      from: vi.fn().mockReturnValue({ select, delete: del }),
+    });
+
+    const res = await businessDELETE({
+      params: { expenseId: "be-1" },
+      request: req("/api/expenses/business/be-1", "DELETE"),
+    } as never);
+    expect(res.status).toBe(500);
+  });
+
   it("returns 204 on successful delete", async () => {
     (getRequestUser as Mock).mockResolvedValue(MANAGER_USER);
 
