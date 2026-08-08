@@ -53,163 +53,6 @@ const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supaba
     color: var(--muted);
   }
 
-  /* ── Filter bar ── */
-  :global(.filters) {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  }
-
-  :global(.filter-row) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-    align-items: center;
-  }
-
-  :global(.filter-row select),
-  :global(.filter-row input) {
-    flex: 1 1 150px;
-    min-width: 0;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.85rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    background: #fff;
-    color: var(--ink);
-    line-height: 1.4;
-    appearance: auto;
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
-
-  :global(.filter-row select:hover),
-  :global(.filter-row input:hover) {
-    border-color: var(--brand-red);
-  }
-
-  :global(.filter-row select:focus),
-  :global(.filter-row input:focus) {
-    outline: none;
-    border-color: var(--brand-red);
-  }
-
-  :global(.filter-actions) {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  :global(.reset) {
-    background: none;
-    border: none;
-    color: var(--brand-red);
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 0.85rem 0.5rem;
-    text-decoration: underline;
-    white-space: nowrap;
-  }
-
-  :global(.more-filters-toggle) {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.85rem 1.1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    color: var(--ink);
-    white-space: nowrap;
-    transition: border-color 0.15s, color 0.15s;
-  }
-
-  :global(.more-filters-toggle:hover) {
-    border-color: var(--brand-red);
-    color: var(--brand-red);
-  }
-
-  /* ── Extra filters ── */
-  :global(.extra-filters) {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-    padding: 1rem 1.5rem;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  }
-
-  :global(.extra-filters select) {
-    flex: 1 1 155px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.85rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    background: #fff;
-    color: var(--ink);
-    appearance: auto;
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
-
-  :global(.extra-filters select:hover) {
-    border-color: var(--brand-red);
-  }
-
-  /* ── Results header ── */
-  :global(.results-header) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.65rem;
-  }
-
-  :global(.results-count) {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--ink);
-  }
-
-  :global(.sort-group) {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.86rem;
-  }
-
-  :global(.sort-label) {
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  :global(.sort-select) {
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 0.65rem 0.9rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    background: #fff;
-    color: var(--ink);
-    appearance: auto;
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
-
-  :global(.sort-select:hover) {
-    border-color: var(--brand-red);
-  }
-
   /* ── Inventory list ── */
   :global(.inventory-list) {
     display: flex;
@@ -416,11 +259,6 @@ const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supaba
 
   /* ── Responsive ── */
   @media (max-width: 860px) {
-    :global(.filter-row select),
-    :global(.filter-row input) {
-      flex: 1 1 110px;
-    }
-
     :global(.car-thumb),
     :global(.car-thumb-placeholder) {
       width: 120px;
@@ -432,41 +270,9 @@ const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supaba
     }
   }
 
-  /* ── Mobile: filter bar becomes a compact 2-column grid ── */
   @media (max-width: 700px) {
     .container {
       padding: 1rem 16px 3rem;
-    }
-
-    :global(.filters) {
-      padding: 1rem;
-    }
-
-    :global(.filter-row),
-    :global(.extra-filters) {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.6rem;
-    }
-
-    :global(.filter-row select),
-    :global(.filter-row input),
-    :global(.extra-filters select) {
-      flex: none;
-      width: 100%;
-      padding: 0.75rem 0.85rem;
-      font-size: 0.88rem;
-    }
-
-    :global(.filter-actions) {
-      grid-column: 1 / -1;
-      margin-left: 0;
-      justify-content: space-between;
-    }
-
-    :global(.results-header) {
-      flex-wrap: wrap;
-      gap: 0.5rem;
     }
   }
 
@@ -534,10 +340,4 @@ const cars = (await fetchPublicVehicles()).map((v) => toDisplayVehicle(v, supaba
     }
   }
 
-  @media (max-width: 340px) {
-    :global(.filter-row),
-    :global(.extra-filters) {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>

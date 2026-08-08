@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DisplayVehicle } from "../lib/public-vehicle-view";
 import { formatVehiclePrice, PUBLIC_BODY_TYPES } from "../lib/public-vehicle-view";
+import PublicSearchBar from "./PublicSearchBar";
 
 type Props = {
   cars: DisplayVehicle[];
 };
 
 type Filters = {
-  make: string;
-  model: string;
-  vin: string;
+  /** Unified free-text query — matched against VIN, make, and model. */
+  query: string;
   minPrice: string;
   maxPrice: string;
   maxMileage: string;
@@ -23,9 +23,7 @@ type Filters = {
 };
 
 const EMPTY_FILTERS: Filters = {
-  make: "",
-  model: "",
-  vin: "",
+  query: "",
   minPrice: "",
   maxPrice: "",
   maxMileage: "",
@@ -38,7 +36,14 @@ const EMPTY_FILTERS: Filters = {
   page: 1,
 };
 
-const EXTRA_FILTER_KEYS: Array<keyof Filters> = [
+/** Advanced filter keys tucked behind the "Filters" popover — used to compute the active-count badge. */
+const ADVANCED_FILTER_KEYS: Array<keyof Filters> = [
+  "minPrice",
+  "maxPrice",
+  "maxMileage",
+  "bodyType",
+  "driveType",
+  "fuelType",
   "transmission",
   "colour",
 ];
@@ -104,33 +109,15 @@ const SORT_OPTIONS = [
 export function matchesFilters(
   car: DisplayVehicle,
   activeFilters: Filters,
-  options?: { ignoreMake?: boolean; ignoreModel?: boolean },
 ): boolean {
   const maxPrice = parsePositiveInt(activeFilters.maxPrice);
   const minPrice = parsePositiveInt(activeFilters.minPrice);
   const maxMileage = parsePositiveInt(activeFilters.maxMileage);
 
-  if (
-    !options?.ignoreMake &&
-    activeFilters.make &&
-    car.make?.toLowerCase() !== activeFilters.make.toLowerCase()
-  ) {
-    return false;
-  }
-
-  if (
-    !options?.ignoreModel &&
-    activeFilters.model &&
-    car.model?.toLowerCase() !== activeFilters.model.toLowerCase()
-  ) {
-    return false;
-  }
-
-  if (
-    activeFilters.vin &&
-    !car.vin?.toLowerCase().includes(activeFilters.vin.trim().toLowerCase())
-  ) {
-    return false;
+  if (activeFilters.query) {
+    const q = activeFilters.query.trim().toLowerCase();
+    const haystack = `${car.vin} ${car.make ?? ""} ${car.model ?? ""}`.toLowerCase();
+    if (!haystack.includes(q)) return false;
   }
 
   if (
@@ -223,10 +210,14 @@ const readFiltersFromUrl = (): Filters => {
   const sort = params.get("sort") ?? "newest";
   const isSortAllowed = SORT_OPTIONS.some((option) => option.value === sort);
 
+  // Legacy links (bookmarked/shared before the unified search box existed)
+  // used separate make/model/vin params — fold them into one query string.
+  const legacyQuery = [params.get("make"), params.get("model"), params.get("vin")]
+    .filter(Boolean)
+    .join(" ");
+
   return {
-    make: params.get("make") ?? "",
-    model: params.get("model") ?? "",
-    vin: params.get("vin") ?? "",
+    query: params.get("query") ?? legacyQuery,
     minPrice: params.get("minPrice") ?? "",
     maxPrice: params.get("maxPrice") ?? "",
     maxMileage: params.get("maxMileage") ?? "",
@@ -245,14 +236,8 @@ const writeFiltersToUrl = (filters: Filters): void => {
   // Rebuild from scratch to enforce canonical key naming and drop stale/legacy params.
   const params = new URLSearchParams();
 
-  if (filters.make) params.set("make", filters.make);
-  else params.delete("make");
-
-  if (filters.model) params.set("model", filters.model);
-  else params.delete("model");
-
-  if (filters.vin) params.set("vin", filters.vin);
-  else params.delete("vin");
+  if (filters.query) params.set("query", filters.query);
+  else params.delete("query");
 
   if (filters.minPrice) params.set("minPrice", filters.minPrice);
   else params.delete("minPrice");
@@ -272,11 +257,11 @@ const writeFiltersToUrl = (filters: Filters): void => {
   if (filters.fuelType) params.set("fuelType", filters.fuelType);
   else params.delete("fuelType");
 
-  for (const key of EXTRA_FILTER_KEYS) {
-    const val = filters[key];
-    if (typeof val === "string" && val) params.set(key, val);
-    else params.delete(key);
-  }
+  if (filters.transmission) params.set("transmission", filters.transmission);
+  else params.delete("transmission");
+
+  if (filters.colour) params.set("colour", filters.colour);
+  else params.delete("colour");
 
   if (filters.sort && filters.sort !== "newest")
     params.set("sort", filters.sort);
@@ -292,7 +277,6 @@ const writeFiltersToUrl = (filters: Filters): void => {
 
 export default function InventoryFilters({ cars }: Props) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [showMore, setShowMore] = useState(false);
   const resultsRef = useRef<HTMLElement | null>(null);
   const didMountRef = useRef(false);
 
@@ -326,30 +310,8 @@ export default function InventoryFilters({ cars }: Props) {
   }, []);
 
   useEffect(() => {
-    if (activeExtraCount > 0) {
-      setShowMore(true);
-    }
-  }, []);
-
-  useEffect(() => {
     writeFiltersToUrl(filters);
   }, [filters]);
-
-  const makeOptions = useMemo(() => {
-    const source = cars.filter((car) =>
-      matchesFilters(car, filters, { ignoreMake: true }),
-    );
-
-    return buildCountOptions(source, (car) => car.make ?? undefined, filters.make);
-  }, [cars, filters]);
-
-  const modelOptions = useMemo(() => {
-    const source = cars.filter((car) =>
-      matchesFilters(car, filters, { ignoreModel: true }),
-    );
-
-    return buildCountOptions(source, (car) => car.model ?? undefined, filters.model);
-  }, [cars, filters]);
 
   const extraFilterOptions = useMemo(() => {
     const source = cars.filter((car) => matchesFilters(car, filters));
@@ -370,7 +332,7 @@ export default function InventoryFilters({ cars }: Props) {
     };
   }, [cars, filters]);
 
-  const activeExtraCount = EXTRA_FILTER_KEYS.filter(
+  const activeFilterCount = ADVANCED_FILTER_KEYS.filter(
     (key) => filters[key] !== "",
   ).length;
 
@@ -414,16 +376,11 @@ export default function InventoryFilters({ cars }: Props) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }, [totalPages]);
 
-  const firstShown = sortedCars.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
-  const lastShown = Math.min(currentPage * PAGE_SIZE, sortedCars.length);
-
   const updateFilters = (updater: (current: Filters) => Filters) => {
     setFilters((current) => {
       const next = updater(current);
       const didCriteriaChange =
-        next.make !== current.make ||
-        next.model !== current.model ||
-        next.vin !== current.vin ||
+        next.query !== current.query ||
         next.minPrice !== current.minPrice ||
         next.maxPrice !== current.maxPrice ||
         next.maxMileage !== current.maxMileage ||
@@ -442,208 +399,176 @@ export default function InventoryFilters({ cars }: Props) {
     });
   };
 
-  const onMakeChange = (nextMake: string) => {
-    updateFilters((current) => ({
-      ...current,
-      make: nextMake,
-      model: "",
-    }));
-  };
-
   const onReset = () => {
     setFilters(EMPTY_FILTERS);
   };
 
   return (
     <>
-      {/* ── Filter bar ── */}
-      <section className="filters">
-        <div className="filter-row">
-          <select
-            value={filters.make}
-            onChange={(e) => onMakeChange(e.target.value)}
-          >
-            <option value="">All Makes</option>
-            {makeOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
-          </select>
+      <PublicSearchBar
+        value={filters.query}
+        onChange={(query) => updateFilters((c) => ({ ...c, query }))}
+        placeholder="Search by make, model, or VIN"
+        filters={{
+          activeCount: activeFilterCount,
+          onClear: onReset,
+          panel: (
+            <div className="pf-panel">
+              <div className="pf-row">
+                <label className="pf-field">
+                  <span>Min Price</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    placeholder="No min"
+                    value={filters.minPrice}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, minPrice: e.target.value }))
+                    }
+                  />
+                </label>
+                <label className="pf-field">
+                  <span>Max Price</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    placeholder="No max"
+                    value={filters.maxPrice}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, maxPrice: e.target.value }))
+                    }
+                  />
+                </label>
+                <label className="pf-field">
+                  <span>Max Mileage</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    placeholder="No max"
+                    value={filters.maxMileage}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, maxMileage: e.target.value }))
+                    }
+                  />
+                </label>
+              </div>
 
-          <select
-            value={filters.model}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, model: e.target.value }))
-            }
-          >
-            <option value="">All Models</option>
-            {modelOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
-          </select>
+              <div className="pf-row">
+                <label className="pf-field">
+                  <span>Body Type</span>
+                  <select
+                    value={filters.bodyType}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, bodyType: e.target.value }))
+                    }
+                  >
+                    <option value="">All</option>
+                    {PUBLIC_BODY_TYPES.map((bt) => {
+                      const count = extraFilterOptions.bodyType.find(
+                        (o) => o.value.toLowerCase() === bt.toLowerCase(),
+                      )?.count ?? 0;
+                      return (
+                        <option key={bt} value={bt}>
+                          {bt.charAt(0).toUpperCase() + bt.slice(1)}
+                          {count > 0 ? ` (${count})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <label className="pf-field">
+                  <span>Drive Type</span>
+                  <select
+                    value={filters.driveType}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, driveType: e.target.value }))
+                    }
+                  >
+                    <option value="">All</option>
+                    {extraFilterOptions.driveType.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.value} ({o.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pf-field">
+                  <span>Fuel Type</span>
+                  <select
+                    value={filters.fuelType}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, fuelType: e.target.value }))
+                    }
+                  >
+                    <option value="">All</option>
+                    {extraFilterOptions.fuelType.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.value} ({o.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-          <input
-            type="text"
-            placeholder="Search by VIN"
-            value={filters.vin}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, vin: e.target.value }))
-            }
-          />
-
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            placeholder="Min Price"
-            value={filters.minPrice}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, minPrice: e.target.value }))
-            }
-          />
-
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            placeholder="Max Price"
-            value={filters.maxPrice}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, maxPrice: e.target.value }))
-            }
-          />
-
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            placeholder="Mileage"
-            value={filters.maxMileage}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, maxMileage: e.target.value }))
-            }
-          />
-
-          <select
-            value={filters.bodyType}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, bodyType: e.target.value }))
-            }
-          >
-            <option value="">Body Type</option>
-            {PUBLIC_BODY_TYPES.map((bt) => {
-              const count = extraFilterOptions.bodyType.find(
-                (o) => o.value.toLowerCase() === bt.toLowerCase(),
-              )?.count ?? 0;
-              return (
-                <option key={bt} value={bt}>
-                  {bt.charAt(0).toUpperCase() + bt.slice(1)}
-                  {count > 0 ? ` (${count})` : ""}
-                </option>
-              );
-            })}
-          </select>
-
-          <select
-            value={filters.driveType}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, driveType: e.target.value }))
-            }
-          >
-            <option value="">Drive Type</option>
-            {extraFilterOptions.driveType.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filters.fuelType}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, fuelType: e.target.value }))
-            }
-          >
-            <option value="">Fuel Type</option>
-            {extraFilterOptions.fuelType.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
-          </select>
-
-          <div className="filter-actions">
-            <button type="button" className="reset" onClick={onReset}>
-              Clear all
-            </button>
-            <button
-              type="button"
-              className="more-filters-toggle"
-              onClick={() => setShowMore((prev) => !prev)}
+              <div className="pf-row">
+                <label className="pf-field">
+                  <span>Transmission</span>
+                  <select
+                    value={filters.transmission}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, transmission: e.target.value }))
+                    }
+                  >
+                    <option value="">All</option>
+                    {extraFilterOptions.transmission.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.value} ({o.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pf-field">
+                  <span>Colour</span>
+                  <select
+                    value={filters.colour}
+                    onChange={(e) =>
+                      updateFilters((c) => ({ ...c, colour: e.target.value }))
+                    }
+                  >
+                    <option value="">All</option>
+                    {extraFilterOptions.colour.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.value} ({o.count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          ),
+        }}
+        resultsLabel={`${sortedCars.length} Results`}
+        actions={
+          <label className="pf-sort">
+            <span>Sort by</span>
+            <select
+              value={filters.sort}
+              onChange={(e) =>
+                updateFilters((c) => ({ ...c, sort: e.target.value }))
+              }
             >
-              {showMore ? "Hide" : "+"} More Filters
-              {activeExtraCount > 0 ? ` (${activeExtraCount})` : ""}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Extra filters (Transmission / Colour) ── */}
-      {showMore && (
-        <section className="extra-filters">
-          <select
-            value={filters.transmission}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, transmission: e.target.value }))
-            }
-          >
-            <option value="">Transmission</option>
-            {extraFilterOptions.transmission.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filters.colour}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, colour: e.target.value }))
-            }
-          >
-            <option value="">Colour</option>
-            {extraFilterOptions.colour.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value} ({o.count})
-              </option>
-            ))}
-          </select>
-        </section>
-      )}
-
-      {/* ── Results header ── */}
-      <div className="results-header">
-        <strong className="results-count">{sortedCars.length} Results</strong>
-        <div className="sort-group">
-          <span className="sort-label">Sort by:</span>
-          <select
-            className="sort-select"
-            value={filters.sort}
-            onChange={(e) =>
-              updateFilters((c) => ({ ...c, sort: e.target.value }))
-            }
-          >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+      />
 
       {/* ── Inventory list ── */}
       <section className="inventory-list" ref={resultsRef}>
@@ -746,6 +671,36 @@ export default function InventoryFilters({ cars }: Props) {
           </button>
         </nav>
       )}
+
+      <style>{`
+        .pf-panel { display: flex; flex-direction: column; gap: 0.9rem; }
+        .pf-row { display: flex; flex-wrap: wrap; gap: 0.9rem; }
+        .pf-field {
+          display: flex; flex-direction: column; gap: 0.3rem; flex: 1 1 130px; min-width: 130px;
+          font-size: 0.76rem; font-weight: 700; color: var(--filter-label); text-transform: uppercase; letter-spacing: 0.02em;
+        }
+        .pf-field input, .pf-field select {
+          height: 36px; padding: 0 0.6rem; border: 1px solid var(--line); border-radius: 6px;
+          background: var(--bg-subtle); color: var(--ink); font-size: 0.85rem; font-weight: 600; font-family: inherit;
+        }
+        .pf-field input:focus, .pf-field select:focus { outline: none; border-color: var(--brand-red); }
+
+        .pf-sort {
+          display: inline-flex; align-items: center; gap: 0.5rem;
+          font-size: 0.82rem; font-weight: 600; color: var(--muted); white-space: nowrap;
+        }
+        .pf-sort select {
+          height: 44px; padding: 0 0.7rem; border: 1px solid var(--line); border-radius: 8px;
+          background: var(--surface); color: var(--ink); font-size: 0.88rem; font-weight: 600; font-family: inherit;
+          cursor: pointer;
+        }
+        .pf-sort select:hover, .pf-sort select:focus { outline: none; border-color: var(--brand-red); }
+
+        @media (max-width: 480px) {
+          .pf-row { gap: 0.6rem; }
+          .pf-field { flex-basis: 100%; }
+        }
+      `}</style>
     </>
   );
 }
