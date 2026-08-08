@@ -212,7 +212,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
       {/* Tab content */}
       <div className="vd-content">
-        {activeTab === "basics"     && <BasicsTab     v={v} onSave={save} />}
+        {activeTab === "basics"     && <BasicsTab     v={v} onSave={save} show={show} />}
         {activeTab === "purchase"   && <PurchaseTab   v={v} onSave={save} />}
         {activeTab === "pricing"    && <PricingTab    v={v} totalCost={totalCost} profitLoss={profitLoss} onSave={save} />}
         {activeTab === "media"      && <MediaTab      v={v} supabaseUrl={supabaseUrl} onSave={save} show={show} />}
@@ -291,7 +291,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
 // ── Basics Tab ────────────────────────────────────────────────────────────────
 
-function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
+function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void>; show: (msg: string, ok: boolean) => void }) {
   const [form, setForm] = useState({
     make:                  v.make ?? "",
     model:                 v.model ?? "",
@@ -319,6 +319,7 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
   const [features,      setFeatures]      = useState<string[]>(v.features ?? []);
   const [newFeature,    setNewFeature]    = useState("");
   const [saving, setSaving] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
 
   const daysOnLot = calcDaysOnLot(v.purchase_date);
 
@@ -326,6 +327,29 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
 
   async function autoSave(field: "internal_notes" | "disclosures" | "description", value: string) {
     await onSave({ [field]: value || null });
+  }
+
+  async function generateDescription() {
+    setGeneratingDescription(true);
+    try {
+      const res = await fetch(`/api/vehicles/${v.vin}/generate-description`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        const code = (data as { error?: string }).error;
+        const message =
+          res.status === 429
+            ? "Too many requests — please wait a bit and try again."
+            : code ?? "Failed to generate description";
+        show(message, false);
+        return;
+      }
+      setDescription((data as { description: string }).description);
+      show("Description generated — review and save.", true);
+    } catch {
+      show("Network error while generating description", false);
+    } finally {
+      setGeneratingDescription(false);
+    }
   }
 
   async function addFeature() {
@@ -494,7 +518,17 @@ function BasicsTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, u
           </div>
         </div>
         <div className="f-field">
-          <label>Public Description</label>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <label style={{ margin: 0 }}>Public Description</label>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={generateDescription}
+              disabled={generatingDescription}
+            >
+              {generatingDescription ? "Generating…" : "Generate Description"}
+            </button>
+          </div>
           <textarea
             data-testid="vd-description"
             value={description}

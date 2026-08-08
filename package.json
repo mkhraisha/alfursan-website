@@ -20,6 +20,9 @@
     "db:push": "supabase db push",
     "db:status": "supabase migration list"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@astrojs/check": "0.9.10",
     "@astrojs/react": "6.0.2",
@@ -27,6 +30,7 @@
     "@astrojs/vercel": "11.0.4",
     "@fontsource-variable/mulish": "^5.3.0",
     "@fontsource/bebas-neue": "^5.3.0",
+    "@google/genai": "2.15.0",
     "@sentry/astro": "^10.69.0",
     "@supabase/supabase-js": "2.111.0",
     "@types/react": "19.2.18",

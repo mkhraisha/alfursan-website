@@ -29,3 +29,32 @@ export function getFinancingRateLimit() {
     prefix: "alfursan:financing",
   });
 }
+
+/**
+ * Rate limiter for the AI vehicle-description generator, keyed by user ID
+ * (an authenticated admin action) rather than IP. Tighter than the financing
+ * form limiter since each call is a real Gemini API request.
+ *
+ * Usage in an API route:
+ *   const { success } = await getDescriptionRateLimit().limit(user.userId);
+ *   if (!success) return json({ error: "rate_limit" }, 429);
+ */
+export function getDescriptionRateLimit() {
+  const url = import.meta.env.UPSTASH_REDIS_REST_URL;
+  const token = import.meta.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    throw new Error(
+      "Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN env vars",
+    );
+  }
+
+  const redis = new Redis({ url, token });
+
+  return new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(30, "1 h"),
+    analytics: false,
+    prefix: "alfursan:vehicle-description",
+  });
+}
