@@ -50,10 +50,12 @@ describe("BusinessExpenses", () => {
     expect(screen.queryByText(/Description \*/i)).not.toBeInTheDocument();
   });
 
-  it("disables Save Expense until required fields are filled", () => {
+  it("shows inline field errors and blocks submission when required fields are missing", () => {
     render(<BusinessExpenses expenses={EXPENSES} supabaseUrl="https://test.supabase.co" />);
     fireEvent.click(screen.getByRole("button", { name: /\+ Add Business Expense/i }));
-    expect(screen.getByRole("button", { name: /Save Expense/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /Save Expense/i }));
+    expect(screen.getByText(/Description is required/i)).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("adds a new expense on successful submission", async () => {
