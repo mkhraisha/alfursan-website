@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { userCreateSchema, userUpdateSchema } from "../../lib/users";
+import { validateWithSchema, apiFieldErrorsToMap } from "../../lib/validation";
 
 type UserProfile = {
   id: string;
@@ -27,6 +29,27 @@ const DMS_ROLES = ["owner", "manager", "sales"] as const;
 
 let toastId = 0;
 
+function buildInviteFields(form: { email: string; role: string; commission: string }): Record<string, unknown> {
+  const fields: Record<string, unknown> = { email: form.email.trim().toLowerCase(), role: form.role };
+  if (form.commission !== "") fields.commission_percentage = parseFloat(form.commission);
+  return fields;
+}
+
+export function validateUserInviteForm(form: { email: string; role: string; commission: string }): Record<string, string> {
+  return validateWithSchema(userCreateSchema, buildInviteFields(form));
+}
+
+function buildEditFields(form: { role: string; commission: string }): Record<string, unknown> {
+  return {
+    role: form.role,
+    commission_percentage: form.commission !== "" ? parseFloat(form.commission) : null,
+  };
+}
+
+export function validateUserEditForm(form: { role: string; commission: string }): Record<string, string> {
+  return validateWithSchema(userUpdateSchema, buildEditFields(form));
+}
+
 export default function UsersPage() {
   const [users, setUsers]     = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,12 +60,14 @@ export default function UsersPage() {
   const [role, setRole]       = useState<"owner" | "manager" | "sales">("sales");
   const [commission, setCommission] = useState("");
   const [adding, setAdding]   = useState(false);
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({});
 
   // Inline edit state
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [editRole, setEditRole]           = useState<"owner" | "manager" | "sales">("sales");
   const [editCommission, setEditCommission] = useState("");
   const [saving, setSaving]               = useState(false);
+  const [editErrors, setEditErrors]       = useState<Record<string, string>>({});
 
   function toast(msg: string, ok = true) {
     const id = ++toastId;
@@ -65,14 +90,18 @@ export default function UsersPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
+    const form = { email, role, commission };
+    const errs = validateUserInviteForm(form);
+    if (Object.keys(errs).length > 0) {
+      setInviteErrors(errs);
+      return;
+    }
+    setInviteErrors({});
     setAdding(true);
-    const body: Record<string, unknown> = { email: email.trim().toLowerCase(), role };
-    if (commission !== "") body.commission_percentage = parseFloat(commission);
-
     const res = await fetch("/api/dealer/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(buildInviteFields(form)),
     });
     const data = await res.json();
     if (res.ok) {
@@ -83,6 +112,7 @@ export default function UsersPage() {
       setUsers((u) => [data, ...u]);
     } else {
       toast(data.error ?? "Failed to invite user", false);
+      if (data.errors) setInviteErrors(apiFieldErrorsToMap(data.errors));
     }
     setAdding(false);
   }
@@ -91,17 +121,22 @@ export default function UsersPage() {
     setEditingId(u.id);
     setEditRole(u.role);
     setEditCommission(u.commission_percentage != null ? String(u.commission_percentage) : "");
+    setEditErrors({});
   }
 
   async function saveEdit(u: UserProfile) {
+    const form = { role: editRole, commission: editCommission };
+    const errs = validateUserEditForm(form);
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs);
+      return;
+    }
+    setEditErrors({});
     setSaving(true);
-    const body: Record<string, unknown> = { role: editRole };
-    body.commission_percentage = editCommission !== "" ? parseFloat(editCommission) : null;
-
     const res = await fetch(`/api/dealer/users/${u.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(buildEditFields(form)),
     });
     const data = await res.json();
     if (res.ok) {
@@ -110,6 +145,7 @@ export default function UsersPage() {
       setEditingId(null);
     } else {
       toast(data.error ?? "Failed to update user", false);
+      if (data.errors) setEditErrors(apiFieldErrorsToMap(data.errors));
     }
     setSaving(false);
   }
@@ -294,6 +330,7 @@ export default function UsersPage() {
         @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
         .up-spinner { display: inline-block; }
+        .field-err { font-size: 12px; color: #b92111; margin: 4px 0 0; }
       `}</style>
 
       {/* Toasts */}
@@ -322,21 +359,23 @@ export default function UsersPage() {
                 className="up-input"
                 placeholder="user@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setInviteErrors((er) => (er.email ? { ...er, email: "" } : er)); }}
                 required
               />
+              {inviteErrors.email && <p className="field-err">{inviteErrors.email}</p>}
             </div>
             <div className="up-field">
               <label className="up-label">Role</label>
               <select
                 className="up-select"
                 value={role}
-                onChange={(e) => setRole(e.target.value as "owner" | "manager" | "sales")}
+                onChange={(e) => { setRole(e.target.value as "owner" | "manager" | "sales"); setInviteErrors((er) => (er.role ? { ...er, role: "" } : er)); }}
               >
                 {DMS_ROLES.map((r) => (
                   <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                 ))}
               </select>
+              {inviteErrors.role && <p className="field-err">{inviteErrors.role}</p>}
             </div>
             <div className="up-field">
               <label className="up-label">Commission %</label>
@@ -348,9 +387,10 @@ export default function UsersPage() {
                 max={100}
                 step={0.1}
                 value={commission}
-                onChange={(e) => setCommission(e.target.value)}
+                onChange={(e) => { setCommission(e.target.value); setInviteErrors((er) => (er.commission_percentage ? { ...er, commission_percentage: "" } : er)); }}
                 style={{ width: 110 }}
               />
+              {inviteErrors.commission_percentage && <p className="field-err">{inviteErrors.commission_percentage}</p>}
             </div>
             <button type="submit" className="up-btn up-btn--primary" disabled={adding}>
               {adding ? "Inviting…" : "Invite"}
@@ -388,15 +428,18 @@ export default function UsersPage() {
                       <td style={{ fontWeight: 500 }}>{u.email}</td>
                       <td>
                         {isEditing ? (
-                          <select
-                            className="up-inline-select"
-                            value={editRole}
-                            onChange={(e) => setEditRole(e.target.value as "owner" | "manager" | "sales")}
-                          >
-                            {DMS_ROLES.map((r) => (
-                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                            ))}
-                          </select>
+                          <>
+                            <select
+                              className="up-inline-select"
+                              value={editRole}
+                              onChange={(e) => { setEditRole(e.target.value as "owner" | "manager" | "sales"); setEditErrors((er) => (er.role ? { ...er, role: "" } : er)); }}
+                            >
+                              {DMS_ROLES.map((r) => (
+                                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                              ))}
+                            </select>
+                            {editErrors.role && <p className="field-err">{editErrors.role}</p>}
+                          </>
                         ) : (
                           <span
                             className="up-badge"
@@ -408,16 +451,19 @@ export default function UsersPage() {
                       </td>
                       <td>
                         {isEditing ? (
-                          <input
-                            type="number"
-                            className="up-inline-input"
-                            value={editCommission}
-                            min={0}
-                            max={100}
-                            step={0.1}
-                            placeholder="—"
-                            onChange={(e) => setEditCommission(e.target.value)}
-                          />
+                          <>
+                            <input
+                              type="number"
+                              className="up-inline-input"
+                              value={editCommission}
+                              min={0}
+                              max={100}
+                              step={0.1}
+                              placeholder="—"
+                              onChange={(e) => { setEditCommission(e.target.value); setEditErrors((er) => (er.commission_percentage ? { ...er, commission_percentage: "" } : er)); }}
+                            />
+                            {editErrors.commission_percentage && <p className="field-err">{editErrors.commission_percentage}</p>}
+                          </>
                         ) : (
                           u.commission_percentage != null
                             ? `${u.commission_percentage}%`
