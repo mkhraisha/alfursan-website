@@ -141,7 +141,7 @@ The local Supabase stack (`supabase start`) never sends real email — every mag
 | `npm run test:e2e:ui` | Open the Playwright UI runner |
 | `npm run test:e2e:report` | Open the last local HTML report |
 
-**CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: it spins up a real local Supabase stack (`supabase start` + `supabase db reset` — schema-only, no production data involved), seeds manager/sales test users, builds, runs unit tests, then runs the full Playwright suite (including the RBAC/CRUD suite in `e2e/vehicles-api.spec.ts`) against a local dev server. No secrets to configure — the test users and their JWTs are minted fresh against the ephemeral local stack every run and thrown away with it.
+**CI** (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: it spins up a real local Supabase stack (`supabase start` + `supabase db reset` — schema-only, no production data involved), seeds manager/sales test users and one fixture vehicle, builds, runs unit tests, then runs the full Playwright suite (including the RBAC/CRUD suite in `e2e/vehicles-api.spec.ts` and the public listing suite in `e2e/public-listing.spec.ts`) against a local dev server. No secrets to configure — the test users, tokens, and fixture vehicle are minted fresh against the ephemeral local stack every run and thrown away with it.
 
 The latest HTML report from `main` is published at **[mkhraisha.github.io/alfursan-website](https://mkhraisha.github.io/alfursan-website/)** — every run also uploads the report as a downloadable workflow artifact (Actions tab → run → Artifacts) for PR branches.
 
@@ -229,3 +229,5 @@ Deployed on Vercel. Set env vars **manually** in the Vercel dashboard — do not
 | `RESEND_DEALER_EMAIL` | No | Production + Preview |
 | `UPSTASH_REDIS_REST_URL` | No | Production only (optional) |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes | Production only (optional) |
+| `GEMINI_API_KEY` | Yes | Production only |
+| `GEMINI_MODEL` | No | Production only (optional) |

@@ -15,6 +15,7 @@ const REQUIRED_ENV: Array<{ key: string; description: string }> = [
 const OPTIONAL_ENV: Array<{ key: string; description: string }> = [
   { key: "UPSTASH_REDIS_REST_URL", description: "Upstash Redis REST URL (rate limiting — optional)" },
   { key: "UPSTASH_REDIS_REST_TOKEN", description: "Upstash Redis REST token (rate limiting — optional)" },
+  { key: "GEMINI_API_KEY", description: "Google Gemini API key (AI-generated vehicle descriptions — optional)" },
   // NOTE: VERCEL_PROJECT_ID is deliberately not listed here — Vercel injects
   // it automatically at build+runtime (a system env var, once "Enable access
   // to System Environment Variables" is checked in Project Settings), so
