@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
-import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType } from "../../lib/vehicles";
+import { calcTotalCost, calcProfitLoss, calcCommission, calcDaysOnLot, BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, EXPENSE_CATEGORIES, TAX_TYPES, DEFAULT_TAX_TYPE, rateForTaxType, vehicleUpdateSchema } from "../../lib/vehicles";
 import { buildStorageUrl, setFeaturedImage, removeImagePath } from "../../lib/media";
+import { validateWithSchema, apiFieldErrorsToMap } from "../../lib/validation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -110,11 +111,17 @@ function fmt(n: number | null, prefix = "$") {
 
 // ── Per-tab patch helper ──────────────────────────────────────────────────────
 
-async function patchVehicle(vin: string, fields: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
+export type SaveResult = { ok: boolean; error?: string; errors?: Record<string, string> };
+export type OnSave = (fields: Record<string, unknown>) => Promise<SaveResult>;
+
+async function patchVehicle(vin: string, fields: Record<string, unknown>): Promise<SaveResult> {
   try {
     const res  = await fetch(`/api/vehicles/${vin}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) });
     const data = await res.json();
-    if (!res.ok) return { ok: false, error: (data as { error?: string }).error ?? "Save failed" };
+    if (!res.ok) {
+      const apiErrors = (data as { errors?: Record<string, string[]> }).errors;
+      return { ok: false, error: (data as { error?: string }).error ?? "Save failed", errors: apiErrors ? apiFieldErrorsToMap(apiErrors) : undefined };
+    }
     return { ok: true };
   } catch {
     return { ok: false, error: "Network error" };
@@ -178,7 +185,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
   const commUser     = users.find((u) => u.id === v.commission_user_id) ?? null;
   const commission   = calcCommission(profitLoss, commUser?.commission_percentage ?? null);
 
-  async function save(fields: Record<string, unknown>) {
+  async function save(fields: Record<string, unknown>): Promise<SaveResult> {
     const result = await patchVehicle(v.vin, fields);
     if (result.ok) {
       setV((prev) => ({ ...prev, ...fields }));
@@ -186,6 +193,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
     } else {
       show(result.error ?? "Save failed", false);
     }
+    return result;
   }
 
   return (
@@ -267,6 +275,7 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
         .f-field input:focus, .f-field select:focus, .f-field textarea:focus { outline: none; border-color: #b92111; }
         .f-field input:disabled, .f-field select:disabled { background: #f8f9fb; color: #6b7280; cursor: not-allowed; }
         .f-readonly { font-size: 14px; color: #374151; padding: 6px 0; font-weight: 600; }
+        .field-err { font-size: 12px; color: #b92111; margin: 4px 0 0; }
 
         .save-row { display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid #f0f2f5; }
         .btn-save { padding: 8px 20px; background: #b92111; color: #fff; border: none; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer; }
@@ -291,7 +300,50 @@ export default function VehicleDetail({ vehicle, expenses: initExpenses, documen
 
 // ── Basics Tab ────────────────────────────────────────────────────────────────
 
-function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void>; show: (msg: string, ok: boolean) => void }) {
+/**
+ * Extracts the PATCH payload from the Basics form — shared by `submit()` and
+ * `validateBasicsForm()` so client validation always sees the exact payload
+ * that would be submitted.
+ */
+function buildBasicsFields(form: Record<string, string>): Record<string, unknown> {
+  const fields: Record<string, unknown> = { make: form.make, model: form.model };
+  if (form.trim)        fields.trim        = form.trim;
+  if (form.series)      fields.series      = form.series;
+  if (form.body_type)   fields.body_type   = form.body_type;
+  fields.engine_type           = form.engine_type || null;
+  if (form.year)        fields.year        = parseInt(form.year);
+  if (form.colour)      fields.colour      = form.colour;
+  if (form.odometer)    fields.odometer    = parseInt(form.odometer.replace(/,/g, ""));
+  fields.num_keys              = form.num_keys !== "" ? parseInt(form.num_keys) : null;
+  fields.drive_type            = form.drive_type || null;
+  fields.transmission          = form.transmission || null;
+  fields.fuel_type             = form.fuel_type || null;
+  fields.cylinders             = form.cylinders !== "" ? parseInt(form.cylinders) : null;
+  fields.doors                 = form.doors !== "" ? parseInt(form.doors) : null;
+  fields.status                = form.status || null;
+  fields.ownership_status      = form.ownership_status || null;
+  fields.photography_status    = form.photography_status || null;
+  fields.carfax_link           = form.carfax_link || null;
+  return fields;
+}
+
+const basicsSchema = vehicleUpdateSchema.pick({
+  make: true, model: true, year: true, trim: true, series: true, body_type: true,
+  engine_type: true, colour: true, odometer: true, num_keys: true, drive_type: true,
+  transmission: true, fuel_type: true, cylinders: true, doors: true, status: true,
+  ownership_status: true, photography_status: true, carfax_link: true,
+});
+
+/**
+ * Pure validation of the Basics tab form — no DOM/React dependency, so it's
+ * unit-testable directly. Delegates to the same `vehicleUpdateSchema` subset
+ * the PATCH endpoint enforces server-side.
+ */
+export function validateBasicsForm(form: Record<string, string>): Record<string, string> {
+  return validateWithSchema(basicsSchema, buildBasicsFields(form));
+}
+
+function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: OnSave; show: (msg: string, ok: boolean) => void }) {
   const [form, setForm] = useState({
     make:                  v.make ?? "",
     model:                 v.model ?? "",
@@ -320,10 +372,14 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
   const [newFeature,    setNewFeature]    = useState("");
   const [saving, setSaving] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const daysOnLot = calcDaysOnLot(v.purchase_date);
 
-  function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
+  function set(k: keyof typeof form, val: string) {
+    setForm((f) => ({ ...f, [k]: val }));
+    setErrors((e) => (e[k] ? { ...e, [k]: "" } : e));
+  }
 
   async function autoSave(field: "internal_notes" | "disclosures" | "description", value: string) {
     await onSave({ [field]: value || null });
@@ -368,26 +424,14 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
   }
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true);
-    const fields: Record<string, unknown> = { make: form.make, model: form.model };
-    if (form.trim)        fields.trim        = form.trim;
-    if (form.series)      fields.series      = form.series;
-    if (form.body_type)   fields.body_type   = form.body_type;
-    fields.engine_type           = form.engine_type || null;
-    if (form.year)        fields.year        = parseInt(form.year);
-    if (form.colour)      fields.colour      = form.colour;
-    if (form.odometer)    fields.odometer    = parseInt(form.odometer.replace(/,/g, ""));
-    fields.num_keys              = form.num_keys !== "" ? parseInt(form.num_keys) : null;
-    fields.drive_type            = form.drive_type || null;
-    fields.transmission          = form.transmission || null;
-    fields.fuel_type             = form.fuel_type || null;
-    fields.cylinders             = form.cylinders !== "" ? parseInt(form.cylinders) : null;
-    fields.doors                 = form.doors !== "" ? parseInt(form.doors) : null;
-    fields.status                = form.status || null;
-    fields.ownership_status      = form.ownership_status || null;
-    fields.photography_status    = form.photography_status || null;
-    fields.carfax_link           = form.carfax_link || null;
-    await onSave(fields); setSaving(false);
+    e.preventDefault();
+    const errs = validateBasicsForm(form);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    setSaving(true);
+    const result = await onSave(buildBasicsFields(form));
+    if (result.errors) setErrors(result.errors);
+    setSaving(false);
   }
 
   return (
@@ -397,9 +441,9 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
         <input value={v.vin} disabled />
       </div>
       <div className="f-grid">
-        <div className="f-field"><label>Make *</label><input data-testid="vd-make" value={form.make} onChange={(e) => set("make", e.target.value)} required /></div>
-        <div className="f-field"><label>Model *</label><input data-testid="vd-model" value={form.model} onChange={(e) => set("model", e.target.value)} required /></div>
-        <div className="f-field"><label>Year</label><input type="number" data-testid="vd-year" value={form.year} onChange={(e) => set("year", e.target.value)} min="1900" max="2100" /></div>
+        <div className="f-field"><label>Make *</label><input data-testid="vd-make" value={form.make} onChange={(e) => set("make", e.target.value)} required />{errors.make && <p className="field-err">{errors.make}</p>}</div>
+        <div className="f-field"><label>Model *</label><input data-testid="vd-model" value={form.model} onChange={(e) => set("model", e.target.value)} required />{errors.model && <p className="field-err">{errors.model}</p>}</div>
+        <div className="f-field"><label>Year</label><input type="number" data-testid="vd-year" value={form.year} onChange={(e) => set("year", e.target.value)} min="1900" max="2100" />{errors.year && <p className="field-err">{errors.year}</p>}</div>
         <div className="f-field"><label>Trim</label><input data-testid="vd-trim" value={form.trim} onChange={(e) => set("trim", e.target.value)} /></div>
         <div className="f-field"><label>Series</label><input data-testid="vd-series" value={form.series} onChange={(e) => set("series", e.target.value)} /></div>
         <div className="f-field">
@@ -410,11 +454,12 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
               <option key={bt} value={bt}>{bt.charAt(0).toUpperCase() + bt.slice(1)}</option>
             ))}
           </select>
+          {errors.body_type && <p className="field-err">{errors.body_type}</p>}
         </div>
         <div className="f-field"><label>Engine Type</label><input data-testid="vd-engine_type" value={form.engine_type} onChange={(e) => set("engine_type", e.target.value)} placeholder="e.g. 2.0L Turbo" /></div>
-        <div className="f-field"><label>Colour</label><input data-testid="vd-colour" value={form.colour} onChange={(e) => set("colour", e.target.value)} /></div>
-        <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" data-testid="vd-odometer" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" /></div>
-        <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" data-testid="vd-num_keys" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" /></div>
+        <div className="f-field"><label>Colour</label><input data-testid="vd-colour" value={form.colour} onChange={(e) => set("colour", e.target.value)} />{errors.colour && <p className="field-err">{errors.colour}</p>}</div>
+        <div className="f-field"><label>Odometer (km)</label><input type="text" inputMode="numeric" data-testid="vd-odometer" value={form.odometer} onChange={(e) => set("odometer", e.target.value)} placeholder="e.g. 45,000" />{errors.odometer && <p className="field-err">{errors.odometer}</p>}</div>
+        <div className="f-field"><label>Number of Keys</label><input type="number" min="0" max="10" data-testid="vd-num_keys" value={form.num_keys} onChange={(e) => set("num_keys", e.target.value)} placeholder="e.g. 2" />{errors.num_keys && <p className="field-err">{errors.num_keys}</p>}</div>
         <div className="f-field">
           <label>Drive Type</label>
           <select data-testid="vd-drive_type" value={form.drive_type} onChange={(e) => set("drive_type", e.target.value)}>
@@ -442,9 +487,9 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
             ))}
           </select>
         </div>
-        <div className="f-field"><label>Cylinders</label><input type="number" min="1" max="16" data-testid="vd-cylinders" value={form.cylinders} onChange={(e) => set("cylinders", e.target.value)} placeholder="e.g. 4" /></div>
-        <div className="f-field"><label>Doors</label><input type="number" min="2" max="6" data-testid="vd-doors" value={form.doors} onChange={(e) => set("doors", e.target.value)} placeholder="e.g. 4" /></div>
-        <div className="f-field"><label>Carfax Link</label><input type="url" data-testid="vd-carfax_link" value={form.carfax_link} onChange={(e) => set("carfax_link", e.target.value)} placeholder="https://www.carfax.ca/..." /></div>
+        <div className="f-field"><label>Cylinders</label><input type="number" min="1" max="16" data-testid="vd-cylinders" value={form.cylinders} onChange={(e) => set("cylinders", e.target.value)} placeholder="e.g. 4" />{errors.cylinders && <p className="field-err">{errors.cylinders}</p>}</div>
+        <div className="f-field"><label>Doors</label><input type="number" min="2" max="6" data-testid="vd-doors" value={form.doors} onChange={(e) => set("doors", e.target.value)} placeholder="e.g. 4" />{errors.doors && <p className="field-err">{errors.doors}</p>}</div>
+        <div className="f-field"><label>Carfax Link</label><input type="url" data-testid="vd-carfax_link" value={form.carfax_link} onChange={(e) => set("carfax_link", e.target.value)} placeholder="https://www.carfax.ca/..." />{errors.carfax_link && <p className="field-err">{errors.carfax_link}</p>}</div>
       </div>
 
       {daysOnLot !== null && (
@@ -574,31 +619,68 @@ function BasicsTab({ v, onSave, show }: { v: VehicleFull; onSave: (f: Record<str
 
 // ── Purchase Tab ──────────────────────────────────────────────────────────────
 
-function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string, unknown>) => Promise<void> }) {
+/**
+ * Extracts the PATCH payload from the Purchase form — shared by `submit()`
+ * and `validatePurchaseForm()` so client validation always sees the exact
+ * payload that would be submitted.
+ */
+function buildPurchaseFields(form: Record<string, string>): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  if (form.purchase_date)    fields.purchase_date    = form.purchase_date;
+  if (form.purchase_price)        fields.purchase_price        = parseFloat(form.purchase_price.replace(/,/g, ""));
+  if (form.purchased_from_name)   fields.purchased_from_name   = form.purchased_from_name;
+  if (form.purchased_from_address) fields.purchased_from_address = form.purchased_from_address;
+  fields.lead_source              = form.lead_source || null;
+  if (form.purchaser_name)        fields.purchaser_name        = form.purchaser_name;
+  if (form.purchaser_address)     fields.purchaser_address     = form.purchaser_address;
+  return fields;
+}
+
+const purchaseSchema = vehicleUpdateSchema.pick({
+  purchase_date: true, purchase_price: true, purchased_from_name: true,
+  purchased_from_address: true, lead_source: true, purchaser_name: true,
+  purchaser_address: true,
+});
+
+/**
+ * Pure validation of the Purchase tab form — no DOM/React dependency, so
+ * it's unit-testable directly. Delegates to the same `vehicleUpdateSchema`
+ * subset the PATCH endpoint enforces server-side. Note: `vehicleUpdateSchema`
+ * has none of `vehicleCreateSchema`'s future-date refinements — a
+ * pre-existing gap on the PATCH path server-side too, so FE and server stay
+ * consistent; fixing the server schema itself is out of scope here.
+ */
+export function validatePurchaseForm(form: Record<string, string>): Record<string, string> {
+  return validateWithSchema(purchaseSchema, buildPurchaseFields(form));
+}
+
+function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: OnSave }) {
   const [form, setForm] = useState({ purchase_date: v.purchase_date ?? "", purchase_price: v.purchase_price != null ? v.purchase_price.toLocaleString("en-CA") : "", purchased_from_name: v.purchased_from_name ?? "", purchased_from_address: v.purchased_from_address ?? "", lead_source: v.lead_source ?? "", purchaser_name: v.purchaser_name ?? "", purchaser_address: v.purchaser_address ?? "" });
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  function set(k: keyof typeof form, val: string) { setForm((f) => ({ ...f, [k]: val })); }
+  function set(k: keyof typeof form, val: string) {
+    setForm((f) => ({ ...f, [k]: val }));
+    setErrors((e) => (e[k] ? { ...e, [k]: "" } : e));
+  }
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true);
-    const fields: Record<string, unknown> = {};
-    if (form.purchase_date)    fields.purchase_date    = form.purchase_date;
-    if (form.purchase_price)        fields.purchase_price        = parseFloat(form.purchase_price.replace(/,/g, ""));
-    if (form.purchased_from_name)   fields.purchased_from_name   = form.purchased_from_name;
-    if (form.purchased_from_address) fields.purchased_from_address = form.purchased_from_address;
-    fields.lead_source              = form.lead_source || null;
-    if (form.purchaser_name)        fields.purchaser_name        = form.purchaser_name;
-    if (form.purchaser_address)     fields.purchaser_address     = form.purchaser_address;
-    await onSave(fields); setSaving(false);
+    e.preventDefault();
+    const errs = validatePurchaseForm(form);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    setSaving(true);
+    const result = await onSave(buildPurchaseFields(form));
+    if (result.errors) setErrors(result.errors);
+    setSaving(false);
   }
 
   const today = new Date().toISOString().slice(0, 10);
   return (
     <form onSubmit={submit}>
       <div className="f-grid">
-        <div className="f-field"><label>Purchase Date</label><input type="date" data-testid="vd-purchase_date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} max={today} /></div>
-        <div className="f-field"><label>Purchase Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-purchase_price" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" /></div>
+        <div className="f-field"><label>Purchase Date</label><input type="date" data-testid="vd-purchase_date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} max={today} />{errors.purchase_date && <p className="field-err">{errors.purchase_date}</p>}</div>
+        <div className="f-field"><label>Purchase Price (CAD)</label><input type="text" inputMode="decimal" data-testid="vd-purchase_price" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} placeholder="e.g. 25,000" />{errors.purchase_price && <p className="field-err">{errors.purchase_price}</p>}</div>
         <div className="f-field"><label>Lead Source</label><input data-testid="vd-lead_source" value={form.lead_source} onChange={(e) => set("lead_source", e.target.value)} placeholder="e.g. CarGurus, Facebook, Referral" /></div>
         <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Name</label><input data-testid="vd-purchased_from_name" value={form.purchased_from_name} onChange={(e) => set("purchased_from_name", e.target.value)} placeholder="Previous owner or auction house" /></div>
         <div className="f-field" style={{ gridColumn: "1 / -1" }}><label>Purchased From — Address</label><input data-testid="vd-purchased_from_address" value={form.purchased_from_address} onChange={(e) => set("purchased_from_address", e.target.value)} placeholder="Street address, city, province" /></div>
@@ -612,7 +694,7 @@ function PurchaseTab({ v, onSave }: { v: VehicleFull; onSave: (f: Record<string,
 
 // ── Pricing Tab ───────────────────────────────────────────────────────────────
 
-function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; totalCost: number | null; profitLoss: number | null; onSave: (f: Record<string, unknown>) => Promise<void> }) {
+function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; totalCost: number | null; profitLoss: number | null; onSave: OnSave }) {
   const [form, setForm] = useState({ wholesale_price: v.wholesale_price != null ? v.wholesale_price.toLocaleString("en-CA") : "", advertised_price_cargurus: v.advertised_price_cargurus != null ? v.advertised_price_cargurus.toLocaleString("en-CA") : "", advertised_price_facebook: v.advertised_price_facebook != null ? v.advertised_price_facebook.toLocaleString("en-CA") : "", sale_price: v.sale_price != null ? v.sale_price.toLocaleString("en-CA") : "", sale_date: v.sale_date ?? "" });
   const [saving, setSaving] = useState(false);
 
@@ -650,7 +732,7 @@ function PricingTab({ v, totalCost, profitLoss, onSave }: { v: VehicleFull; tota
 
 // ── Media Tab ─────────────────────────────────────────────────────────────────
 
-function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUrl: string; onSave: (f: Record<string, unknown>) => Promise<void>; show: (msg: string, ok: boolean) => void }) {
+function MediaTab({ v, supabaseUrl, onSave, show }: { v: VehicleFull; supabaseUrl: string; onSave: OnSave; show: (msg: string, ok: boolean) => void }) {
   const [images,    setImages]    = useState<string[]>(v.images_json ?? []);
   const [videos,    setVideos]    = useState<string[]>(v.videos_json ?? []);
   const [uploading, setUploading] = useState(false);
@@ -798,7 +880,7 @@ const FIXED_DOCS: { key: keyof VehicleFull; label: string }[] = [
   { key: "signed_ownership_acquisition_picture_path", label: "Signed Ownership – Acquisition Picture" },
 ];
 
-function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: VehicleFull; docs: VehicleDoc[]; supabaseUrl: string; setDocs: React.Dispatch<React.SetStateAction<VehicleDoc[]>>; onSave: (f: Record<string, unknown>) => Promise<void>; show: (msg: string, ok: boolean) => void }) {
+function DocumentsTab({ v, docs, supabaseUrl, setDocs, onSave, show }: { v: VehicleFull; docs: VehicleDoc[]; supabaseUrl: string; setDocs: React.Dispatch<React.SetStateAction<VehicleDoc[]>>; onSave: OnSave; show: (msg: string, ok: boolean) => void }) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [addForm, setAddForm]     = useState({ type: "", description: "", file: null as File | null });
   const [adding, setAdding]       = useState(false);
