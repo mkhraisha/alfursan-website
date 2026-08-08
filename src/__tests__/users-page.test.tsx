@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import UsersPage from "../components/admin/UsersPage";
 
 const USERS = [
@@ -59,5 +59,36 @@ describe("UsersPage", () => {
 
     expect(await screen.findByText(/invited as sales/i)).toBeInTheDocument();
     expect(screen.getByText("new@alfursanauto.ca")).toBeInTheDocument();
+  });
+
+  it("shows an inline error and blocks the invite when the email is malformed", async () => {
+    render(<UsersPage />);
+    await screen.findByText("owner@alfursanauto.ca");
+
+    const emailInput = screen.getByPlaceholderText("user@example.com");
+    fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+    // fireEvent.submit bypasses jsdom's native `type="email"` constraint validation
+    // (which would otherwise block the click before React's onSubmit ever runs)
+    // so this exercises our own zod-backed validateUserInviteForm instead.
+    fireEvent.submit(emailInput.closest("form")!);
+
+    expect(await screen.findByText(/Must be a valid email/i)).toBeInTheDocument();
+    // Only the initial GET fired — no invite POST was attempted.
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an inline error and blocks the edit-row save when commission is out of range", async () => {
+    render(<UsersPage />);
+    await screen.findByText("sales@alfursanauto.ca");
+
+    const row = screen.getByText("sales@alfursanauto.ca").closest("tr")!;
+    fireEvent.click(within(row).getByText("Edit"));
+
+    fireEvent.change(screen.getByDisplayValue("10"), { target: { value: "150" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save/i }));
+
+    expect(await screen.findByText(/must be.*100|100/i)).toBeInTheDocument();
+    // Only the initial GET fired — no PATCH was attempted.
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
