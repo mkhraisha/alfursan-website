@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES } from "../../lib/vehicles";
+import { BODY_TYPES, DRIVE_TYPES, TRANSMISSIONS, FUEL_TYPES, vehicleCreateSchema } from "../../lib/vehicles";
+import { validateWithSchema, apiFieldErrorsToMap } from "../../lib/validation";
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
 
@@ -39,16 +40,14 @@ function fmtStatus(s: string) {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** Pure validation of the Add Vehicle form — no DOM/React dependency, so it's unit-testable directly. */
+/**
+ * Pure validation of the Add Vehicle form — no DOM/React dependency, so it's
+ * unit-testable directly. Delegates to the same `vehicleCreateSchema` the API
+ * enforces server-side (via `buildVehiclePayload`, the same coercion used for
+ * the real submit) so client and server rules can never drift apart.
+ */
 export function validateVehicleForm(form: FormData): Record<string, string> {
-  const errs: Record<string, string> = {};
-  if (!form.vin || !VIN_RE.test(form.vin)) errs.vin = "Valid 17-char VIN required";
-  if (!form.make.trim()) errs.make = "Make is required";
-  if (!form.model.trim()) errs.model = "Model is required";
-  const year = parseInt(form.year);
-  if (!year || year < 1900 || year > 2100) errs.year = "Valid year required";
-  if (!form.body_type) errs.body_type = "Body type is required";
-  return errs;
+  return validateWithSchema(vehicleCreateSchema, buildVehiclePayload(form));
 }
 
 /**
@@ -130,13 +129,8 @@ async function handleSubmit(e: React.FormEvent) {
         setTimeout(() => { window.location.href = `/admin/inventory/${form.vin}`; }, 600);
       } else {
         setToast({ msg: (data as { error?: string }).error ?? "Failed to add vehicle", ok: false });
-        if ((data as { errors?: Record<string, string[]> }).errors) {
-          const fieldErrors: Record<string, string> = {};
-          for (const [k, v] of Object.entries((data as { errors: Record<string, string[]> }).errors)) {
-            fieldErrors[k] = v[0];
-          }
-          setErrors(fieldErrors);
-        }
+        const apiErrors = (data as { errors?: Record<string, string[]> }).errors;
+        if (apiErrors) setErrors(apiFieldErrorsToMap(apiErrors));
       }
     } catch {
       setToast({ msg: "Network error", ok: false });
