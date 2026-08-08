@@ -24,9 +24,7 @@ function makeCar(overrides: Partial<DisplayVehicle> & { vin: string }): DisplayV
 }
 
 const EMPTY_FILTERS = {
-  make: "",
-  model: "",
-  vin: "",
+  query: "",
   minPrice: "",
   maxPrice: "",
   maxMileage: "",
@@ -39,34 +37,62 @@ const EMPTY_FILTERS = {
   page: 1,
 };
 
-describe("matchesFilters — search by VIN", () => {
-  const car = makeCar({ vin: "2HKRM3H34FH003085" });
+describe("matchesFilters — unified search query", () => {
+  const car = makeCar({
+    vin: "2HKRM3H34FH003085",
+    make: "Honda",
+    model: "Accord",
+  });
 
   it("matches on an exact VIN", () => {
     expect(
-      matchesFilters(car, { ...EMPTY_FILTERS, vin: "2HKRM3H34FH003085" }),
+      matchesFilters(car, { ...EMPTY_FILTERS, query: "2HKRM3H34FH003085" }),
     ).toBe(true);
   });
 
   it("matches on a partial, case-insensitive VIN substring", () => {
-    expect(matchesFilters(car, { ...EMPTY_FILTERS, vin: "fh003085" })).toBe(
+    expect(matchesFilters(car, { ...EMPTY_FILTERS, query: "fh003085" })).toBe(
       true,
     );
   });
 
-  it("ignores surrounding whitespace in the VIN filter", () => {
+  it("ignores surrounding whitespace in the query", () => {
     expect(
-      matchesFilters(car, { ...EMPTY_FILTERS, vin: "  fh003085  " }),
+      matchesFilters(car, { ...EMPTY_FILTERS, query: "  fh003085  " }),
     ).toBe(true);
   });
 
-  it("excludes cars whose VIN does not contain the search text", () => {
-    expect(matchesFilters(car, { ...EMPTY_FILTERS, vin: "ZZZZZZZ" })).toBe(
+  it("excludes cars whose VIN/make/model does not contain the search text", () => {
+    expect(matchesFilters(car, { ...EMPTY_FILTERS, query: "ZZZZZZZ" })).toBe(
       false,
     );
   });
 
-  it("does not filter on VIN when the filter is empty", () => {
+  it("does not filter on the query when it is empty", () => {
     expect(matchesFilters(car, EMPTY_FILTERS)).toBe(true);
+  });
+
+  it("matches on make alone, case-insensitively", () => {
+    expect(matchesFilters(car, { ...EMPTY_FILTERS, query: "honda" })).toBe(
+      true,
+    );
+  });
+
+  it("matches on model alone, case-insensitively", () => {
+    expect(matchesFilters(car, { ...EMPTY_FILTERS, query: "ACCORD" })).toBe(
+      true,
+    );
+  });
+
+  it("matches on a combined make + model query", () => {
+    expect(
+      matchesFilters(car, { ...EMPTY_FILTERS, query: "honda accord" }),
+    ).toBe(true);
+  });
+
+  it("excludes cars whose make does not match the query", () => {
+    expect(matchesFilters(car, { ...EMPTY_FILTERS, query: "toyota" })).toBe(
+      false,
+    );
   });
 });

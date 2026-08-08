@@ -95,47 +95,6 @@ const soldCars = (await fetchRecentlySoldVehicles()).map((v) =>
     text-decoration: underline;
   }
 
-  :global(.filters) {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.8rem;
-    margin-bottom: 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 0.9rem;
-    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.05);
-  }
-
-  :global(.filters label) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--filter-label);
-  }
-
-  :global(.filters input),
-  :global(.filters select) {
-    border: 1px solid var(--input-border);
-    border-radius: 8px;
-    padding: 0.52rem 0.6rem;
-    font-size: 0.92rem;
-    background: #fff;
-  }
-
-  :global(.reset) {
-    align-self: end;
-    border: 1px solid var(--active-filter-border);
-    background: var(--bg-active-filter);
-    color: var(--active-filter-text);
-    border-radius: 8px;
-    padding: 0.52rem 0.6rem;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
   :global(.muted) {
     color: var(--meta);
     margin-bottom: 1.5rem;
@@ -288,15 +247,4 @@ const soldCars = (await fetchRecentlySoldVehicles()).map((v) =>
     font-weight: 700;
   }
 
-  @media (max-width: 940px) {
-    :global(.filters) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 560px) {
-    :global(.filters) {
-      grid-template-columns: 1fr;
-    }
-  }
 </style>
